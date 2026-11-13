@@ -1,7 +1,9 @@
 from datetime import date, datetime, timedelta
 from pathlib import Path
-
+from datetime import timezone
 from icalendar import Calendar, Event
+from zoneinfo import ZoneInfo
+DEFAULT_TIMEZONE = "Asia/Hong_Kong"
 
 
 WEEKDAY_NUMBERS = {
@@ -20,9 +22,11 @@ def export_ics(
     output_path: str,
     semester_start: str,
     semester_end: str,
+    timezone_name: str = "Asia/Hong_Kong",
 ) -> str:
     start_date = date.fromisoformat(semester_start)
     end_date = date.fromisoformat(semester_end)
+    tz = ZoneInfo(timezone_name)
 
     calendar = Calendar()
     calendar.add("prodid", "-//cityuschedule//EN")
@@ -50,17 +54,21 @@ def export_ics(
         )
         event.add(
             "dtstart",
-            datetime.combine(first_class_date, start_time),
+            datetime.combine(first_class_date, start_time, tzinfo=tz),
         )
         event.add(
             "dtend",
-            datetime.combine(first_class_date, end_time),
+            datetime.combine(first_class_date, end_time, tzinfo=tz),
         )
         event.add(
             "rrule",
             {
                 "freq": "weekly",
-                "until": datetime.combine(end_date, end_time),
+                "until": datetime.combine(
+                    end_date,
+                    end_time,
+                    tzinfo=tz,
+                ).astimezone(timezone.utc),
             },
         )
 

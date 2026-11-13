@@ -44,3 +44,24 @@ def test_exports_ics_file(tmp_path):
     assert "BEGIN:VEVENT" in content
     assert "CS1103" in content
     assert "MA1200" in content
+
+
+def test_exported_events_use_hong_kong_timezone(tmp_path):
+    sessions = [
+        make_session("Mon", "09:00", "10:50", "CS1103"),
+    ]
+
+    output_path = tmp_path / "timezone.ics"
+
+    export_ics(
+        sessions,
+        str(output_path),
+        "2026-08-31",
+        "2026-11-28",
+    )
+
+    content = output_path.read_text(encoding="utf-8")
+
+    assert "DTSTART;TZID=Asia/Hong_Kong" in content
+    assert "DTEND;TZID=Asia/Hong_Kong" in content
+    assert "UNTIL=20261128T025000Z" in content
