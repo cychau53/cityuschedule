@@ -68,8 +68,9 @@ def test_exported_events_use_hong_kong_timezone(tmp_path):
 
     assert "DTSTART;TZID=Asia/Hong_Kong" in content
     assert "DTEND;TZID=Asia/Hong_Kong" in content
-    assert "UNTIL=20261128T025000Z" in content
+    assert "RRULE" not in content
 
+    
 def test_is_excluded_detects_holidays_and_breaks():
     holidays = {date(2026, 10, 1)}
     breaks = [

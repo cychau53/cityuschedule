@@ -76,38 +76,36 @@ def export_ics(
         start_time = datetime.strptime(session["start_time"], "%H:%M").time()
         end_time = datetime.strptime(session["end_time"], "%H:%M").time()
 
-        event = Event()
-        event.add(
-            "uid",
-            f"cityuschedule-{index}-{session['course_code']}-{session['section']}"
-            "@cityuschedule",
-        )
-        event.add("summary", f"{session['course_code']} {session['type']}")
-        event.add(
-            "location",
-            f"{session['building']} {session['room']}",
-        )
-        event.add(
-            "dtstart",
-            datetime.combine(first_class_date, start_time, tzinfo=tz),
-        )
-        event.add(
-            "dtend",
-            datetime.combine(first_class_date, end_time, tzinfo=tz),
-        )
-        event.add(
-            "rrule",
-            {
-                "freq": "weekly",
-                "until": datetime.combine(
-                    end_date,
-                    end_time,
-                    tzinfo=tz,
-                ).astimezone(timezone.utc),
-            },
-        )
+        class_date = first_class_date
 
-        calendar.add_component(event)
+        while class_date <= end_date:
+            if not is_excluded(class_date, holidays, breaks):
+                event = Event()
+                event.add(
+                    "uid",
+                    f"cityuschedule-{index}-{class_date.isoformat()}-"
+                    f"{session['course_code']}-{session['section']}@cityuschedule",
+                )
+                event.add(
+                    "summary",
+                    f"{session['course_code']} {session['type']}",
+                )
+                event.add(
+                    "location",
+                    f"{session['building']} {session['room']}",
+                )
+                event.add(
+                    "dtstart",
+                    datetime.combine(class_date, start_time, tzinfo=tz),
+                )
+                event.add(
+                    "dtend",
+                    datetime.combine(class_date, end_time, tzinfo=tz),
+                )
+
+                calendar.add_component(event)
+
+            class_date += timedelta(days=7)
 
     output = Path(output_path)
     output.write_bytes(calendar.to_ical())
