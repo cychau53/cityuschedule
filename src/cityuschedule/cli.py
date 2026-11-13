@@ -2,6 +2,8 @@ import argparse
 import csv
 from pathlib import Path
 
+from .conflicts import find_conflicts
+
 
 def load_sessions(csv_path: str) -> list[dict[str, str]]:
     path = Path(csv_path)
@@ -38,7 +40,18 @@ def main() -> None:
         return
 
     sessions = load_sessions(args.csv_file)
+    conflicts = find_conflicts(sessions)
+
     print(f"Loaded {len(sessions)} class sessions from {args.csv_file}")
+    print(f"Found {len(conflicts)} clash(es).")
+
+    for first, second in conflicts:
+        print(
+            f"CLASH: {first['course_code']} {first['type']} "
+            f"({first['day']} {first['start_time']}-{first['end_time']}) overlaps "
+            f"{second['course_code']} {second['type']} "
+            f"({second['day']} {second['start_time']}-{second['end_time']})"
+        )
 
 
 if __name__ == "__main__":
