@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cityuschedule"
+version = "0.1.0"
+description = "Check CityU course timetables for clashes and export them as calendar events."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "cychau53" }
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pytest-cov>=5.0",
+  "ruff>=0.6"
+]
+
+[project.scripts]
+cityuschedule = "cityuschedule.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/cychau53/cityuschedule"
+Repository = "https://github.com/cychau53/cityuschedule"
+Issues = "https://github.com/cychau53/cityuschedule/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cityuschedule"]
