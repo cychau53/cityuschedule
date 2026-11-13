@@ -6,6 +6,7 @@ from .calendar_export import export_ics
 from .conflicts import find_conflicts
 from .gaps import find_gaps, format_gaps
 from .timetable import format_timetable
+from .aims import load_aims_html
 
 
 def load_sessions(csv_path: str) -> list[dict[str, str]]:
@@ -33,6 +34,10 @@ def main() -> None:
         "csv_file",
         nargs="?",
         help="Path to a course timetable CSV file",
+    )
+    parser.add_argument(
+        "--aims-html",
+        help="Path to a saved AIMS weekly timetable HTML page",
     )
     parser.add_argument(
         "--min-gap",
@@ -63,12 +68,25 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    if args.csv_file is None:
-        print("cityuschedule is installed successfully.")
-        print("Usage: cityuschedule check <csv_file>")
+    if args.csv_file and args.aims_html:
+        parser.error("Choose either a CSV file or --aims-html, not both.")
+
+    if not args.csv_file and not args.aims_html:
+        parser.print_help()
         return
 
-    sessions = load_sessions(args.csv_file)
+    try:
+        if args.aims_html:
+            sessions = load_aims_html(args.aims_html)
+            print(
+                "AIMS import: only scheduled grid classes are included. "
+                "Sections without dates/times are not exported."
+            )
+        else:
+            sessions = load_sessions(args.csv_file)
+    except (OSError, ValueError) as error:
+        parser.error(str(error))
+
     conflicts = find_conflicts(sessions)
     gaps = find_gaps(sessions, args.min_gap)
 

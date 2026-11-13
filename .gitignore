@@ -220,3 +220,11 @@ __marimo__/
 .streamlit/secrets.toml
 
 *.ics
+
+# Personal timetable inputs and saved AIMS page assets
+/aims_schedule.html
+/aims_schedule_files/
+/my_courses.csv
+
+# Temporary installation-test environment
+/.venv-test/

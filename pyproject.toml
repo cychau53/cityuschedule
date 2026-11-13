@@ -13,9 +13,9 @@ authors = [
   { name = "cychau53" }
 ]
 dependencies = [
-  "icalendar>=6.0"
+  "icalendar>=6.0",
+  "beautifulsoup4>=4.12"
 ]
-
 [project.optional-dependencies]
 dev = [
   "pytest>=8.0",
