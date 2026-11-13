@@ -12,7 +12,9 @@ license = { text = "MIT" }
 authors = [
   { name = "cychau53" }
 ]
-dependencies = []
+dependencies = [
+  "icalendar>=6.0"
+]
 
 [project.optional-dependencies]
 dev = [
