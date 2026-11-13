@@ -3,6 +3,7 @@ import csv
 from pathlib import Path
 
 from .conflicts import find_conflicts
+from .gaps import find_gaps, format_gaps
 from .timetable import format_timetable
 
 
@@ -32,6 +33,12 @@ def main() -> None:
         nargs="?",
         help="Path to a course timetable CSV file",
     )
+    parser.add_argument(
+        "--min-gap",
+        type=int,
+        default=45,
+        help="Minimum gap length in minutes to report",
+    )
 
     args = parser.parse_args()
 
@@ -42,10 +49,12 @@ def main() -> None:
 
     sessions = load_sessions(args.csv_file)
     conflicts = find_conflicts(sessions)
+    gaps = find_gaps(sessions, args.min_gap)
 
     print(format_timetable(sessions))
     print(f"\nLoaded {len(sessions)} class sessions.")
     print(f"Found {len(conflicts)} clash(es).")
+    print(format_gaps(gaps))
 
     for first, second in conflicts:
         print(
