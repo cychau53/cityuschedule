@@ -103,3 +103,29 @@ def test_load_exclusions_reads_holidays_and_breaks(tmp_path):
 
     assert holidays == {date(2026, 10, 1)}
     assert breaks == [(date(2026, 10, 19), date(2026, 10, 25))]
+
+def test_export_ics_excludes_holiday_occurrence(tmp_path):
+    sessions = [
+        make_session("Thu", "09:00", "10:50", "CS1103"),
+    ]
+
+    exclusions_path = tmp_path / "exclusions.json"
+    exclusions_path.write_text(
+        '{"holidays": ["2026-10-01"]}',
+        encoding="utf-8",
+    )
+
+    output_path = tmp_path / "timetable.ics"
+
+    export_ics(
+        sessions,
+        str(output_path),
+        "2026-08-31",
+        "2026-11-28",
+        exclusions_path=str(exclusions_path),
+    )
+
+    content = output_path.read_text(encoding="utf-8")
+
+    assert "DTSTART;TZID=Asia/Hong_Kong:20260903T090000" in content
+    assert "DTSTART;TZID=Asia/Hong_Kong:20261001T090000" not in content

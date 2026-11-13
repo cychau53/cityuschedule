@@ -52,10 +52,16 @@ def export_ics(
     semester_start: str,
     semester_end: str,
     timezone_name: str = "Asia/Hong_Kong",
+    exclusions_path: str | None = None,
 ) -> str:
     start_date = date.fromisoformat(semester_start)
     end_date = date.fromisoformat(semester_end)
     tz = ZoneInfo(timezone_name)
+
+    if exclusions_path:
+        holidays, breaks = load_exclusions(exclusions_path)
+    else:
+        holidays, breaks = set(), []
 
     calendar = Calendar()
     calendar.add("prodid", "-//cityuschedule//EN")
