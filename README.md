@@ -84,6 +84,34 @@
 
 # ```
 
+## Exclude holidays and teaching breaks
+
+Create a JSON file, for example `exclusions.json`:
+
+```json
+{
+  "holidays": [
+    "2026-10-01"
+  ],
+  "breaks": [
+    {
+      "start": "2026-10-19",
+      "end": "2026-10-25"
+    }
+  ]
+}
+```
+
+Then export the timetable:
+
+```bash
+cityuschedule --aims-html aims_schedule.html --export --output timetable.ics --semester-start 2026-08-31 --semester-end 2026-11-28 --exclusions exclusions.json
+```
+
+Class occurrences on listed holidays or within a break date range are not exported.
+
+The exported calendar uses `Asia/Hong_Kong` by default.
+
 # 
 
 # \## CSV format
