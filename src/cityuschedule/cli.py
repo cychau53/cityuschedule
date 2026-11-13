@@ -2,6 +2,7 @@ import argparse
 import csv
 from pathlib import Path
 
+from .calendar_export import export_ics
 from .conflicts import find_conflicts
 from .gaps import find_gaps, format_gaps
 from .timetable import format_timetable
@@ -39,6 +40,26 @@ def main() -> None:
         default=45,
         help="Minimum gap length in minutes to report",
     )
+    parser.add_argument(
+        "--export",
+        action="store_true",
+        help="Export the timetable as an .ics calendar file",
+    )
+    parser.add_argument(
+        "--output",
+        default="cityu_timetable.ics",
+        help="Output .ics file path",
+    )
+    parser.add_argument(
+        "--semester-start",
+        default="2026-08-31",
+        help="First day of the semester in YYYY-MM-DD format",
+    )
+    parser.add_argument(
+        "--semester-end",
+        default="2026-11-28",
+        help="Last day of the semester in YYYY-MM-DD format",
+    )
 
     args = parser.parse_args()
 
@@ -63,6 +84,15 @@ def main() -> None:
             f"{second['course_code']} {second['type']} "
             f"({second['day']} {second['start_time']}-{second['end_time']})"
         )
+
+    if args.export:
+        output = export_ics(
+            sessions,
+            args.output,
+            args.semester_start,
+            args.semester_end,
+        )
+        print(f"Calendar exported to {output}")
 
 
 if __name__ == "__main__":
