@@ -16,6 +16,16 @@ WEEKDAY_NUMBERS = {
     "Sun": 6,
 }
 
+def is_excluded(
+    day: date,
+    holidays: set[date],
+    breaks: list[tuple[date, date]],
+) -> bool:
+    if day in holidays:
+        return True
+
+    return any(start <= day <= end for start, end in breaks)
+
 
 def export_ics(
     sessions: list[dict[str, str]],

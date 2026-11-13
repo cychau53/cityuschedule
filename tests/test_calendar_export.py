@@ -1,6 +1,6 @@
 from pathlib import Path
-
-from cityuschedule.calendar_export import export_ics
+from datetime import date
+from cityuschedule.calendar_export import export_ics, is_excluded
 
 
 def make_session(day: str, start_time: str, end_time: str, course_code: str):
@@ -65,3 +65,14 @@ def test_exported_events_use_hong_kong_timezone(tmp_path):
     assert "DTSTART;TZID=Asia/Hong_Kong" in content
     assert "DTEND;TZID=Asia/Hong_Kong" in content
     assert "UNTIL=20261128T025000Z" in content
+
+def test_is_excluded_detects_holidays_and_breaks():
+    holidays = {date(2026, 10, 1)}
+    breaks = [
+        (date(2026, 10, 19), date(2026, 10, 25))
+    ]
+
+    assert is_excluded(date(2026, 10, 1), holidays, breaks)
+    assert is_excluded(date(2026, 10, 20), holidays, breaks)
+    assert not is_excluded(date(2026, 10, 2), holidays, breaks)
+    assert not is_excluded(date(2026, 10, 26), holidays, breaks)
