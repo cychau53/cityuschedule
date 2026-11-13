@@ -28,7 +28,7 @@ def is_excluded(
     return any(start <= day <= end for start, end in breaks)
 
 def load_exclusions(path: str) -> tuple[set[date], list[tuple[date, date]]]:
-    with open(path, encoding="utf-8") as file:
+    with open(path, encoding="utf-8-sig") as file:
         data = json.load(file)
 
     holidays = {

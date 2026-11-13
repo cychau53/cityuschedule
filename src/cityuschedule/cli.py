@@ -65,6 +65,10 @@ def main() -> None:
         default="2026-11-28",
         help="Last day of the semester in YYYY-MM-DD format",
     )
+    parser.add_argument(
+        "--exclusions",
+        help="JSON file containing holidays and teaching breaks to exclude",
+    )
 
     args = parser.parse_args()
 
@@ -109,6 +113,7 @@ def main() -> None:
             args.output,
             args.semester_start,
             args.semester_end,
+            exclusions_path=args.exclusions,
         )
         print(f"Calendar exported to {output}")
 
