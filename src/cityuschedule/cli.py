@@ -3,6 +3,7 @@ import csv
 from pathlib import Path
 
 from .conflicts import find_conflicts
+from .timetable import format_timetable
 
 
 def load_sessions(csv_path: str) -> list[dict[str, str]]:
@@ -42,7 +43,8 @@ def main() -> None:
     sessions = load_sessions(args.csv_file)
     conflicts = find_conflicts(sessions)
 
-    print(f"Loaded {len(sessions)} class sessions from {args.csv_file}")
+    print(format_timetable(sessions))
+    print(f"\nLoaded {len(sessions)} class sessions.")
     print(f"Found {len(conflicts)} clash(es).")
 
     for first, second in conflicts:
