@@ -1,6 +1,10 @@
 from pathlib import Path
 from datetime import date
-from cityuschedule.calendar_export import export_ics, is_excluded
+from cityuschedule.calendar_export import (
+    export_ics,
+    is_excluded,
+    load_exclusions,
+)
 
 
 def make_session(day: str, start_time: str, end_time: str, course_code: str):
@@ -76,3 +80,26 @@ def test_is_excluded_detects_holidays_and_breaks():
     assert is_excluded(date(2026, 10, 20), holidays, breaks)
     assert not is_excluded(date(2026, 10, 2), holidays, breaks)
     assert not is_excluded(date(2026, 10, 26), holidays, breaks)
+
+def test_load_exclusions_reads_holidays_and_breaks(tmp_path):
+    exclusions_path = tmp_path / "exclusions.json"
+
+    exclusions_path.write_text(
+        """
+{
+  "holidays": ["2026-10-01"],
+  "breaks": [
+    {
+      "start": "2026-10-19",
+      "end": "2026-10-25"
+    }
+  ]
+}
+""",
+        encoding="utf-8",
+    )
+
+    holidays, breaks = load_exclusions(str(exclusions_path))
+
+    assert holidays == {date(2026, 10, 1)}
+    assert breaks == [(date(2026, 10, 19), date(2026, 10, 25))]

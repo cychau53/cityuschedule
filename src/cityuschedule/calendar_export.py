@@ -1,3 +1,4 @@
+import json
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from datetime import timezone
@@ -26,6 +27,24 @@ def is_excluded(
 
     return any(start <= day <= end for start, end in breaks)
 
+def load_exclusions(path: str) -> tuple[set[date], list[tuple[date, date]]]:
+    with open(path, encoding="utf-8") as file:
+        data = json.load(file)
+
+    holidays = {
+        date.fromisoformat(value)
+        for value in data.get("holidays", [])
+    }
+
+    breaks = [
+        (
+            date.fromisoformat(item["start"]),
+            date.fromisoformat(item["end"]),
+        )
+        for item in data.get("breaks", [])
+    ]
+
+    return holidays, breaks
 
 def export_ics(
     sessions: list[dict[str, str]],
