@@ -4,6 +4,7 @@ from cityuschedule.aims import load_aims_html
 from .course_catalog import CatalogCourse
 from .course_planner import PlannedSection, catalogue_to_planned_sections
 from .schedule_conflicts import TimeSlot, find_conflicts
+from datetime import datetime
 
 
 @dataclass(frozen=True)
@@ -128,6 +129,7 @@ def generate_plans(
     preferred_days: list[str] | None = None,
     required_sections: list[str] | None = None,
     avoid_days: list[str] | None = None,
+    min_gap: int = 0,
 ) -> list[PlanResult]:
     existing_slots = aims_to_time_slots(aims_html)
     planned_sections = catalogue_to_planned_sections(courses)
@@ -185,9 +187,8 @@ def generate_plans(
 
         if index == len(course_codes):
             total_credits = sum(
-                course.credits
-                for course in courses
-                if course.code in sections_by_course
+                section.credits
+                for section in chosen
             )
 
             if min_credits is not None and total_credits < min_credits:
@@ -217,9 +218,14 @@ def generate_plans(
         if (
             all_required_courses
             and course_code not in all_required_courses
-            and len(results) >= 1
         ):
+            search(
+                index + 1,
+                chosen,
+                used_slots,
+            )
             return
+            
 
         for section in sections_by_course[course_code]:
             section_pair = (section.course_code, section.section)
@@ -233,8 +239,65 @@ def generate_plans(
             candidate_slots = planned_to_time_slots(section)
             conflicts = find_conflicts(used_slots, candidate_slots)
 
+
             if conflicts:
                 continue
+
+
+            if min_gap > 0:
+                candidate_start = datetime.strptime(
+                    section.start, "%H:%M"
+                )
+                candidate_end = datetime.strptime(
+                    section.end, "%H:%M"
+                )
+
+
+                for used_slot in used_slots:
+                    if used_slot.day != section.day:
+                        continue
+
+
+                    used_start = datetime.strptime(
+                        used_slot.start, "%H:%M"
+                    )
+                    used_end = datetime.strptime(
+                        used_slot.end, "%H:%M"
+                    )
+
+
+                    if candidate_end <= used_start:
+                        gap_minutes = int(
+                            (
+                                used_start - candidate_end
+                            ).total_seconds()
+                            / 60
+                        )
+                    elif used_end <= candidate_start:
+                        gap_minutes = int(
+                            (
+                                candidate_start - used_end
+                            ).total_seconds()
+                            / 60
+                        )
+                    else:
+                        continue
+
+
+                    if gap_minutes < min_gap:
+                        break
+
+
+                else:
+                    search(
+                        index + 1,
+                        chosen + [section],
+                        used_slots + candidate_slots,
+                    )
+
+
+                continue
+
 
             search(
                 index + 1,
