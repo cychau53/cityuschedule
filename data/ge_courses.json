@@ -3,907 +3,1283 @@
     "course_code": "GE1101",
     "course_title": "Chinese Cultural Heritage in Modern Perspective",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "CAH",
     "level": "B1, A1",
     "terms": [
       "2026-27 Summer"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1102",
     "course_title": "Cinema: East and West",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "SCM",
     "level": "B1",
     "terms": [
       "2026-27 Sem B"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1105",
     "course_title": "Chinese Music Appreciation",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "CAH",
     "level": "B1, A1",
     "terms": [
       "2026-27 Sem A",
       "2026-27 Sem B"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": true,
+    "partner_institutions": [
+      "HKBU"
+    ]
   },
   {
     "course_code": "GE1106",
     "course_title": "Chinese Art Appreciation",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "CAH",
     "level": "B1, A1",
     "terms": [
       "2026-27 Sem B"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1107",
     "course_title": "Cities in Chinese History and Culture",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "CAH",
     "level": "B1, A1",
     "terms": [],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1109",
     "course_title": "Values and Justice in the Contemporary World",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "PIA",
     "level": "B1",
     "terms": [
       "2026-27 Sem A",
       "2026-27 Sem B"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1110",
     "course_title": "Exploring Contemporary Art",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "SCM",
     "level": "B1, A1",
     "terms": [
       "2026-27 Sem A",
       "2026-27 Sem B"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": true,
+    "partner_institutions": [
+      "HKBU"
+    ]
   },
   {
     "course_code": "GE1113",
     "course_title": "Visual Storytelling and Cultural Thinking",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "SCM",
     "level": "B1",
     "terms": [
       "2026-27 Sem A"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1117",
     "course_title": "Music and Human Values: Philosophical Investigations",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "PIA",
     "level": "B1",
     "terms": [],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1120",
     "course_title": "Thinking Philosophically: Bridging the Gap between Arts and Sciences",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "PIA",
     "level": "B1",
     "terms": [
       "2026-27 Sem B"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1121",
     "course_title": "The Japanese Way of Tea: History, Arts, Architecture and Philosophy",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "PIA",
     "level": "B1",
     "terms": [],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1125",
     "course_title": "Architecture and Space in Chinese Culture",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "CAH",
     "level": "B1, A1",
     "terms": [
       "2026-27 Sem A",
       "2026-27 Sem B"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": true,
+    "partner_institutions": [
+      "HKBU"
+    ]
   },
   {
     "course_code": "GE1126",
     "course_title": "Smart Consumers – Think Like Lawyers",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "SLW",
     "level": "B1",
     "terms": [
       "2026-27 Sem A"
     ],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1127",
     "course_title": "Money and Art: Exchange and Transaction As Themes in Art-works",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "SCM",
     "level": "B1, A1",
     "terms": [
       "2026-27 Sem B"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1128",
     "course_title": "Music for Film",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "SCM",
     "level": "B1, A1",
     "terms": [
       "2026-27 Sem A",
       "2026-27 Sem B"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": true,
+    "partner_institutions": [
+      "HKBU"
+    ]
   },
   {
     "course_code": "GE1129",
     "course_title": "Creative Photography",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "SCM",
     "level": "B1, A2",
     "terms": [
       "2026-27 Sem B"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1130",
     "course_title": "Introduction to Digital Media",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "SCM",
     "level": "B1, A1",
     "terms": [
       "2026-27 Sem B"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1132",
     "course_title": "Mind, Brain and Language: How Are Human Beings Special?",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "LT",
     "level": "B1",
     "terms": [
       "2026-27 Sem B"
     ],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1136",
     "course_title": "Animal Ethics, Welfare and Law – A Regulatory and Policy Review",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "SLW",
     "level": "B1",
     "terms": [],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1137",
     "course_title": "Movies and Psychology",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "SS",
     "level": "B1",
     "terms": [
       "2026-27 Sem A",
       "2026-27 Sem B"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": true,
+    "partner_institutions": [
+      "HKBU"
+    ]
   },
   {
     "course_code": "GE1138",
     "course_title": "Exploring Hong Kong: History, Culture and Society",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "CAH",
     "level": "B1, A1",
     "terms": [
       "2026-27 Sem A",
       "2026-27 Summer"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1139",
     "course_title": "Love - A cross-cultural exploration in literature and popular culture",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "EN",
     "level": "B1, B2, B3, B4",
     "terms": [],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1201",
     "course_title": "Information Management and Its Social Impact",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "IS",
     "level": "B1",
     "terms": [],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1202",
     "course_title": "Managing Your Personal Finance",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "EF",
     "level": "B1",
     "terms": [
       "2026-27 Sem A",
       "2026-27 Sem B"
     ],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1204",
     "course_title": "Living with the Unexpected and Unknown in Modern Society",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "AC",
     "level": "B1",
     "terms": [
       "2026-27 Sem B"
     ],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1205",
     "course_title": "Green Economics",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "EF",
     "level": "B1",
     "terms": [
       "2026-27 Sem A",
       "2026-27 Sem B"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1206",
     "course_title": "Accelerating Professional Growth on the Web",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "IS",
     "level": "B1, A1",
     "terms": [],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1209",
     "course_title": "Identity and Citizenship in a Globalized World",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "PIA",
     "level": "B1",
     "terms": [
       "2026-27 Sem B"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1212",
     "course_title": "Building Personal and Firm Images in the Digital Society",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "IS",
     "level": "B1",
     "terms": [],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1214",
     "course_title": "Citizens and Criminal Justice",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "SLW",
     "level": "B1",
     "terms": [],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1216",
     "course_title": "Loving Work, Working to Love",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "MGT",
     "level": "B1, A1",
     "terms": [],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1218",
     "course_title": "Social Entrepreneurship and Innovation",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "PIA",
     "level": "B1",
     "terms": [
       "2026-27 Sem A",
       "2026-27 Sem B"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1220",
     "course_title": "Enhancing Your Service Leadership for the 21st Century",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "PIA",
     "level": "B1",
     "terms": [],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1222",
     "course_title": "Contemporary Accounting",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "AC",
     "level": "B1",
     "terms": [],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1223",
     "course_title": "Public Health Communication",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "COM",
     "level": "B1, A2",
     "terms": [],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1226",
     "course_title": "Youth in a Changing Society",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "SS",
     "level": "B1",
     "terms": [
       "2026-27 Sem A",
       "2026-27 Sem B"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1229",
     "course_title": "Community Service Engagement",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "SS",
     "level": "B1",
     "terms": [
       "2026-27 Sem A",
       "2026-27 Sem B"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1230",
     "course_title": "Driving ESG Excellence: Sustainable Leadership and Governance in Energy and Environmental Industries",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "SEE",
     "level": "B1",
     "terms": [],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1301",
     "course_title": "Climate Change and Extreme Weather",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "SEE",
     "level": "B1",
     "terms": [
       "2026-27 Sem A"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": true,
+    "partner_institutions": [
+      "HKBU"
+    ]
   },
   {
     "course_code": "GE1304",
     "course_title": "Visual expression and communication",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "ACE",
     "level": "B2, A2",
     "terms": [],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": true,
+    "partner_institutions": [
+      "HKBU"
+    ]
   },
   {
     "course_code": "GE1305",
     "course_title": "Foundation Physics",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "PHY",
     "level": "B1, A1",
     "terms": [
       "2026-27 Sem A",
       "2026-27 Sem B"
     ],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1307",
     "course_title": "Appreciation of Built Heritage",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "ACE",
     "level": "A2",
     "terms": [],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1308",
     "course_title": "Energy: Today and Tomorrow",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "SEE",
     "level": "B1, A1",
     "terms": [
       "2026-27 Sem B"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1312",
     "course_title": "An Introduction to Infrastructures in Hong Kong",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "ACE",
     "level": "B1, A1",
     "terms": [],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1313",
     "course_title": "Earthquakes",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "ACE",
     "level": "B1",
     "terms": [
       "2026-27 Sem B"
     ],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1314",
     "course_title": "Ironman: The Art and Science of Robots in Our Society",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "EE",
     "level": "B1",
     "terms": [],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1315",
     "course_title": "Silicon Nanoelectronics",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "EE",
     "level": "B1",
     "terms": [],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1318",
     "course_title": "Are We Safe?: Risks in Our Everyday Life.",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "ACE",
     "level": "B1",
     "terms": [
       "2026-27 Sem B"
     ],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1320",
     "course_title": "Engineering Your Health",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "",
     "level": "B1",
     "terms": [
       "2026-27 Sem A",
       "2026-27 Summer"
     ],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1321",
     "course_title": "Our Life in the Nuclear Age",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "MNE",
     "level": "B1",
     "terms": [],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1322",
     "course_title": "Introduction to Human Bionics",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "EE",
     "level": "B1",
     "terms": [],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1326",
     "course_title": "Common Accidents in Modern Day City Life",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "SYE",
     "level": "B1",
     "terms": [],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1332",
     "course_title": "Beauty of Ancient Chinese Architecture",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "ACE",
     "level": "B1",
     "terms": [],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1337",
     "course_title": "Urban Green City: Pollution and Solution",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "SEE",
     "level": "B1",
     "terms": [
       "2026-27 Sem B"
     ],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1338",
     "course_title": "Imaging Strategies in Science and Technology",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "MSE",
     "level": "B1, A1",
     "terms": [
       "2026-27 Sem B"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": true,
+    "partner_institutions": [
+      "HKBU"
+    ]
   },
   {
     "course_code": "GE1339",
     "course_title": "Wireless Connectivity in Modern Society",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "EE",
     "level": "B1",
     "terms": [],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1340",
     "course_title": "Materials, Civilization and Modern Development",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "MNE",
     "level": "B1",
     "terms": [],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1341",
     "course_title": "Life and Health",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "",
     "level": "B1, B2",
     "terms": [
       "2026-27 Sem A"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1342",
     "course_title": "Light: From Double Rainbows to Optical Fibers",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "EE",
     "level": "B1",
     "terms": [],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1344",
     "course_title": "Nutrition and Wellness",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "",
     "level": "B1",
     "terms": [],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1346",
     "course_title": "The Chemists Kitchen (The science of food and cooking)",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "CHEM",
     "level": "B1",
     "terms": [
       "2026-27 Sem B"
     ],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1349",
     "course_title": "Manifold Mirrors: The Crossing Paths of the Arts and Mathematics",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "MA",
     "level": "B1",
     "terms": [],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1350",
     "course_title": "Essential Mathematics in Daily Life",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "MA",
     "level": "B1",
     "terms": [],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1351",
     "course_title": "Food Production and Security",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "PH",
     "level": "B1",
     "terms": [
       "2026-27 Sem A"
     ],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1352",
     "course_title": "How Your Brain Works",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "",
     "level": "B1",
     "terms": [
       "2026-27 Sem A",
       "2026-27 Sem B"
     ],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1353",
     "course_title": "Science, Buddhism, and Life",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "CHEM",
     "level": "B1",
     "terms": [],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1354",
     "course_title": "Introduction to Electronic Design",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "EE",
     "level": "B1",
     "terms": [
       "2026-27 Sem A",
       "2026-27 Sem B"
     ],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1355",
     "course_title": "Introduction to Sustainable Energy and Environment",
     "area": "Area 3",
+    "category": "Area 3",
     "offering_unit": "SEE",
     "level": "B1",
     "terms": [
       "2026-27 Sem A"
     ],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE1361",
+    "course_title": "Digital Literacy: New Technologies, Society, and You",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "CS",
+    "level": "B1, B2, B3, B4",
+    "terms": [
+      "2026-27 Sem B"
+    ],
+    "with_exam": false,
+    "cross_institutional": true,
+    "partner_institutions": [
+      "HKBU"
+    ]
+  },
+  {
+    "course_code": "GE1401",
+    "course_title": "University English",
+    "area": "University Req.",
+    "category": "University Req.",
+    "offering_unit": "EN",
+    "level": "B1",
+    "terms": [
+      "2026-27 Sem A",
+      "2026-27 Sem B",
+      "2026-27 Summer"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE1501",
+    "course_title": "Chinese Civilisation-History and Philosophy",
+    "area": "University Req.",
+    "category": "University Req.",
+    "offering_unit": "CAH",
+    "level": "B1, A1",
+    "terms": [
+      "2026-27 Sem A",
+      "2026-27 Sem B",
+      "2026-27 Summer"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE1601",
+    "course_title": "Whole-Person Development",
+    "area": "University Req.",
+    "category": "University Req.",
+    "offering_unit": "SDS",
+    "level": "B1",
+    "terms": [
+      "2026-27 Sem A"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE2103",
     "course_title": "Appreciating Masterpieces of Western Culture",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "CAH",
     "level": "B2, A2",
     "terms": [],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE2105",
     "course_title": "Popular Culture",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "EN",
     "level": "B2, A2",
     "terms": [
       "2026-27 Sem A"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE2106",
     "course_title": "Philosophy and Life: A Dialogue",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "PIA",
     "level": "B2",
     "terms": [
       "2026-27 Sem A"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE2108",
     "course_title": "Literature in our Lives",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "EN",
     "level": "B2, A2",
     "terms": [
       "2026-27 Sem A"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE2109",
     "course_title": "Love, Sex, and Relationships: Psychological Perspectives",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "SS",
     "level": "B2",
     "terms": [
       "2026-27 Sem A",
       "2026-27 Sem B"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": true,
+    "partner_institutions": [
+      "HKBU"
+    ]
   },
   {
     "course_code": "GE2110",
     "course_title": "Experiencing our Built Environment: Appreciation of Contemporary Architecture",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "ACE",
     "level": "A2",
     "terms": [
       "2026-27 Sem B"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE2111",
     "course_title": "Image of the City – Language, Culture and Society",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "LT",
     "level": "B2",
     "terms": [
       "2026-27 Sem A"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": true,
+    "partner_institutions": [
+      "HKBU"
+    ]
   },
   {
     "course_code": "GE2120",
     "course_title": "Asian Values and Managerial Practices",
     "area": "Area 1",
+    "category": "Area 1",
     "offering_unit": "PIA",
     "level": "B2",
     "terms": [
       "2026-27 Sem A"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2122",
+    "course_title": "The Cantonese Language in Use: Language, Grammar and Culture",
+    "area": "Area 1",
+    "category": "Area 1",
+    "offering_unit": "LT",
+    "level": "B2, A2",
+    "terms": [
+      "2026-27 Sem B"
+    ],
+    "with_exam": false,
+    "cross_institutional": true,
+    "partner_institutions": [
+      "HKBU"
+    ]
+  },
+  {
+    "course_code": "GE2133",
+    "course_title": "The Life and Times of English Literature",
+    "area": "Area 1",
+    "category": "Area 1",
+    "offering_unit": "EN",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem B"
+    ],
+    "with_exam": false,
+    "cross_institutional": true,
+    "partner_institutions": [
+      "HKBU"
+    ]
   },
   {
     "course_code": "GE2204",
     "course_title": "Business ethics and society",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "MGT",
     "level": "B2, A2",
     "terms": [],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE2210",
     "course_title": "China: a Socio-Political Transformation",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "PIA",
     "level": "B2, A2",
     "terms": [
       "2026-27 Sem B"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE2211",
     "course_title": "Sexuality, Culture and Diversity",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "SS",
     "level": "B2",
     "terms": [
       "2026-27 Sem A",
       "2026-27 Sem B"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE2212",
     "course_title": "Contemporary Business Communication",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "MGT",
     "level": "B2, A2",
     "terms": [],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE2213",
     "course_title": "Understanding Uncertainty and Statistical Reasoning",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "MS",
     "level": "B2",
     "terms": [
       "2026-27 Sem A"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE2214",
     "course_title": "Gender, Culture and Society",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "PIA",
     "level": "B2",
     "terms": [],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE2215",
     "course_title": "Tourism, development and society",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "PIA",
     "level": "B2",
     "terms": [
       "2026-27 Sem B"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE2217",
     "course_title": "Power and Politics",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "PIA",
     "level": "B2",
     "terms": [],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE2220",
     "course_title": "Sustainable Business: Doing Good Business While Doing Good",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "MKT",
     "level": "B2",
     "terms": [],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE2221",
     "course_title": "Violence and Crime",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "SS",
     "level": "B2",
     "terms": [],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE2222",
     "course_title": "Sports, Culture and Society",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "SS",
     "level": "B2",
     "terms": [
       "2026-27 Sem B"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE2223",
     "course_title": "Interpersonal Skills and Positive Personal Development",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "SS",
     "level": "B2",
     "terms": [
@@ -911,26 +1287,190 @@
       "2026-27 Sem B",
       "2026-27 Summer"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE2226",
     "course_title": "Ageing Society: Hong Kong and Beyond",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "SS",
     "level": "B2",
     "terms": [
       "2026-27 Sem A"
     ],
-    "with_exam": false
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE2227",
     "course_title": "Preservation and Revitalization of Buildings with Heritage Value inside City Environments",
     "area": "Area 2",
+    "category": "Area 2",
     "offering_unit": "ACE",
     "level": "B2, A2",
     "terms": [],
-    "with_exam": true
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2244",
+    "course_title": "The Hidden City: Space, Power and Social Processes in Hong Kong",
+    "area": "Area 2",
+    "category": "Area 2",
+    "offering_unit": "PIA",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem A",
+      "2026-27 Sem B"
+    ],
+    "with_exam": false,
+    "cross_institutional": true,
+    "partner_institutions": [
+      "HKBU"
+    ]
+  },
+  {
+    "course_code": "GE2401",
+    "course_title": "English for Science",
+    "area": "University Req.",
+    "category": "University Req.",
+    "offering_unit": "EN",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem A",
+      "2026-27 Sem B",
+      "2026-27 Summer"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2402",
+    "course_title": "English for Business Communication",
+    "area": "University Req.",
+    "category": "University Req.",
+    "offering_unit": "EN",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem A",
+      "2026-27 Sem B",
+      "2026-27 Summer"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2410",
+    "course_title": "English for Engineering",
+    "area": "University Req.",
+    "category": "University Req.",
+    "offering_unit": "EN",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem A",
+      "2026-27 Sem B",
+      "2026-27 Summer"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2411",
+    "course_title": "Legal English",
+    "area": "University Req.",
+    "category": "University Req.",
+    "offering_unit": "EN",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem B"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2412",
+    "course_title": "English for the Humanities and Social Sciences",
+    "area": "University Req.",
+    "category": "University Req.",
+    "offering_unit": "EN",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem A",
+      "2026-27 Sem B",
+      "2026-27 Summer"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2413",
+    "course_title": "Words, Sound and Images: Writing for Creative Media",
+    "area": "University Req.",
+    "category": "University Req.",
+    "offering_unit": "EN",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem A",
+      "2026-27 Sem B"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE3110",
+    "course_title": "English in Society",
+    "area": "Area 1",
+    "category": "Area 1",
+    "offering_unit": "EN",
+    "level": "B3",
+    "terms": [],
+    "with_exam": false,
+    "cross_institutional": true,
+    "partner_institutions": [
+      "HKBU"
+    ]
+  },
+  {
+    "course_code": "GE3202",
+    "course_title": "Citizen Journalism and Civil Society",
+    "area": "Area 2",
+    "category": "Area 2",
+    "offering_unit": "COM",
+    "level": "B3, A2",
+    "terms": [
+      "2026-27 Sem B"
+    ],
+    "with_exam": false,
+    "cross_institutional": true,
+    "partner_institutions": [
+      "HKBU"
+    ]
+  },
+  {
+    "course_code": "GE3206",
+    "course_title": "China in World Affairs",
+    "area": "Area 2",
+    "category": "Area 2",
+    "offering_unit": "PIA",
+    "level": "B3",
+    "terms": [
+      "2026-27 Sem B"
+    ],
+    "with_exam": false,
+    "cross_institutional": true,
+    "partner_institutions": [
+      "HKBU"
+    ]
   }
 ]

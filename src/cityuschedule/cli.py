@@ -178,7 +178,9 @@ def main() -> None:
             f"Offering unit: {course.get('offering_unit', '')}\n"
             f"Level: {course.get('level', '')}\n"
             f"Available in: {', '.join(course.get('terms', [])) or 'Not specified'}\n"
-            f"With exam: {'Yes' if course.get('with_exam') else 'No'}"
+            f"With exam: {'Yes' if course.get('with_exam') else 'No'}\n"
+            f"Cross-institutional: {'Yes' if course.get('cross_institutional') else 'No'}\n"
+            f"Partner institutions: {', '.join(course.get('partner_institutions', [])) or 'None'}\n"
         )
         return
 
@@ -207,6 +209,8 @@ def main() -> None:
                 f"Offering unit: {course.get('offering_unit', '')}\n"
                 f"Level: {course.get('level', '')}\n"
                 f"Available in: {', '.join(course.get('terms', [])) or 'Not specified'}\n"
+                f"Cross-institutional: {'Yes' if course.get('cross_institutional') else 'No'}\n"
+                f"Partner institutions: {', '.join(course.get('partner_institutions', [])) or 'None'}\n"
                 f"With exam: {'Yes' if course.get('with_exam') else 'No'}\n"
             )
 
