@@ -228,3 +228,4 @@ __marimo__/
 
 # Temporary installation-test environment
 /.venv-test/
+data/raw/
