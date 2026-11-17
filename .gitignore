@@ -229,3 +229,8 @@ __marimo__/
 # Temporary installation-test environment
 /.venv-test/
 data/raw/
+
+# Intermediate catalogue artifacts
+/data/catalogue/CS2311.json
+/data/catalogue/course_pages/
+/data/catalogue/cs_courses.json
