@@ -12,6 +12,7 @@ from .course_catalog import load_course_catalog
 from .planner import generate_plans, export_plan_ics
 
 from cityuschedule.ge_courses import get_ge_course_info, search_ge_courses
+from .ge_importer import update_ge_courses_from_html
 
 def load_sessions(csv_path: str) -> list[dict[str, str]]:
     path = Path(csv_path)
@@ -124,6 +125,18 @@ def main() -> None:
     )
 
     parser.add_argument(
+        "--ge-html",
+        nargs="+",
+        help="GE course HTML files to import.",
+    )
+
+    parser.add_argument(
+        "--ge-output",
+        default="data/ge_courses.json",
+        help="Path for the imported GE course JSON file.",
+    )
+
+    parser.add_argument(
         "--ge-info",
         metavar="COURSE_CODE",
         help="Show basic information for a Gateway Education course, e.g. GE2230",
@@ -135,6 +148,15 @@ def main() -> None:
     )
 
     args = parser.parse_args()
+
+    if args.ge_html:
+        count = update_ge_courses_from_html(
+            args.ge_html,
+            args.ge_output,
+        )
+
+        print(f"Imported {count} Gateway Education course(s).")
+        return
 
     if args.ge_info:
         course = get_ge_course_info(args.ge_info)
