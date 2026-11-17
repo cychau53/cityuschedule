@@ -155,7 +155,7 @@ def main() -> None:
             f"Area: {area_text}\n"
             f"Offering unit: {course.get('offering_unit', '')}\n"
             f"Level: {course.get('level', '')}\n"
-            f"Available in: {', '.join(course.get('terms', []))}\n"
+            f"Available in: {', '.join(course.get('terms', [])) or 'Not specified'}\n"
             f"With exam: {'Yes' if course.get('with_exam') else 'No'}"
         )
         return
@@ -184,7 +184,7 @@ def main() -> None:
                 f"Area: {area_text}\n"
                 f"Offering unit: {course.get('offering_unit', '')}\n"
                 f"Level: {course.get('level', '')}\n"
-                f"Available in: {', '.join(course.get('terms', []))}\n"
+                f"Available in: {', '.join(course.get('terms', [])) or 'Not specified'}\n"
                 f"With exam: {'Yes' if course.get('with_exam') else 'No'}\n"
             )
 
