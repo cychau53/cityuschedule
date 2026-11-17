@@ -144,13 +144,19 @@ def main() -> None:
                 f"No Gateway Education course information found for {args.ge_info}."
             )
 
+        area_name = course.get("area_name", "")
+        area_text = course.get("area", "")
+
+        if area_name:
+            area_text = f"{area_text} — {area_name}"
+
         print(
             f"{course['course_code']} — {course['course_title']}\n"
-            f"Area: {course['area']} — {course['area_name']}\n"
-            f"Offering unit: {course['offering_unit']}\n"
-            f"Level: {course['level']}\n"
-            f"Available in: {', '.join(course['terms'])}\n"
-            f"With exam: {'Yes' if course['with_exam'] else 'No'}"
+            f"Area: {area_text}\n"
+            f"Offering unit: {course.get('offering_unit', '')}\n"
+            f"Level: {course.get('level', '')}\n"
+            f"Available in: {', '.join(course.get('terms', []))}\n"
+            f"With exam: {'Yes' if course.get('with_exam') else 'No'}"
         )
         return
 
@@ -167,12 +173,19 @@ def main() -> None:
         )
 
         for course in results:
+            area_name = course.get("area_name", "")
+            area_text = course.get("area", "")
+
+            if area_name:
+                area_text = f"{area_text} — {area_name}"
+
             print(
                 f"{course['course_code']} — {course['course_title']}\n"
-                f"Area: {course['area']} — {course['area_name']}\n"
-                f"Offering unit: {course['offering_unit']}\n"
-                f"Available in: {', '.join(course['terms'])}\n"
-                f"With exam: {'Yes' if course['with_exam'] else 'No'}\n"
+                f"Area: {area_text}\n"
+                f"Offering unit: {course.get('offering_unit', '')}\n"
+                f"Level: {course.get('level', '')}\n"
+                f"Available in: {', '.join(course.get('terms', []))}\n"
+                f"With exam: {'Yes' if course.get('with_exam') else 'No'}\n"
             )
 
         return
