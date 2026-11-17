@@ -2,9 +2,15 @@ from dataclasses import dataclass
 
 from cityuschedule.aims import load_aims_html
 from .course_catalog import CatalogCourse
-from .course_planner import PlannedSection, catalogue_to_planned_sections
+from .course_planner import (
+    PlannedSection,
+    build_course_bundle,
+    catalogue_to_planned_sections,
+)
 from .schedule_conflicts import TimeSlot, find_conflicts
 from datetime import datetime
+
+from itertools import combinations, product
 
 
 @dataclass(frozen=True)
@@ -26,6 +32,7 @@ def aims_to_time_slots(aims_html: str) -> list[TimeSlot]:
             label=f"{session['course_code']} {session['section']}",
         )
         for session in sessions
+        if session["day"] and session["start_time"] and session["end_time"]
     ]
 
 
@@ -84,7 +91,11 @@ def export_plan_ics(
     aims_sessions = load_aims_html(aims_html)
     planned_sessions = planned_sections_to_sessions(plan.sections)
 
-    all_sessions = aims_sessions + planned_sessions
+    all_sessions = [
+        session
+        for session in aims_sessions + planned_sessions
+        if session["day"] and session["start_time"] and session["end_time"]
+    ]
 
     export_ics(
         all_sessions,
@@ -363,3 +374,197 @@ def generate_plans(
     )
 
     return results
+
+def sections_to_time_slots(
+    sections: list[PlannedSection],
+) -> list[TimeSlot]:
+    return [
+        slot
+        for section in sections
+        for slot in planned_to_time_slots(section)
+    ]
+
+
+def has_conflict(
+    existing_slots: list[TimeSlot],
+    new_sections: list[PlannedSection],
+) -> bool:
+    used_slots = list(existing_slots)
+
+    for section in new_sections:
+        candidate_slots = planned_to_time_slots(section)
+
+        if find_conflicts(used_slots, candidate_slots):
+            return True
+
+        used_slots.extend(candidate_slots)
+
+    return False
+
+def generate_aims_ge_plans(
+    aims_html: str,
+    ge_courses: list[CatalogCourse],
+    credit_courses: list[CatalogCourse],
+    ge_count: int,
+    max_results: int = 20,
+    min_credits: int | None = None,
+    max_credits: int | None = None,
+    preferred_days: list[str] | None = None,
+    avoid_days: list[str] | None = None,
+    course_bundles: dict[str, list[list[str]]] | None = None,
+) -> list[PlanResult]:
+    if ge_count < 0:
+        raise ValueError("--add-ge cannot be negative")
+
+    existing_slots = aims_to_time_slots(aims_html)
+    ge_sections = catalogue_to_planned_sections(ge_courses)
+
+    sections_by_course: dict[str, list[PlannedSection]] = {}
+
+    for section in ge_sections:
+        sections_by_course.setdefault(section.course_code.upper(), []).append(section)
+
+    ge_course_codes = sorted(sections_by_course)
+
+    if ge_count > len(ge_course_codes):
+        raise ValueError(
+            f"Only {len(ge_course_codes)} GE courses are available, "
+            f"but {ge_count} were requested"
+        )
+
+    credit_lookup_courses = {
+        course.code.upper(): course
+        for course in credit_courses
+    }
+
+    for course in ge_courses:
+        code = course.code.upper()
+        existing = credit_lookup_courses.get(code)
+
+        if existing is not None and existing.credits != course.credits:
+            raise ValueError(
+                f"Conflicting credits for {code}: "
+                f"credit catalogue says {existing.credits}, "
+                f"imported timetable says {course.credits}"
+            )
+
+        credit_lookup_courses.setdefault(code, course)
+
+    course_credits = {
+        code: course.credits
+        for code, course in credit_lookup_courses.items()
+    }
+
+    aims_credits, unknown_aims_courses = calculate_aims_credits(
+        aims_html,
+        list(credit_lookup_courses.values()),
+    )
+
+    if unknown_aims_courses:
+        raise ValueError(
+            "Cannot calculate an accurate total. "
+            "Missing AIMS course credits: "
+            + ", ".join(unknown_aims_courses)
+        )
+
+    preferred_days_set = {
+        day.capitalize()
+        for day in (preferred_days or [])
+    }
+    avoided_days = {
+        day.capitalize()
+        for day in (avoid_days or [])
+    }
+
+    results: list[PlanResult] = []
+
+    courses_by_code = {
+        course.code.upper(): course
+        for course in ge_courses
+    }
+
+    bundle_definitions = {
+        code.upper(): bundles
+        for code, bundles in (course_bundles or {}).items()
+    }
+
+    options_by_course = {}
+
+    for course_code in ge_course_codes:
+        definitions = bundle_definitions.get(course_code)
+
+        if not definitions:
+            raise ValueError(
+                f"No section bundles configured for {course_code}. "
+                "Provide complete section combinations before planning."
+            )
+
+        options_by_course[course_code] = [
+            build_course_bundle(
+                courses_by_code[course_code],
+                section_codes,
+            )
+            for section_codes in definitions
+        ]
+
+    for selected_courses in combinations(ge_course_codes, ge_count):
+        course_options = [
+            options_by_course[course_code]
+            for course_code in selected_courses
+        ]
+
+        for bundle_choice in product(*course_options):
+            chosen = [
+                section
+                for bundle in bundle_choice
+                for section in bundle
+            ]
+
+            if has_conflict(existing_slots, chosen):
+                continue
+
+            plan_days = (
+                {slot.day for slot in existing_slots}
+                | {section.day for section in chosen}
+            )
+            if plan_days & avoided_days:
+                continue
+
+            ge_course_codes_selected = {
+                section.course_code.upper()
+                for section in chosen
+            }
+
+            ge_credits = sum(
+                course_credits[course_code]
+                for course_code in ge_course_codes_selected
+                if course_code in course_credits
+            )
+
+            total_credits = aims_credits + ge_credits
+
+            if min_credits is not None and total_credits < min_credits:
+                continue
+
+            if max_credits is not None and total_credits > max_credits:
+                continue
+
+            preferred_count = len(plan_days & preferred_days_set)
+
+            results.append(
+                PlanResult(
+                    sections=tuple(chosen),
+                    total_credits=total_credits,
+                    conflicts=(),
+                    preferred_day_count=preferred_count,
+                )
+            )
+
+    results.sort(
+        key=lambda result: (
+            -result.preferred_day_count,
+            result.total_credits,
+        )
+    )
+
+    return results[:max_results]

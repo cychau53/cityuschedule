@@ -13,6 +13,12 @@ class PlannedSection:
     end: str
     location: str
     credits: int
+    section_credits: int | None = None
+    date_range: str = ""
+    crn: str = ""
+    availability: str = ""
+    web: str = ""
+    notes: tuple[str, ...] = ()
 
 
 def catalogue_to_planned_sections(
@@ -32,7 +38,50 @@ def catalogue_to_planned_sections(
                     end=section.end,
                     location=section.location,
                     credits=course.credits,
+                    section_credits=section.section_credits,
+                    date_range=section.date_range,
+                    crn=section.crn,
+                    availability=section.availability,
+                    web=section.web,
+                    notes=section.notes,
                 )
             )
 
     return planned
+
+
+def build_course_bundle(
+    course: CatalogCourse,
+    section_codes: list[str],
+) -> tuple[PlannedSection, ...]:
+    requested = {
+        code.strip().upper()
+        for code in section_codes
+        if code.strip()
+    }
+
+    if not requested:
+        raise ValueError(
+            f"No sections were selected for {course.code}"
+        )
+
+    planned = catalogue_to_planned_sections([course])
+
+    available = {
+        section.section.upper()
+        for section in planned
+    }
+
+    missing = requested - available
+
+    if missing:
+        raise ValueError(
+            f"Unknown sections for {course.code}: "
+            f"{', '.join(sorted(missing))}"
+        )
+
+    return tuple(
+        section
+        for section in planned
+        if section.section.upper() in requested
+    )

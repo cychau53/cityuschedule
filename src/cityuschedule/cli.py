@@ -9,10 +9,12 @@ from .timetable import format_timetable
 from .aims import load_aims_html
 
 from .course_catalog import load_course_catalog
-from .planner import generate_plans, export_plan_ics
+from .planner import generate_plans, generate_aims_ge_plans, export_plan_ics
 
 from cityuschedule.ge_courses import get_ge_course_info, search_ge_courses
 from .ge_importer import update_ge_courses_from_html
+
+import json
 
 def load_sessions(csv_path: str) -> list[dict[str, str]]:
     path = Path(csv_path)
@@ -83,6 +85,19 @@ def main() -> None:
         type=int,
         help="Minimum total credits for generated course plans",
     )
+
+    parser.add_argument(
+        "--add-ge",
+        type=int,
+        default=0,
+        help="Number of GE courses to add to the fixed AIMS timetable",
+    )
+
+    parser.add_argument(
+        "--ge-bundles",
+        help="JSON file containing complete GE section combinations",
+    )
+
     parser.add_argument(
         "--max-credits",
         type=int,
@@ -241,19 +256,52 @@ def main() -> None:
             for catalog_path in args.credit_catalog or []:
                 credit_courses.extend(load_course_catalog(catalog_path))
 
-            plans = generate_plans(
-                args.aims_html,
-                timetable_courses,
-                credit_courses=credit_courses,
-                max_results=args.max_results,
-                min_credits=args.min_credits,
-                max_credits=args.max_credits,
-                required_courses=args.required,
-                preferred_days=args.prefer_days,
-                required_sections=args.require_section,
-                avoid_days=args.avoid_days,
-                min_gap=args.min_gap,                
-            )
+            if args.add_ge > 0:
+                if not args.ge_bundles:
+                    raise ValueError(
+                        "--ge-bundles is required when using --add-ge"
+                    )
+
+                with open(
+                    args.ge_bundles,
+                    "r",
+                    encoding="utf-8-sig",
+                ) as file:
+                    course_bundles = json.load(file)
+
+                ge_courses = [
+                    course
+                    for course in timetable_courses
+                    if course.code.upper().startswith("GE")
+                ]
+
+                plans = generate_aims_ge_plans(
+                    args.aims_html,
+                    ge_courses,
+                    credit_courses,
+                    args.add_ge,
+                    max_results=args.max_results,
+                    min_credits=args.min_credits,
+                    max_credits=args.max_credits,
+                    preferred_days=args.prefer_days,
+                    avoid_days=args.avoid_days,
+                    course_bundles=course_bundles,
+                )
+            else:
+
+                plans = generate_plans(
+                    args.aims_html,
+                    timetable_courses,
+                    credit_courses=credit_courses,
+                    max_results=args.max_results,
+                    min_credits=args.min_credits,
+                    max_credits=args.max_credits,
+                    required_courses=args.required,
+                    preferred_days=args.prefer_days,
+                    required_sections=args.require_section,
+                    avoid_days=args.avoid_days,
+                    min_gap=args.min_gap,                
+                )
         except (OSError, ValueError) as error:
             parser.error(str(error))
 

@@ -6,6 +6,9 @@ from bs4 import BeautifulSoup
 
 DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 TIME_RANGE = re.compile(r"(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})")
+UNSCHEDULED_SECTION = re.compile(
+    r"([A-Z]{2,4}\d{4})\s+([A-Z]{1,3}\d{1,3})"
+)
 
 
 def load_aims_html(html_path: str) -> list[dict[str, str]]:
@@ -124,6 +127,36 @@ def load_aims_html(html_path: str) -> list[dict[str, str]]:
 
         if day_index != 7:
             raise ValueError("Incomplete timetable row.")
+
+    unscheduled_label = soup.find(
+        string=re.compile(
+            r"Sections with no scheduled date and time",
+            re.IGNORECASE,
+        )
+    )
+
+    if unscheduled_label is not None:
+        label_cell = unscheduled_label.find_parent("td")
+
+        if label_cell is not None:
+            value_cell = label_cell.find_next("td")
+
+            if value_cell is not None:
+                for course_code, section in UNSCHEDULED_SECTION.findall(
+                    value_cell.get_text(" ", strip=True)
+                ):
+                    sessions.append({
+                        "course_code": course_code,
+                        "course_title": "",
+                        "crn": "",
+                        "section": section,
+                        "type": section,
+                        "day": "",
+                        "start_time": "",
+                        "end_time": "",
+                        "building": "",
+                        "room": "",
+                    })
 
     if not sessions:
         raise ValueError("No scheduled classes found in the AIMS HTML.")

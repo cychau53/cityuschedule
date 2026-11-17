@@ -143,6 +143,17 @@
     "course_aims": ""
   },
   {
+    "course_code": "GE1401",
+    "title": "University English",
+    "credits": 3.0,
+    "prerequisites": "",
+    "precursors": "",
+    "equivalents": "",
+    "exclusions": "",
+    "offering_terms": "",
+    "course_aims": ""
+  },
+  {
     "course_code": "GE1501",
     "title": "Chinese Civilisation - History and Philosophy",
     "credits": 3.0,

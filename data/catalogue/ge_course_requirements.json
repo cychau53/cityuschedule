@@ -1,0 +1,14 @@
+{
+  "courses": [
+    {
+      "code": "GE1205",
+      "title": "",
+      "credits": 3
+    },
+    {
+      "code": "GE1401",
+      "title": "",
+      "credits": 3
+    }
+  ]
+}
