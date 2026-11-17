@@ -61,10 +61,17 @@ def main() -> None:
         help="JSON file containing holidays and teaching breaks to exclude",
     )
     parser.add_argument(
-        "--catalog",
+        "--timetable-catalog",
         nargs="+",
-        help="JSON course catalogue(s) used to generate clash-free course plans",
+        help="JSON timetable catalogue(s) containing course sections for planning",
     )
+
+    parser.add_argument(
+        "--credit-catalog",
+        nargs="+",
+        help="JSON credit catalogue(s) containing course credits",
+    )
+
     parser.add_argument(
         "--max-results",
         type=int,
@@ -223,14 +230,21 @@ def main() -> None:
     if not args.csv_file and not args.aims_html:
         parser.print_help()
         return
-    if args.aims_html and args.catalog:
+    if args.aims_html and (args.timetable_catalog or args.credit_catalog):
         try:
-            courses = []
-            for catalog_path in args.catalog:
-                courses.extend(load_course_catalog(catalog_path))
+            timetable_courses = []
+            credit_courses = []
+
+            for catalog_path in args.timetable_catalog or []:
+                timetable_courses.extend(load_course_catalog(catalog_path))
+
+            for catalog_path in args.credit_catalog or []:
+                credit_courses.extend(load_course_catalog(catalog_path))
+
             plans = generate_plans(
                 args.aims_html,
-                courses,
+                timetable_courses,
+                credit_courses=credit_courses,
                 max_results=args.max_results,
                 min_credits=args.min_credits,
                 max_credits=args.max_credits,
