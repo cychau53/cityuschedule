@@ -11,5 +11,17 @@
       "2026-27 Sem B"
     ],
     "with_exam": true
+  },
+  {
+    "course_code": "GE2234",
+    "course_title": "Social Networks for Media, Business and Technological Applications",
+    "area": "Area 2",
+    "area_name": "Study of Societies, Social and Business Organisations",
+    "offering_unit": "COM",
+    "level": "B2, A2",
+    "terms": [
+      "2026-27 Sem A"
+    ],
+    "with_exam": false
   }
 ]
