@@ -25,12 +25,17 @@ def load_course_catalog(path: str | Path) -> list[CatalogCourse]:
     with open(path, "r", encoding="utf-8") as file:
         data = json.load(file)
 
+    if isinstance(data, dict):
+        items = data.get("courses", [])
+    else:
+        items = data
+
     courses = []
 
-    for item in data.get("courses", []):
+    for item in items:
         sections = tuple(
             CatalogSection(
-                course_code=item["code"],
+                course_code=item.get("course_code", item.get("code", "")),
                 section=section["section"],
                 day=section["day"],
                 start=section["start"],
@@ -42,7 +47,7 @@ def load_course_catalog(path: str | Path) -> list[CatalogCourse]:
 
         courses.append(
             CatalogCourse(
-                code=item["code"],
+                code=item.get("course_code", item.get("code", "")),
                 title=item.get("title", ""),
                 credits=int(item["credits"]),
                 sections=sections,
