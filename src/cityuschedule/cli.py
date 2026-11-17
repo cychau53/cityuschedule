@@ -8,6 +8,8 @@ from .gaps import find_gaps, format_gaps
 from .timetable import format_timetable
 from .aims import load_aims_html
 
+from .course_catalog import load_course_catalog
+from .planner import generate_plans, export_plan_ics
 
 def load_sessions(csv_path: str) -> list[dict[str, str]]:
     path = Path(csv_path)
@@ -50,24 +52,73 @@ def main() -> None:
         action="store_true",
         help="Export the timetable as an .ics calendar file",
     )
+
+    parser.add_argument(
+        "--exclusions",
+        help="JSON file containing holidays and teaching breaks to exclude",
+    )
+    parser.add_argument(
+        "--catalog",
+        help="JSON course catalogue used to generate clash-free course plans",
+    )
+    parser.add_argument(
+        "--max-results",
+        type=int,
+        default=20,
+        help="Maximum number of course plans to display",
+    )
+    parser.add_argument(
+        "--min-credits",
+        type=int,
+        help="Minimum total credits for generated course plans",
+    )
+    parser.add_argument(
+        "--max-credits",
+        type=int,
+        help="Maximum total credits for generated course plans",
+    )
+    parser.add_argument(
+        "--required",
+        nargs="+",
+        help="Course codes that must appear in every generated plan",
+    )
+    parser.add_argument(
+        "--prefer-days",
+        nargs="+",
+        help="Days to prefer when ranking generated plans, such as Mon Tue Wed",
+    )
+    parser.add_argument(
+        "--require-section",
+        nargs="+",
+        help="Exact course sections that must appear, such as TEST101 C01",
+    )
+    parser.add_argument(
+        "--avoid-days",
+        nargs="+",
+        help="Days that generated plans must not use, such as Fri Sat",
+    )
+
+    parser.add_argument(
+        "--export-plan",
+        type=int,
+        help="Export the selected plan number as an ICS calendar, starting from 1",
+    )
     parser.add_argument(
         "--output",
         default="cityu_timetable.ics",
         help="Output .ics file path",
     )
+
     parser.add_argument(
         "--semester-start",
         default="2026-08-31",
         help="First day of the semester in YYYY-MM-DD format",
     )
+
     parser.add_argument(
         "--semester-end",
         default="2026-11-28",
         help="Last day of the semester in YYYY-MM-DD format",
-    )
-    parser.add_argument(
-        "--exclusions",
-        help="JSON file containing holidays and teaching breaks to exclude",
     )
 
     args = parser.parse_args()
@@ -78,7 +129,77 @@ def main() -> None:
     if not args.csv_file and not args.aims_html:
         parser.print_help()
         return
+    if args.aims_html and args.catalog:
+        try:
+            courses = load_course_catalog(args.catalog)
+            plans = generate_plans(
+                args.aims_html,
+                courses,
+                max_results=args.max_results,
+                min_credits=args.min_credits,
+                max_credits=args.max_credits,
+                required_courses=args.required,
+                preferred_days=args.prefer_days,
+                required_sections=args.require_section,
+                avoid_days=args.avoid_days,
+            )
+        except (OSError, ValueError) as error:
+            parser.error(str(error))
 
+        if not plans:
+            print("No clash-free course plans were found.")
+            return
+
+        print(f"Found {len(plans)} valid course plan(s):\n")
+
+        for number, plan in enumerate(plans, start=1):
+            preferred_label = (
+                f", {plan.preferred_day_count} preferred day(s)"
+                if plan.preferred_day_count
+                else ""
+            )
+
+            print(
+                f"Plan {number} — {plan.total_credits} credits"
+                f"{preferred_label}"
+            )
+            for section in plan.sections:
+                print(
+                    f"  {section.course_code} {section.section} "
+                    f"{section.day} {section.start}-{section.end} "
+                    f"{section.location}"
+                )
+
+            print()
+
+        if args.export_plan is not None:
+            if not (args.semester_start and args.semester_end):
+                parser.error(
+                    "--semester-start and --semester-end are required "
+                    "when using --export-plan"
+                )
+
+            plan_index = args.export_plan - 1
+
+            if plan_index < 0 or plan_index >= len(plans):
+                parser.error(
+                    f"Plan {args.export_plan} does not exist. "
+                    f"Choose a plan from 1 to {len(plans)}."
+                )
+
+            export_plan_ics(
+                args.aims_html,
+                plans[plan_index],
+                args.output,
+                args.semester_start,
+                args.semester_end,
+                exclusions_path=args.exclusions,
+            )
+
+            print(f"Exported plan {args.export_plan} to {args.output}")
+
+        return
+    
     try:
         if args.aims_html:
             sessions = load_aims_html(args.aims_html)

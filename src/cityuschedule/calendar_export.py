@@ -86,13 +86,27 @@ def export_ics(
                     f"cityuschedule-{index}-{class_date.isoformat()}-"
                     f"{session['course_code']}-{session['section']}@cityuschedule",
                 )
-                event.add(
+                summary = session.get(
                     "summary",
                     f"{session['course_code']} {session['type']}",
                 )
+
+                event.add(
+                    "summary",
+                    summary,
+                )
+                location_parts = [
+                    part
+                    for part in (
+                        session.get("building", ""),
+                        session.get("room", ""),
+                    )
+                    if part
+                ]
+
                 event.add(
                     "location",
-                    f"{session['building']} {session['room']}",
+                    " ".join(location_parts),
                 )
                 event.add(
                     "dtstart",
@@ -102,6 +116,10 @@ def export_ics(
                     "dtend",
                     datetime.combine(class_date, end_time, tzinfo=tz),
                 )
+                description = session.get("description")
+
+                if description:
+                    event.add("description", description)
 
                 calendar.add_component(event)
 

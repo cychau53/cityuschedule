@@ -1,0 +1,46 @@
+{
+  "courses": [
+    {
+      "code": "TEST101",
+      "title": "Test Course 1",
+      "credits": 3,
+      "sections": [
+        {
+          "section": "C01",
+          "day": "Thu",
+          "start": "10:00",
+          "end": "12:50",
+          "location": "TEST ROOM 1"
+        },
+        {
+          "section": "C02",
+          "day": "Fri",
+          "start": "09:00",
+          "end": "11:50",
+          "location": "TEST ROOM 2"
+        }
+      ]
+    },
+    {
+      "code": "TEST201",
+      "title": "Test Course 2",
+      "credits": 2,
+      "sections": [
+        {
+          "section": "C01",
+          "day": "Thu",
+          "start": "14:00",
+          "end": "15:50",
+          "location": "TEST ROOM 3"
+        },
+        {
+          "section": "C02",
+          "day": "Fri",
+          "start": "14:00",
+          "end": "15:50",
+          "location": "TEST ROOM 4"
+        }
+      ]
+    }
+  ]
+}
