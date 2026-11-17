@@ -235,6 +235,7 @@ def main() -> None:
                 preferred_days=args.prefer_days,
                 required_sections=args.require_section,
                 avoid_days=args.avoid_days,
+                min_gap=args.min_gap,                
             )
         except (OSError, ValueError) as error:
             parser.error(str(error))
