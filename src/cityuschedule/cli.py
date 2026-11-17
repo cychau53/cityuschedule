@@ -11,7 +11,7 @@ from .aims import load_aims_html
 from .course_catalog import load_course_catalog
 from .planner import generate_plans, export_plan_ics
 
-from cityuschedule.ge_courses import get_ge_course_info
+from cityuschedule.ge_courses import get_ge_course_info, search_ge_courses
 
 def load_sessions(csv_path: str) -> list[dict[str, str]]:
     path = Path(csv_path)
@@ -128,6 +128,11 @@ def main() -> None:
         metavar="COURSE_CODE",
         help="Show basic information for a Gateway Education course, e.g. GE2230",
     )
+    parser.add_argument(
+        "--ge-search",
+        metavar="KEYWORD",
+        help="Search Gateway Education courses by course code, title, area, or offering unit",
+    )
 
     args = parser.parse_args()
 
@@ -147,6 +152,29 @@ def main() -> None:
             f"Available in: {', '.join(course['terms'])}\n"
             f"With exam: {'Yes' if course['with_exam'] else 'No'}"
         )
+        return
+
+    if args.ge_search:
+        results = search_ge_courses(args.ge_search)
+
+        if not results:
+            print(f"No Gateway Education courses found for '{args.ge_search}'.")
+            return
+
+        print(
+            f"Found {len(results)} Gateway Education course(s) "
+            f"for '{args.ge_search}':\n"
+        )
+
+        for course in results:
+            print(
+                f"{course['course_code']} — {course['course_title']}\n"
+                f"Area: {course['area']} — {course['area_name']}\n"
+                f"Offering unit: {course['offering_unit']}\n"
+                f"Available in: {', '.join(course['terms'])}\n"
+                f"With exam: {'Yes' if course['with_exam'] else 'No'}\n"
+            )
+
         return
 
     if args.csv_file and args.aims_html:

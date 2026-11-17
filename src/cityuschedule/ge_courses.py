@@ -17,3 +17,27 @@ def get_ge_course_info(course_code: str) -> dict | None:
             return course
 
     return None
+
+def search_ge_courses(keyword: str) -> list[dict]:
+    keyword = keyword.strip().lower()
+
+    if not keyword:
+        return []
+
+    results = []
+
+    for course in load_ge_courses():
+        searchable_text = " ".join(
+            [
+                course.get("course_code", ""),
+                course.get("course_title", ""),
+                course.get("area", ""),
+                course.get("area_name", ""),
+                course.get("offering_unit", ""),
+            ]
+        ).lower()
+
+        if keyword in searchable_text:
+            results.append(course)
+
+    return results
