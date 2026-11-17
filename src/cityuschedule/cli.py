@@ -62,7 +62,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--catalog",
-        help="JSON course catalogue used to generate clash-free course plans",
+        nargs="+",
+        help="JSON course catalogue(s) used to generate clash-free course plans",
     )
     parser.add_argument(
         "--max-results",
@@ -224,7 +225,9 @@ def main() -> None:
         return
     if args.aims_html and args.catalog:
         try:
-            courses = load_course_catalog(args.catalog)
+            courses = []
+            for catalog_path in args.catalog:
+                courses.extend(load_course_catalog(catalog_path))
             plans = generate_plans(
                 args.aims_html,
                 courses,
