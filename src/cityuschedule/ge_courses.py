@@ -76,3 +76,54 @@ def get_ge_courses_without_exam() -> list[dict]:
         load_ge_courses(),
         with_exam=False,
     )
+
+def _normalize_ge_area(area: str | int) -> str:
+    """
+    Convert an area value to 'Area 1', 'Area 2', or 'Area 3'.
+
+    Accepted examples:
+        1, "1", "Area 1", "area 1", " AREA 1 "
+    """
+    if isinstance(area, bool) or not isinstance(area, (str, int)):
+        raise TypeError("area must be a string or integer.")
+
+    value = str(area).strip().casefold()
+
+    if value.startswith("area"):
+        value = value[4:].strip()
+
+    if value not in {"1", "2", "3"}:
+        raise ValueError(
+            "area must be 1, 2, 3, 'Area 1', 'Area 2', or 'Area 3'."
+        )
+
+    return f"Area {value}"
+
+def filter_ge_courses_by_area(
+    courses: list[dict],
+    area: str | int,
+) -> list[dict]:
+    """
+    Return courses belonging to the requested GE area.
+
+    Courses with missing or invalid area values are excluded.
+    The input list and its dictionaries are not modified.
+    """
+    target_area = _normalize_ge_area(area)
+    results = []
+
+    for course in courses:
+        try:
+            course_area = _normalize_ge_area(course.get("area"))
+        except (TypeError, ValueError):
+            continue
+
+        if course_area == target_area:
+            results.append(course)
+
+    return results
+
+
+def get_ge_courses_by_area(area: str | int) -> list[dict]:
+    """Load GE courses and return those in the requested area."""
+    return filter_ge_courses_by_area(load_ge_courses(), area)
