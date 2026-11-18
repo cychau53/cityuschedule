@@ -1,12 +1,117 @@
 import json
 from pathlib import Path
 
-DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "ge_courses.json"
+
+DATA_DIRECTORY = Path(__file__).resolve().parents[2] / "data"
+DATA_PATH = DATA_DIRECTORY / "ge_courses.json"
+SECTION_DATA_PATH = DATA_DIRECTORY / "ge_course_information.json"
+
+
+def _read_json_records(
+    path: Path,
+    *,
+    allow_missing_or_blank: bool = False,
+) -> list[dict]:
+    """Read a JSON list of dictionaries."""
+    try:
+        content = path.read_text(encoding="utf-8-sig").strip()
+    except FileNotFoundError:
+        if allow_missing_or_blank:
+            return []
+        raise
+
+    if not content:
+        if allow_missing_or_blank:
+            return []
+
+        raise ValueError(f"{path} is empty.")
+
+    try:
+        records = json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"Invalid JSON in {path}: {exc}"
+        ) from exc
+
+    if not isinstance(records, list):
+        raise ValueError(
+            f"{path} must contain a list of dictionaries."
+        )
+
+    for index, record in enumerate(records):
+        if not isinstance(record, dict):
+            raise ValueError(
+                f"Record {index} in {path} must be a dictionary."
+            )
+
+    return records
+
+
+def _record_course_code(
+    record: dict,
+    *,
+    path: Path,
+    index: int,
+) -> str:
+    """Get a normalized course code from a record."""
+    course_code = record.get("course_code")
+
+    if not isinstance(course_code, str) or not course_code.strip():
+        raise ValueError(
+            f"Record {index} in {path} has no valid course_code."
+        )
+
+    return course_code.strip().upper()
 
 
 def load_ge_courses() -> list[dict]:
-    with DATA_PATH.open("r", encoding="utf-8") as file:
-        return json.load(file)
+    """
+    Load basic GE course information with associated section records.
+
+    Basic courses without stored sections receive sections=[].
+    The source JSON files are not modified.
+    """
+    courses = _read_json_records(DATA_PATH)
+
+    sections = _read_json_records(
+        SECTION_DATA_PATH,
+        allow_missing_or_blank=True,
+    )
+
+    sections_by_course: dict[str, list[dict]] = {}
+
+    for index, section in enumerate(sections):
+        course_code = _record_course_code(
+            section,
+            path=SECTION_DATA_PATH,
+            index=index,
+        )
+
+        sections_by_course.setdefault(course_code, []).append(
+            {
+                **section,
+                "course_code": course_code,
+            }
+        )
+
+    combined_courses = []
+
+    for index, course in enumerate(courses):
+        course_code = _record_course_code(
+            course,
+            path=DATA_PATH,
+            index=index,
+        )
+
+        combined_courses.append(
+            {
+                **course,
+                "course_code": course_code,
+                "sections": sections_by_course.get(course_code, []),
+            }
+        )
+
+    return combined_courses
 
 
 def get_ge_course_info(course_code: str) -> dict | None:
