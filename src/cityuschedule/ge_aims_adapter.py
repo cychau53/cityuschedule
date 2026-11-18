@@ -31,7 +31,7 @@ def convert_ge_records_to_aims_table(
 
     return AIMSTable(
         course_code=course_code.upper(),
-        course_credit=0,
+        course_credit=3,
         sessions=sessions,
     )
 
