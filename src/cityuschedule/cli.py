@@ -5,7 +5,6 @@ import sys
 
 from .calendar_export import export_ics
 from .conflicts import find_conflicts
-from .gaps import find_gaps, format_gaps
 from .timetable import format_timetable
 from .aims import load_aims_html
 
@@ -179,12 +178,6 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--aims-html",
         help="Path to a saved AIMS weekly timetable HTML page",
-    )
-    parser.add_argument(
-        "--min-gap",
-        type=int,
-        default=45,
-        help="Minimum gap length in minutes to report",
     )
     parser.add_argument(
         "--export",
@@ -737,12 +730,10 @@ def main(argv: list[str] | None = None) -> None:
         parser.error(str(error))
 
     conflicts = find_conflicts(sessions)
-    gaps = find_gaps(sessions, args.min_gap)
 
     print(format_timetable(sessions))
     print(f"\nLoaded {len(sessions)} class sessions.")
     print(f"Found {len(conflicts)} clash(es).")
-    print(format_gaps(gaps))
 
     for first, second in conflicts:
         print(

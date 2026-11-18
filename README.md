@@ -10,7 +10,7 @@
 
 # It reads a simple CSV file containing lectures, tutorials, and laboratory
 
-# sessions, detects overlapping classes, identifies free gaps, and creates an
+# sessions, detects overlapping classes, and creates an
 
 # `.ics` calendar file that can be imported into Google Calendar, Apple Calendar,
 
@@ -28,7 +28,6 @@
 
 # \- Display a weekly timetable
 
-# \- Identify free gaps between classes
 
 # \- Export the timetable as an `.ics` calendar file
 
@@ -202,7 +201,6 @@ The exported calendar uses `Asia/Hong_Kong` by default.
 
 # Found 0 clash(es).
 
-# No free gaps of at least 45 minutes found.
 
 # ```
 

@@ -2,8 +2,6 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from cityuschedule.gaps import find_gaps
-
 
 def time(sessions: list[dict[str, str]], time_file=None) -> None:
     if len(sessions) < 2:
@@ -47,10 +45,14 @@ def time(sessions: list[dict[str, str]], time_file=None) -> None:
                     f"{second['start_time']}."
                 )
 
-            gap_list = find_gaps([first, second], minimum_minutes=0)
-            if not gap_list:
-                continue
-            minutes = int(gap_list[0]["minutes"])
+            first_end = datetime.strptime(first["end_time"], "%H:%M")
+            second_start = datetime.strptime(
+                second["start_time"],
+                "%H:%M",
+            )
+            minutes = int(
+                (second_start - first_end).total_seconds() / 60
+            )
 
             start_building = first["building"]
             end_building = second["building"]

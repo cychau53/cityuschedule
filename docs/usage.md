@@ -57,26 +57,6 @@ The package displays:
 
 \- The number of clashes
 
-\- Free gaps of at least 45 minutes
-
-
-
-\## Change the minimum gap
-
-
-
-To report only gaps of at least 60 minutes:
-
-
-
-```bash
-
-cityuschedule examples/sample\_courses.csv --min-gap 60
-
-```
-
-
-
 \## Export a calendar
 
 
