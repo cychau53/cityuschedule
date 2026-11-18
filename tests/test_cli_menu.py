@@ -272,6 +272,36 @@ def test_basic_settings_persist_and_apply_to_paste_and_planning(
             True,
         ),
         (
+            "delete max and min",
+            {
+                "prefer_days": ["Wed"],
+                "avoid_days": ["Fri"],
+                "min_credits": None,
+                "max_credits": None,
+            },
+            True,
+        ),
+        (
+            "delete avoid and min",
+            {
+                "prefer_days": ["Wed"],
+                "avoid_days": [],
+                "min_credits": None,
+                "max_credits": 18,
+            },
+            True,
+        ),
+        (
+            "delete AIMS and max",
+            {
+                "prefer_days": ["Wed"],
+                "avoid_days": ["Fri"],
+                "min_credits": 12,
+                "max_credits": None,
+            },
+            False,
+        ),
+        (
             "delete AIMS",
             {
                 "prefer_days": ["Wed"],

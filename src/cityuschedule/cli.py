@@ -494,7 +494,7 @@ def interactive_menu() -> None:
             "8. Generate course plans\n"
             "9. Import GE courses from HTML\n"
             "0. Exit\n"
-            "Type delete all/avoid/prefer/min/max/AIMS to clear saved data."
+            "Type delete all or delete names joined by 'and' to clear data."
         )
         try:
             choice = input(
@@ -516,46 +516,72 @@ def interactive_menu() -> None:
                         message = (
                             "All saved settings and AIMS path deleted."
                         )
-                    elif delete_command == "delete aims":
-                        _aims_path_config_file().unlink(missing_ok=True)
-                        saved_aims_path = None
-                        message = "Saved AIMS path deleted."
                     else:
-                        clearable_setting = {
-                            "delete avoid": (
+                        setting_fields = {
+                            "avoid": (
                                 "avoid_days",
                                 (),
                                 "avoid days",
                             ),
-                            "delete prefer": (
+                            "prefer": (
                                 "prefer_days",
                                 (),
                                 "preferred days",
                             ),
-                            "delete min": (
+                            "min": (
                                 "min_credits",
                                 None,
                                 "minimum credits",
                             ),
-                            "delete max": (
+                            "max": (
                                 "max_credits",
                                 None,
                                 "maximum credits",
                             ),
-                        }.get(delete_command)
-                        if clearable_setting is None:
+                        }
+                        targets = list(
+                            dict.fromkeys(
+                                target.strip()
+                                for target in delete_command[
+                                    len("delete"):
+                                ].split("and")
+                            )
+                        )
+                        if not targets or any(
+                            target not in {*setting_fields, "aims"}
+                            for target in targets
+                        ):
                             raise ValueError(
                                 "Use delete all, delete avoid, delete "
                                 "prefer, delete min, delete max, or "
-                                "delete AIMS."
+                                "delete AIMS. Join multiple names with "
+                                "'and'."
                             )
-                        field, empty_value, label = clearable_setting
-                        basic_settings = replace(
-                            basic_settings,
-                            **{field: empty_value},
+
+                        if "aims" in targets:
+                            _aims_path_config_file().unlink(
+                                missing_ok=True
+                            )
+                            saved_aims_path = None
+
+                        labels = []
+                        for target in targets:
+                            if target == "aims":
+                                labels.append("AIMS path")
+                                continue
+                            field, empty_value, label = setting_fields[
+                                target
+                            ]
+                            basic_settings = replace(
+                                basic_settings,
+                                **{field: empty_value},
+                            )
+                            labels.append(label)
+                        if any(target != "aims" for target in targets):
+                            _save_basic_settings(basic_settings)
+                        message = (
+                            "Saved " + " and ".join(labels) + " deleted."
                         )
-                        _save_basic_settings(basic_settings)
-                        message = f"Saved {label} deleted."
                 except OSError as error:
                     basic_settings = _load_basic_settings()
                     saved_aims_path = _load_saved_aims_path()

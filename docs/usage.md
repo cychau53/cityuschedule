@@ -35,7 +35,9 @@ bundles.
 
 At the main menu prompt, type `delete avoid`, `delete prefer`, `delete min`,
 `delete max`, or `delete AIMS` to clear that saved value. Type `delete all` to
-remove all basic settings and the remembered AIMS path.
+remove all basic settings and the remembered AIMS path. To clear multiple
+values, join their names with `and`, such as `delete max and min` or
+`delete AIMS and max`.
 
 The other numbered options check a CSV or AIMS timetable, paste an AIMS
 offering, search or inspect GE courses, export a calendar, generate course
