@@ -30,6 +30,9 @@ plans, or import GE course HTML. The menu asks for the required file paths and
 then runs the selected task. The AIMS HTML path is remembered across launches
 and reused by other AIMS menu options. Choose option `2` and enter a different
 path to change the saved one; press Enter to keep using it. Press `0` to exit.
+If a task reports an error, the menu stays open so you can choose another
+option or correct the input; the saved AIMS path is updated only after a
+successful task.
 
 For advanced options, use `cityuschedule --help` or run a command directly.
 

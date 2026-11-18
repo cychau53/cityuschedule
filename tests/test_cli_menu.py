@@ -65,6 +65,36 @@ def test_menu_saves_aims_path_and_reuses_it(monkeypatch, tmp_path):
     ]
 
 
+def test_menu_returns_after_task_error(monkeypatch, tmp_path, capsys):
+    config_file = tmp_path / "aims_html_path.txt"
+    inputs = iter(
+        ["2", r"C:\Schedules\missing.html", "4", "environment", "0"]
+    )
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+    monkeypatch.setattr(
+        cli,
+        "_aims_path_config_file",
+        lambda: config_file,
+    )
+    commands = []
+
+    def run_command(argv=None):
+        commands.append(argv)
+        if argv and argv[0] == "--aims-html":
+            raise SystemExit(2)
+
+    monkeypatch.setattr(cli, "main", run_command)
+
+    cli.interactive_menu()
+
+    assert commands == [
+        ["--aims-html", r"C:\Schedules\missing.html"],
+        ["--ge-search", "environment"],
+    ]
+    assert not config_file.exists()
+    assert "Returning to the menu" in capsys.readouterr().out
+
+
 def test_export_and_plan_menu_options_reuse_saved_aims_path(monkeypatch):
     saved_path = r"C:\Schedules\current AIMS.html"
     inputs = iter(["AIMS", "", "", "", "courses.json"])

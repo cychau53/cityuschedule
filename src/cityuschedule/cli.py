@@ -234,7 +234,16 @@ def interactive_menu() -> None:
                 print("Required input was not provided.")
             continue
 
-        main(command)
+        try:
+            main(command)
+        except SystemExit as error:
+            if error.code:
+                print(
+                    "\nTask failed. Returning to the menu; "
+                    "choose another option or 0 to exit."
+                )
+            continue
+
         if aims_path_to_save:
             saved_aims_path = aims_path_to_save
             try:
