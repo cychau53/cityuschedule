@@ -384,6 +384,10 @@ def test_paste_cli_reports_combined_credits(monkeypatch, capsys):
     assert "Pasted course credits: 3" in output
     assert "AIMS timetable credits: 12" in output
     assert "Combined total if added: 15" in output
+    assert (
+        "AIMS timetable credits: 12\n\n"
+        "Combined total if added: 15"
+    ) in output
 
 
 def test_paste_cli_uses_builtin_cs_ge_and_other_credit_catalogs(
@@ -446,3 +450,8 @@ def test_paste_cli_reports_missing_base_course_credits(
     assert "AIMS timetable credits: incomplete" in output
     assert "missing: BASE1001" in output
     assert "Combined total if added: incomplete" in output
+    assert (
+        "AIMS timetable credits: incomplete "
+        "(known subtotal 0; missing: BASE1001)\n\n"
+        "Combined total if added: incomplete"
+    ) in output

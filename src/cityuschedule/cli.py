@@ -644,6 +644,7 @@ def main(argv: list[str] | None = None) -> None:
                 f"(known subtotal {aims_credits}; missing: "
                 f"{missing_codes})"
             )
+            print()
             print(
                 "Combined total if added: incomplete "
                 f"(known subtotal "
@@ -653,6 +654,7 @@ def main(argv: list[str] | None = None) -> None:
         else:
             combined_credits = aims_credits + pasted_course_credits
             _print_blue(f"AIMS timetable credits: {aims_credits}")
+            print()
             _print_blue(
                 f"Combined total if added: {combined_credits}"
             )
