@@ -1,18 +1,22 @@
 import json
 from datetime import datetime
 from pathlib import Path
+
 from cityuschedule.gaps import find_gaps
 
 
 def time(sessions: list[dict[str, str]], time_file=None) -> None:
-
     if len(sessions) < 2:
         return
 
     path = (
         Path(time_file)
         if time_file is not None
-        else Path(__file__).with_name("travel_time.json")
+        else (
+            Path(__file__).resolve().parents[2]
+            / "data"
+            / "travel_time.json"
+        )
     )
 
     with path.open(encoding="utf-8") as f:
