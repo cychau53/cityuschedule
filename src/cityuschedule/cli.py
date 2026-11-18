@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import sys
+from typing import TextIO
 
 from .calendar_export import export_ics
 from .conflicts import find_conflicts
@@ -60,7 +61,7 @@ def _load_saved_aims_path() -> str | None:
     except FileNotFoundError:
         return None
     except OSError as error:
-        print(f"Could not read saved AIMS path: {error}")
+        _print_red(f"Could not read saved AIMS path: {error}")
         return None
     return saved_path or None
 
@@ -79,6 +80,36 @@ def _prompt_path(label: str, default: str | None = None) -> str | None:
     if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
         value = value[1:-1]
     return value
+
+
+def _print_color(
+    text: str,
+    color: str,
+    file: TextIO | None = None,
+) -> None:
+    output = sys.stdout if file is None else file
+    if output.isatty() and "NO_COLOR" not in os.environ:
+        print(f"\033[{color}m{text}\033[0m", file=output)
+    else:
+        print(text, file=output)
+
+
+def _print_green(text: str) -> None:
+    _print_color(text, "32")
+
+
+def _print_red(text: str, file: TextIO | None = None) -> None:
+    _print_color(text, "31", file)
+
+
+class _CityUScheduleArgumentParser(argparse.ArgumentParser):
+    def error(self, message: str) -> None:
+        self.print_usage(sys.stderr)
+        _print_red(
+            f"{self.prog}: error: {message}",
+            file=sys.stderr,
+        )
+        self.exit(2)
 
 
 def _menu_command(
@@ -129,7 +160,7 @@ def _menu_command(
     if choice == "6":
         source_type = input("Export source (CSV or AIMS): ").strip().upper()
         if source_type not in {"CSV", "AIMS"}:
-            print("Choose CSV or AIMS.")
+            _print_red("Choose CSV or AIMS.")
             return None, None
 
         if source_type == "AIMS":
@@ -229,9 +260,9 @@ def interactive_menu() -> None:
 
         if command is None:
             if choice not in {"1", "2", "3", "4", "5", "6", "7", "8"}:
-                print("Choose an option from 0 to 8.")
+                _print_red("Choose an option from 0 to 8.")
             else:
-                print("Required input was not provided.")
+                _print_red("Required input was not provided.")
             continue
 
         try:
@@ -249,7 +280,7 @@ def interactive_menu() -> None:
             try:
                 _save_aims_path(aims_path_to_save)
             except OSError as error:
-                print(f"Could not save AIMS path: {error}")
+                _print_red(f"Could not save AIMS path: {error}")
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -258,7 +289,7 @@ def main(argv: list[str] | None = None) -> None:
         interactive_menu()
         return
 
-    parser = argparse.ArgumentParser(
+    parser = _CityUScheduleArgumentParser(
         prog="cityuschedule",
         description="Check CityU course timetables for clashes and export them as calendar events.",
     )
@@ -457,11 +488,23 @@ def main(argv: list[str] | None = None) -> None:
                     lines.append(line)
 
                 if empty_paste or not any(line.strip() for line in lines):
-                    print(
+                    _print_red(
                         "No table was entered. Please paste the AIMS table "
                         "and try again.\n"
                     )
                     continue
+
+                pasted_table = "\n".join(lines)
+                try:
+                    parse_aims_table(pasted_table)
+                except ValueError as error:
+                    if not str(error).startswith("Course code is required."):
+                        _print_red(
+                            "That doesn't look like a complete AIMS course "
+                            "offering table. Paste the full table, including "
+                            "its CRN, Section, and Credit rows, and try again."
+                        )
+                        continue
 
                 while True:
                     print(
@@ -478,7 +521,7 @@ def main(argv: list[str] | None = None) -> None:
 
                     try:
                         table = parse_aims_table(
-                            "\n".join(lines),
+                            pasted_table,
                             course_code=course_code,
                         )
                     except ValueError as error:
@@ -486,7 +529,7 @@ def main(argv: list[str] | None = None) -> None:
                             course_code is None
                             and str(error).startswith("Course code is required.")
                         ):
-                            print(
+                            _print_red(
                                 "A course code is required for this table. "
                                 "Enter it now; do not press Enter."
                             )
@@ -558,7 +601,7 @@ def main(argv: list[str] | None = None) -> None:
                 "Unavailable sections excluded: "
                 + ", ".join(sorted(unavailable_sections))
             )
-        print(f"Pasted course credits: {pasted_course_credits}")
+        _print_green(f"Pasted course credits: {pasted_course_credits}")
         if unknown_aims_courses:
             missing_codes = ", ".join(unknown_aims_courses)
             print(
@@ -574,21 +617,24 @@ def main(argv: list[str] | None = None) -> None:
             )
         else:
             combined_credits = aims_credits + pasted_course_credits
-            print(f"AIMS timetable credits: {aims_credits}")
-            print(f"Combined total if added: {combined_credits}")
+            _print_green(f"AIMS timetable credits: {aims_credits}")
+            _print_green(
+                f"Combined total if added: {combined_credits}"
+            )
 
         if not candidates:
-            print(
+            _print_red(
                 "No complete scheduled bundle was generated. "
                 "Check the pasted table and section-family rules."
             )
         elif not fitting:
-            print(
+            _print_red(
                 "No complete bundle fits: each has an internal overlap, "
                 "overlaps the base timetable, lacks sufficient travel time, "
                 "or uses an avoided day."
             )
         else:
+            _print_green("Suggested bundles:")
             by_section = {
                 session.section: session
                 for session in table.scheduled_sessions
@@ -605,17 +651,16 @@ def main(argv: list[str] | None = None) -> None:
                     if preferred_count
                     else ""
                 )
-                print(
-                    f"\n{number}. {' + '.join(bundle)}"
-                    f"{preferred_label}"
+                print()
+                _print_green(
+                    f"{number}. {' + '.join(bundle)}{preferred_label}"
                 )
 
                 for section in bundle:
                     session = by_section[section]
-                    print(
+                    _print_green(
                         f"   CRN {session.crn}: {session.section} "
-                        f"{session.day} "
-                        f"{session.start_time}-{session.end_time}"
+                        f"{session.day} {session.start_time}-{session.end_time}"
                     )
 
         fitting_set = set(fitting)
@@ -626,10 +671,10 @@ def main(argv: list[str] | None = None) -> None:
         ]
 
         if rejected:
-            print("\nRejected bundles:")
+            _print_red("\nRejected bundles:")
 
             for number, bundle in enumerate(rejected, start=1):
-                print(f"\n{number}. {' + '.join(bundle)}")
+                _print_red(f"\n{number}. {' + '.join(bundle)}")
 
                 reasons = registration_bundle_conflicts(
                     table,
@@ -640,7 +685,7 @@ def main(argv: list[str] | None = None) -> None:
                 )
 
                 for reason in reasons:
-                    print(f"   - {reason}")
+                    _print_red(f"   - {reason}")
 
         print()
         print(

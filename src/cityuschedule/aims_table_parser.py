@@ -136,9 +136,7 @@ def parse_aims_table(
             )
         parsed_course_code = "".join(code_match.groups()).upper()
     else:
-        raise ValueError(
-            "Course code is required. Enter a code such as GE2130."
-        )
+        parsed_course_code = None
 
     section_pattern = re.compile(r"[A-Z]{1,2}\d+")
     time_pattern = re.compile(
@@ -149,13 +147,17 @@ def parse_aims_table(
     if any("\t" in line for line in lines):
         sessions = _parse_tabular_sessions(
             lines,
-            parsed_course_code,
+            parsed_course_code or "",
             section_pattern,
             time_pattern,
         )
         if not sessions:
             raise ValueError(
                 "No section records were found in the copied AIMS table."
+            )
+        if parsed_course_code is None:
+            raise ValueError(
+                "Course code is required. Enter a code such as GE2130."
             )
         return ParsedAimsTable(
             course_code=parsed_course_code,
@@ -173,6 +175,11 @@ def parse_aims_table(
 
     if not section_indices:
         raise ValueError("No section records were found in the pasted table.")
+
+    if parsed_course_code is None:
+        raise ValueError(
+            "Course code is required. Enter a code such as GE2130."
+        )
 
     sessions: list[AimsSession] = []
 

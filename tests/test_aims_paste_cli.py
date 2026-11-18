@@ -1,7 +1,48 @@
+from io import StringIO
 import sys
 
 from cityuschedule import cli
 from cityuschedule.course_catalog import CatalogCourse
+
+
+def test_colored_output_uses_terminal_colors(monkeypatch):
+    class TerminalOutput(StringIO):
+        def isatty(self):
+            return True
+
+    output = TerminalOutput()
+    monkeypatch.setattr(cli.sys, "stdout", output)
+    monkeypatch.delenv("NO_COLOR", raising=False)
+
+    cli._print_green("Combined total if added: 20")
+    cli._print_red("Rejected bundles:")
+
+    assert output.getvalue().splitlines() == [
+        "\033[32mCombined total if added: 20\033[0m",
+        "\033[31mRejected bundles:\033[0m",
+    ]
+
+
+def test_argument_errors_are_red_in_terminal(monkeypatch):
+    class TerminalOutput(StringIO):
+        def isatty(self):
+            return True
+
+    error_output = TerminalOutput()
+    monkeypatch.setattr(cli.sys, "stderr", error_output)
+    parser = cli._CityUScheduleArgumentParser(prog="cityuschedule")
+
+    try:
+        parser.error("AIMS HTML file not found")
+    except SystemExit as error:
+        assert error.code == 2
+    else:
+        raise AssertionError("Expected parser.error to exit")
+
+    assert (
+        "\033[31mcityuschedule: error: AIMS HTML file not found\033[0m"
+        in error_output.getvalue()
+    )
 
 
 PASTED_TABLE = """TEST1001
@@ -96,6 +137,7 @@ def test_paste_cli_reports_fitting_bundle(monkeypatch, capsys):
     assert "Course: TEST1001" in output
     assert "Candidate complete bundles: 1" in output
     assert "Bundles fitting weekly timetable: 1" in output
+    assert "Suggested bundles:" in output
     assert "1. C01 + T01" in output
 
 
@@ -133,6 +175,36 @@ def test_paste_cli_reprompts_for_missing_course_code(monkeypatch, capsys):
     output = capsys.readouterr().out
     assert output.count("If the copied table did not include the course heading") == 2
     assert "A course code is required for this table." in output
+    assert "Course: TEST1001" in output
+
+
+def test_paste_cli_reprompts_after_wrong_table(monkeypatch, capsys):
+    prepare_cli(monkeypatch, [], pasted_table="")
+    wrong_table = (
+        "Pre-requisites/precursors\n"
+        "Nil\n"
+        "Exclusive Course"
+    )
+    inputs = iter(
+        [
+            *wrong_table.splitlines(),
+            "END",
+            *PASTED_TABLE.splitlines(),
+            "END",
+            "",
+            "",
+        ]
+    )
+    monkeypatch.setattr("builtins.input", lambda: next(inputs))
+
+    cli.main()
+
+    output = capsys.readouterr().out
+    assert output.count("Paste ONE course's complete AIMS offering table.") == 2
+    assert (
+        "That doesn't look like a complete AIMS course offering table."
+        in output
+    )
     assert "Course: TEST1001" in output
 
 

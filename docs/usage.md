@@ -197,6 +197,11 @@ by spaces or commas, or press Enter for none:
 If you press Enter before entering any table data, the paste prompt appears
 again. If the table has no course heading and you leave the course-code prompt
 blank, the package asks for the code again.
+If the pasted text is not a complete course offering table, the package tells
+you what table is needed and reopens the paste prompt before asking for a code.
+In an interactive terminal, errors and rejected bundles are red, while
+suggested bundles and complete credit totals are green. Colors are suppressed
+when output is redirected or `NO_COLOR` is set.
 
 ```bash
 cityuschedule --aims-html aims_schedule.html --paste-aims \
