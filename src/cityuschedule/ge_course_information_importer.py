@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import tempfile
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -18,22 +19,22 @@ DATA_PATH = (
 
 COURSE_CODE_PATTERN = re.compile(r"GE\d{4}[A-Z]?")
 
-FIELDS = {
-    "crn": "CRN",
-    "section": "Section",
-    "term": "Term",
-    "type": "Type",
-    "capacity": "Capacity",
-    "day": "Day",
-    "time": "Time",
-    "building": "Building",
-    "room": "Room",
-    "instructor": "Instructor",
-}
+COLUMNS = (
+    "crn",
+    "section",
+    "term",
+    "type",
+    "capacity",
+    "day",
+    "time",
+    "building",
+    "room",
+    "instructor",
+)
 
 
 def normalize_course_code(course_code: str) -> str:
-    """Validate and normalize a user-supplied GE course code."""
+    """Validate and normalize a GE course code."""
     course_code = course_code.strip().upper()
 
     if not COURSE_CODE_PATTERN.fullmatch(course_code):
@@ -50,123 +51,118 @@ def parse_ge_course_information_html(
     *,
     course_code: str | None = None,
 ) -> list[dict]:
-    """Extract section records from an HTML document."""
-    soup = BeautifulSoup(html, "html.parser")
-    record = {
-    "crn": values["crn"],
-    "section": values["section"],
-    "term": values["term"],
-    "capacity": (
-        int(capacity)
-        if capacity.isdigit()
-        else capacity
-    ),
-    "day": values["day"],
-    "time": values["time"],
-    "type": values["type"],
-    "building": values["building"],
-    "room": values["room"],
-    "instructor": (
-        ", ".join(instructors)
-        if instructors
-        else values["instructor"]
-    ),
-}
+    """
+    Extract section meeting rows using exactly ten lowercase keys.
 
-records.append(record)
+    course_code is accepted for compatibility with existing callers.
+    It is deliberately not included in the output.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    records = []
     found_table = False
 
-    for table in soup.find_all("table"):
-        header_row = None
-        indexes = {}
-
-        for row in table.find_all("tr"):
-            cells = row.find_all(["th", "td"], recursive=False)
-            labels = [
-                " ".join(
-                    cell.get_text(" ", strip=True).split()
-                ).casefold()
-                for cell in cells
-            ]
-
-            if all(field in labels for field in FIELDS):
-                header_row = row
-                indexes = {
-                    field: labels.index(field)
-                    for field in FIELDS
-                }
-                break
+    for table in soup.select("table.ax-mobile-table"):
+        header_row = table.select_one("thead tr")
 
         if header_row is None:
             continue
 
+        headers = [
+            " ".join(cell.get_text(" ", strip=True).split()).casefold()
+            for cell in header_row.find_all(
+                ["th", "td"],
+                recursive=False,
+            )
+        ]
+
+        if not all(column in headers for column in COLUMNS):
+            continue
+
         found_table = True
-        passed_header = False
+        indexes = {
+            column: headers.index(column)
+            for column in COLUMNS
+        }
 
-        for row in table.find_all("tr"):
-            if row is header_row:
-                passed_header = True
-                continue
-
-            if not passed_header:
-                continue
-
+        for row in table.select("tbody > tr"):
             cells = row.find_all("td", recursive=False)
 
-            if len(cells) <= max(indexes.values()):
+            if not cells:
                 continue
 
-            record = {
-                output_name: " ".join(
-                    cells[indexes[field]]
+            if len(cells) <= max(indexes.values()):
+                if len(cells) == 1 and cells[0].has_attr("colspan"):
+                    continue
+
+                raise ValueError(
+                    "A Course Section row has an unexpected "
+                    f"number of columns: {len(cells)}."
+                )
+
+            values = {
+                column: " ".join(
+                    cells[indexes[column]]
                     .get_text(" ", strip=True)
                     .split()
                 )
-                for field, output_name in FIELDS.items()
+                for column in COLUMNS
             }
 
-            if not record["CRN"].isdigit():
+            if not values["crn"]:
                 continue
 
-            capacity = record["Capacity"]
-            if capacity.isdigit():
-                record["Capacity"] = int(capacity)
+            if not values["crn"].isdigit():
+                raise ValueError(
+                    f"Unrecognized CRN: {values['crn']!r}."
+                )
+
+            capacity = values["capacity"]
 
             instructor_cell = cells[indexes["instructor"]]
             instructors = [
-                item.get_text(" ", strip=True)
+                " ".join(item.get_text(" ", strip=True).split())
                 for item in instructor_cell.find_all("li")
                 if item.get_text(" ", strip=True)
             ]
 
-            if instructors:
-                record["Instructor"] = ", ".join(instructors)
-
-            records.append(record)
+            records.append(
+                {
+                    "crn": values["crn"],
+                    "section": values["section"],
+                    "term": values["term"],
+                    "capacity": (
+                        int(capacity)
+                        if capacity.isdigit()
+                        else capacity
+                    ),
+                    "day": values["day"],
+                    "time": values["time"],
+                    "type": values["type"],
+                    "building": values["building"],
+                    "room": values["room"],
+                    "instructor": (
+                        ", ".join(instructors)
+                        if instructors
+                        else values["instructor"]
+                    ),
+                }
+            )
 
     if not found_table:
         raise ValueError(
             "No recognizable Course Section table found. "
-            "The page may have no published sections, require "
-            "JavaScript, or use a different HTML structure."
+            "The page may have no published section table, "
+            "require JavaScript, or use a different structure."
         )
 
-    # Remove duplicate rows, including duplicated display tables.
+    # Preserve different meeting days/times for the same CRN.
     unique_records = {}
+
     for record in records:
-        key = tuple(
-            record.get(field)
-            for field in (
-                "course_code",
-                "CRN",
-                "Section",
-                "Term",
-                "Day",
-                "Time",
-                "Building",
-                "Room",
-                "Instructor",
-            )
+        key = json.dumps(
+            record,
+            sort_keys=True,
+            ensure_ascii=False,
         )
         unique_records[key] = record
 
@@ -177,18 +173,8 @@ def parse_ge_course_information(
     html_path: str | Path,
 ) -> list[dict]:
     """Read section information from a saved HTML file."""
-    html_path = Path(html_path)
-    filename_code = html_path.stem.strip().upper()
-
-    course_code = (
-        filename_code
-        if COURSE_CODE_PATTERN.fullmatch(filename_code)
-        else None
-    )
-
     return parse_ge_course_information_html(
-        html_path.read_bytes(),
-        course_code=course_code,
+        Path(html_path).read_bytes()
     )
 
 
@@ -197,8 +183,12 @@ def fetch_ge_course_information(
     *,
     timeout: float = 30,
 ) -> list[dict]:
-    """Download and parse one course page."""
+    """Download one course page and return its section records."""
     course_code = normalize_course_code(course_code)
+
+    if timeout <= 0:
+        raise ValueError("timeout must be greater than zero.")
+
     url = f"https://www.cityu.edu.hk/ge_info/Course/{course_code}"
 
     request = Request(
@@ -218,56 +208,58 @@ def fetch_ge_course_information(
         ) from exc
     except (URLError, TimeoutError) as exc:
         raise RuntimeError(
-            f"{course_code}: could not download the course page: {exc}"
+            f"{course_code}: could not download the page: {exc}"
         ) from exc
 
-    records = parse_ge_course_information_html(
-        html,
-        course_code=course_code,
-    )
+    try:
+        records = parse_ge_course_information_html(
+            html,
+            course_code=course_code,
+        )
+    except ValueError as exc:
+        raise ValueError(f"{course_code}: {exc}") from exc
 
     if not records:
         raise ValueError(
             f"{course_code}: no section rows were extracted. "
-            "Existing stored records will not be removed."
+            "Output file left unchanged."
         )
 
     return records
 
 
-def _write_records(records: list[dict], output_path: str | Path) -> None:
-    """Write JSON through a temporary file before replacing the target."""
+def _write_records(
+    records: list[dict],
+    output_path: str | Path,
+) -> None:
+    """Write through a unique temporary file before replacing the output."""
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    temporary_path = output_path.with_name(output_path.name + ".tmp")
+    temporary_path = None
 
     try:
-        temporary_path.write_text(
-            json.dumps(records, ensure_ascii=False, indent=2),
+        with tempfile.NamedTemporaryFile(
+            mode="w",
             encoding="utf-8",
-        )
+            dir=output_path.parent,
+            prefix=f".{output_path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as file:
+            temporary_path = Path(file.name)
+            json.dump(
+                records,
+                file,
+                ensure_ascii=False,
+                indent=2,
+            )
+            file.write("\n")
+
         temporary_path.replace(output_path)
+
     finally:
-        temporary_path.unlink(missing_ok=True)
-
-
-def _load_existing_records(output_path: str | Path) -> list[dict]:
-    """Read existing data without silently ignoring invalid JSON."""
-    output_path = Path(output_path)
-
-    if not output_path.exists():
-        return []
-
-    records = json.loads(output_path.read_text(encoding="utf-8"))
-
-    if not isinstance(records, list) or not all(
-        isinstance(record, dict) for record in records
-    ):
-        raise ValueError(
-            f"{output_path} must contain a list of dictionaries."
-        )
-
-    return records
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
 
 
 def update_ge_course_information_from_web(
@@ -277,11 +269,13 @@ def update_ge_course_information_from_web(
     timeout: float = 30,
 ) -> list[dict]:
     """
-    Fetch the requested courses and save a list of section dictionaries.
+    Fetch requested courses and replace the output with their records.
 
-    Replaces the output file only after every requested course
-    has been fetched and parsed successfully.
+    No output is written unless every requested course succeeds.
     """
+    if timeout <= 0:
+        raise ValueError("timeout must be greater than zero.")
+
     codes = list(
         dict.fromkeys(
             normalize_course_code(code)
@@ -303,14 +297,18 @@ def update_ge_course_information_from_web(
         )
 
     _write_records(records, output_path)
-
     return records
+
 
 def update_ge_course_information(
     html_directory: str | Path,
     output_path: str | Path = DATA_PATH,
 ) -> int:
-    """Preserve local-directory import, replacing the output dataset."""
+    """
+    Import a directory of saved course pages.
+
+    No output is written if an eligible file fails or no rows are found.
+    """
     html_directory = Path(html_directory)
 
     if not html_directory.is_dir():
@@ -328,46 +326,53 @@ def update_ge_course_information(
     if not html_files:
         raise ValueError("No eligible HTML files found.")
 
-    all_records = []
+    records = []
 
     for html_file in html_files:
         try:
-            all_records.extend(
-                parse_ge_course_information(html_file)
+            file_records = parse_ge_course_information(html_file)
+        except ValueError as exc:
+            raise ValueError(f"{html_file}: {exc}") from exc
+
+        if not file_records:
+            raise ValueError(
+                f"{html_file}: no section rows extracted. "
+                "Output file left unchanged."
             )
-        except (OSError, ValueError) as exc:
-            print(f"Skipping {html_file.name}: {exc}")
 
-    if not all_records:
-        raise ValueError(
-            "No section records extracted. Output file left unchanged."
-        )
+        records.extend(file_records)
 
-    _write_records(all_records, output_path)
-    print(f"Exported {len(all_records)} records to {output_path}")
-
-    return len(all_records)
+    _write_records(records, output_path)
+    return len(records)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Import CityU GE course-section information."
+        description=(
+            "Fetch CityU GE section information or import saved HTML. "
+            "Successful imports replace the output JSON file."
+        )
     )
+
     parser.add_argument(
         "course_codes",
         nargs="*",
         help="Course codes such as GE1101 GE1102",
     )
+
     parser.add_argument(
         "--html-directory",
-        help="Import saved HTML files instead of downloading webpages",
+        type=Path,
+        help="Import saved HTML files instead of downloading pages",
     )
+
     parser.add_argument(
         "--output",
         type=Path,
         default=DATA_PATH,
         help="Output JSON file",
     )
+
     parser.add_argument(
         "--timeout",
         type=float,
@@ -380,48 +385,49 @@ def main() -> None:
     if args.timeout <= 0:
         parser.error("--timeout must be greater than zero.")
 
-    if args.html_directory and args.course_codes:
+    if args.html_directory is not None and args.course_codes:
         parser.error(
             "Use course codes or --html-directory, not both."
         )
 
     try:
-        if args.html_directory:
-            update_ge_course_information(
+        if args.html_directory is not None:
+            count = update_ge_course_information(
                 args.html_directory,
-                args.output,
+                output_path=args.output,
             )
-            return
+        else:
+            course_codes = args.course_codes
 
-        course_codes = args.course_codes
+            if not course_codes:
+                try:
+                    entered = input(
+                        "Enter GE course codes separated by spaces "
+                        "or commas: "
+                    )
+                except EOFError:
+                    parser.error(
+                        "No interactive input available. "
+                        "Pass course codes as command-line arguments."
+                    )
 
-        if not course_codes:
-            entered = input(
-                "Enter GE course codes, separated by spaces or commas: "
+                course_codes = entered.replace(",", " ").split()
+
+            records = update_ge_course_information_from_web(
+                course_codes,
+                output_path=args.output,
+                timeout=args.timeout,
             )
-            course_codes = entered.replace(",", " ").split()
 
-        summary = update_ge_course_information_from_web(
-            course_codes,
-            output_path=args.output,
-            timeout=args.timeout,
-        )
-
-        print(
-            f"\nUpdated {len(summary['updated_courses'])} course(s); "
-            f"failed {len(summary['failed_courses'])} course(s).\n"
-            f"Imported {summary['imported_records']} section record(s).\n"
-            f"Stored records: {summary['total_records']}."
-        )
-
-        if summary["updated_courses"]:
-            print(f"Saved to: {summary['output_path']}")
-
-        if summary["failed_courses"]:
-            raise SystemExit(1)
+            count = len(records)
 
     except (OSError, ValueError, RuntimeError) as exc:
         parser.error(str(exc))
+
+    print(
+        f"Saved {count} section record(s) "
+        f"to {args.output.resolve()}"
+    )
 
 
 if __name__ == "__main__":
