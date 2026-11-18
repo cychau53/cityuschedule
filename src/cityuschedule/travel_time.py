@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 from pathlib import Path
-from gaps import find_gaps
+from cityuschedule.gaps import find_gaps
 
 
 def time(sessions: list[dict[str, str]], time_file=None) -> None:
