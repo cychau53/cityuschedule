@@ -379,10 +379,12 @@ def test_paste_cli_colors_avoided_bundle_and_days(monkeypatch):
 )
 def test_paste_cli_warns_about_credit_limits_without_hiding_bundles(
     monkeypatch,
-    capsys,
     limit_args,
     warning,
 ):
+    output = TerminalOutput()
+    monkeypatch.setattr(cli.sys, "stdout", output)
+    monkeypatch.delenv("NO_COLOR", raising=False)
     base_rows = [
         {
             "course_code": "GE1401",
@@ -398,9 +400,14 @@ def test_paste_cli_warns_about_credit_limits_without_hiding_bundles(
 
     cli.main()
 
-    output = capsys.readouterr().out
-    assert warning in output
-    assert "Suggested bundles:" in output
+    text = output.getvalue()
+    assert (
+        "\033[34mPasted course credits: 3\033[0m\n"
+        "\033[34mAIMS timetable credits: 3\033[0m\n"
+        "\033[34mCombined total if added: 6\033[0m\n"
+        f"\033[31m{warning}\033[0m"
+    ) in text
+    assert "Suggested bundles:" in text
 
 
 def test_paste_cli_excludes_user_unavailable_sections(monkeypatch, capsys):
@@ -486,7 +493,8 @@ def test_paste_cli_reports_combined_credits(monkeypatch, capsys):
     assert "AIMS timetable credits: 12" in output
     assert "Combined total if added: 15" in output
     assert (
-        "AIMS timetable credits: 12\n\n"
+        "Pasted course credits: 3\n"
+        "AIMS timetable credits: 12\n"
         "Combined total if added: 15"
     ) in output
     assert (
@@ -557,6 +565,6 @@ def test_paste_cli_reports_missing_base_course_credits(
     assert "Combined total if added: incomplete" in output
     assert (
         "AIMS timetable credits: incomplete "
-        "(known subtotal 0; missing: BASE1001)\n\n"
+        "(known subtotal 0; missing: BASE1001)\n"
         "Combined total if added: incomplete"
     ) in output

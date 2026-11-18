@@ -914,7 +914,6 @@ def main(argv: list[str] | None = None) -> None:
                 f"(known subtotal {aims_credits}; missing: "
                 f"{missing_codes})"
             )
-            print()
             print(
                 "Combined total if added: incomplete "
                 f"(known subtotal "
@@ -925,14 +924,13 @@ def main(argv: list[str] | None = None) -> None:
                 args.min_credits is not None
                 or args.max_credits is not None
             ):
-                _print_yellow(
+                _print_red(
                     "Warning: credit limits could not be checked because "
                     "some AIMS course credits are missing."
                 )
         else:
             combined_credits = aims_credits + pasted_course_credits
             _print_blue(f"AIMS timetable credits: {aims_credits}")
-            print()
             _print_blue(
                 f"Combined total if added: {combined_credits}"
             )
@@ -940,7 +938,7 @@ def main(argv: list[str] | None = None) -> None:
                 args.min_credits is not None
                 and combined_credits < args.min_credits
             ):
-                _print_yellow(
+                _print_red(
                     f"Warning: combined credits ({combined_credits}) are "
                     f"below the minimum ({args.min_credits})."
                 )
@@ -948,7 +946,7 @@ def main(argv: list[str] | None = None) -> None:
                 args.max_credits is not None
                 and combined_credits > args.max_credits
             ):
-                _print_yellow(
+                _print_red(
                     f"Warning: combined credits ({combined_credits}) exceed "
                     f"the maximum ({args.max_credits})."
                 )

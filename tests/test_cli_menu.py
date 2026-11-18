@@ -54,6 +54,7 @@ def test_menu_and_choice_prompt_are_yellow(monkeypatch):
 def test_menu_dispatches_paste_aims_command(monkeypatch, capsys, tmp_path):
     inputs = iter(["4", r"C:\Schedules\current AIMS.html", "0"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+    monkeypatch.setattr(cli, "_load_basic_settings", lambda: cli.BasicSettings())
     commands = []
     monkeypatch.setattr(cli, "main", lambda argv=None: commands.append(argv))
     monkeypatch.setattr(
@@ -79,6 +80,7 @@ def test_menu_saves_aims_path_and_reuses_it(monkeypatch, tmp_path):
     saved_path = r"C:\Schedules\current AIMS.html"
     inputs = iter(["3", f'"{saved_path}"', "0", "4", "0"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+    monkeypatch.setattr(cli, "_load_basic_settings", lambda: cli.BasicSettings())
     monkeypatch.setattr(
         cli,
         "_aims_path_config_file",
@@ -130,6 +132,7 @@ def test_menu_returns_after_task_error(monkeypatch, tmp_path, capsys):
 def test_menu_exits_when_task_requests_exit(monkeypatch):
     inputs = iter(["4", r"C:\Schedules\current AIMS.html"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+    monkeypatch.setattr(cli, "_load_basic_settings", lambda: cli.BasicSettings())
     monkeypatch.setattr(
         cli,
         "_load_saved_aims_path",
