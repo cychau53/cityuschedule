@@ -34,3 +34,9 @@ Issues = "https://github.com/cychau53/cityuschedule/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/cityuschedule"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"data/travel_time.json" = "cityuschedule/data/travel_time.json"
+"data/catalogue/cs_course_requirements.json" = "cityuschedule/data/catalogue/cs_course_requirements.json"
+"data/catalogue/ge_course_requirements.json" = "cityuschedule/data/catalogue/ge_course_requirements.json"
+"data/catalogue/other_course_requirements.json" = "cityuschedule/data/catalogue/other_course_requirements.json"

@@ -35,6 +35,20 @@ class ParsedAimsTable:
     def scheduled_sessions(self) -> tuple[AimsSession, ...]:
         return tuple(session for session in self.sessions if session.is_scheduled)
 
+    @property
+    def course_credit(self) -> int:
+        credits = {
+            session.credit
+            for session in self.scheduled_sessions
+            if session.credit > 0
+        }
+        if len(credits) != 1:
+            raise ValueError(
+                "Could not determine a single course-credit value. "
+                f"Found: {sorted(credits)}"
+            )
+        return credits.pop()
+
     @staticmethod
     def _group_key(section: str) -> str:
         """Group by letters after the activity prefix, ignoring digits."""

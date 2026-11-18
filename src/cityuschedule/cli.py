@@ -8,8 +8,13 @@ from .gaps import find_gaps, format_gaps
 from .timetable import format_timetable
 from .aims import load_aims_html
 
-from .course_catalog import load_course_catalog
-from .planner import generate_plans, generate_aims_ge_plans, export_plan_ics
+from .course_catalog import load_course_catalog, load_credit_catalogs
+from .planner import (
+    calculate_course_credits,
+    generate_plans,
+    generate_aims_ge_plans,
+    export_plan_ics,
+)
 
 from .ge_courses import get_ge_course_info, search_ge_courses
 from .ge_importer import update_ge_courses_from_html
@@ -203,7 +208,6 @@ def main() -> None:
 
         if (
             args.timetable_catalog
-            or args.credit_catalog
             or args.add_ge
             or args.ge_bundles
             or args.export
@@ -213,13 +217,14 @@ def main() -> None:
             or args.ge_search
         ):
             parser.error(
-                "Run --paste-aims separately from catalogue planning, "
+                "Run --paste-aims separately from timetable catalogue planning, "
                 "GE lookup/import, and export."
             )
 
         try:
             base_rows = load_aims_html(args.aims_html)
             base_sessions = convert_aims_sessions(base_rows)
+            credit_courses = load_credit_catalogs(args.credit_catalog)
 
             print("Paste ONE course's complete AIMS offering table.")
             print("Include its course code as the first line.")
@@ -242,12 +247,49 @@ def main() -> None:
                 lines.append(line)
 
             table = parse_aims_table("\n".join(lines))
+            print(
+                "Enter unavailable section codes separated by spaces or "
+                "commas, or press Enter for none:"
+            )
+            try:
+                unavailable_sections = list({
+                    section.upper()
+                    for section in input().replace(",", " ").split()
+                })
+            except EOFError:
+                raise ValueError(
+                    "Input ended before unavailable sections were "
+                    "confirmed. Press Enter to continue without exclusions."
+                ) from None
+
+            known_sections = {
+                session.section.upper()
+                for session in table.sessions
+            }
+            unknown_sections = (
+                set(unavailable_sections) - known_sections
+            )
+            if unknown_sections:
+                raise ValueError(
+                    "Unknown section code(s): "
+                    + ", ".join(sorted(unknown_sections))
+                )
+
+            pasted_course_credits = table.course_credit
+            aims_credits, unknown_aims_courses = calculate_course_credits(
+                {
+                    row["course_code"]
+                    for row in base_rows
+                },
+                credit_courses,
+            )
             candidates = table.registration_bundles()
             fitting = fitting_registration_bundles(
                 table,
                 base_sessions,
                 preferred_days=args.prefer_days,
                 avoid_days=args.avoid_days,
+                unavailable_sections=unavailable_sections,
             )
 
         except (OSError, ValueError) as error:
@@ -263,6 +305,29 @@ def main() -> None:
         )
         print(f"Candidate complete bundles: {len(candidates)}")
         print(f"Bundles fitting weekly timetable: {len(fitting)}")
+        if unavailable_sections:
+            print(
+                "Unavailable sections excluded: "
+                + ", ".join(sorted(unavailable_sections))
+            )
+        print(f"Pasted course credits: {pasted_course_credits}")
+        if unknown_aims_courses:
+            missing_codes = ", ".join(unknown_aims_courses)
+            print(
+                "AIMS timetable credits: incomplete "
+                f"(known subtotal {aims_credits}; missing: "
+                f"{missing_codes})"
+            )
+            print(
+                "Combined total if added: incomplete "
+                f"(known subtotal "
+                f"{aims_credits + pasted_course_credits}; "
+                f"missing: {missing_codes})"
+            )
+        else:
+            combined_credits = aims_credits + pasted_course_credits
+            print(f"AIMS timetable credits: {aims_credits}")
+            print(f"Combined total if added: {combined_credits}")
 
         if not candidates:
             print(
@@ -323,6 +388,7 @@ def main() -> None:
                     bundle,
                     base_sessions,
                     avoid_days=args.avoid_days,
+                    unavailable_sections=unavailable_sections,
                 )
 
                 for reason in reasons:

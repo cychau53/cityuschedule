@@ -133,22 +133,28 @@ def calculate_aims_credits(
     aims_html: str,
     courses: list[CatalogCourse],
 ) -> tuple[int, list[str]]:
-    course_credits = {
-        course.code.upper(): course.credits
-        for course in courses
-    }
-
     aims_sessions = load_aims_html(aims_html)
-
     aims_course_codes = {
         session["course_code"].upper()
         for session in aims_sessions
     }
 
+    return calculate_course_credits(aims_course_codes, courses)
+
+
+def calculate_course_credits(
+    course_codes: set[str],
+    courses: list[CatalogCourse],
+) -> tuple[int, list[str]]:
+    course_credits = {
+        course.code.upper(): course.credits
+        for course in courses
+    }
+
     total_credits = 0
     unknown_courses = []
 
-    for course_code in sorted(aims_course_codes):
+    for course_code in sorted({code.upper() for code in course_codes}):
         credits = course_credits.get(course_code)
 
         if credits is None:

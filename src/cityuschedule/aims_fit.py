@@ -74,6 +74,7 @@ def fitting_registration_bundles(
     base_sessions: tuple[AimsSession, ...],
     preferred_days: list[str] | None = None,
     avoid_days: list[str] | None = None,
+    unavailable_sections: list[str] | None = None,
 ) -> list[tuple[str, ...]]:
     """Keep complete bundles that fit the base timetable and allow transfers."""
     sessions_by_section = {
@@ -87,6 +88,9 @@ def fitting_registration_bundles(
     avoided_days = {
         day.capitalize() for day in (avoid_days or [])
     }
+    unavailable_sections_set = {
+        section.upper() for section in (unavailable_sections or [])
+    }
     fitting: list[tuple[tuple[str, ...], int]] = []
 
     for bundle in table.registration_bundles():
@@ -94,6 +98,10 @@ def fitting_registration_bundles(
             sessions_by_section[section]
             for section in bundle
         ]
+        if {
+            session.section.upper() for session in selected
+        } & unavailable_sections_set:
+            continue
         bundle_days = _session_days(selected)
 
         if bundle_days & avoided_days:
@@ -204,6 +212,7 @@ def registration_bundle_conflicts(
     bundle: tuple[str, ...],
     base_sessions: tuple[AimsSession, ...],
     avoid_days: list[str] | None = None,
+    unavailable_sections: list[str] | None = None,
 ) -> list[str]:
     """Explain timetable, day-preference, and travel rejection reasons."""
     by_section = {
@@ -213,6 +222,20 @@ def registration_bundle_conflicts(
     selected = [by_section[section] for section in bundle]
     reasons: list[str] = []
     bundle_days = _session_days(selected)
+    unavailable = {
+        section.upper() for section in (unavailable_sections or [])
+    }
+    excluded_sections = sorted(
+        session.section
+        for session in selected
+        if session.section.upper() in unavailable
+    )
+    if excluded_sections:
+        reasons.append(
+            "Unavailable section(s): "
+            + ", ".join(excluded_sections)
+        )
+
     avoided_days = bundle_days & {
         day.capitalize() for day in (avoid_days or [])
     }

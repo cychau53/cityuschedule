@@ -1,6 +1,7 @@
 import sys
 
 from cityuschedule import cli
+from cityuschedule.course_catalog import CatalogCourse
 
 
 PASTED_TABLE = """TEST1001
@@ -39,7 +40,12 @@ English
 """
 
 
-def prepare_cli(monkeypatch, base_rows, extra_args=None):
+def prepare_cli(
+    monkeypatch,
+    base_rows,
+    extra_args=None,
+    unavailable_sections="",
+):
     monkeypatch.setattr(
         sys,
         "argv",
@@ -57,7 +63,9 @@ def prepare_cli(monkeypatch, base_rows, extra_args=None):
         lambda path: base_rows,
     )
 
-    lines = iter(PASTED_TABLE.splitlines() + ["END"])
+    lines = iter(
+        PASTED_TABLE.splitlines() + ["END", unavailable_sections]
+    )
     monkeypatch.setattr(
         "builtins.input",
         lambda: next(lines),
@@ -159,3 +167,125 @@ def test_paste_cli_rejects_avoided_days(monkeypatch, capsys):
     output = capsys.readouterr().out
     assert "Bundles fitting weekly timetable: 0" in output
     assert "Uses avoided day(s): Wed" in output
+
+
+def test_paste_cli_excludes_user_unavailable_sections(monkeypatch, capsys):
+    prepare_cli(monkeypatch, [], unavailable_sections="T01")
+
+    cli.main()
+
+    output = capsys.readouterr().out
+    assert "Unavailable sections excluded: T01" in output
+    assert "Bundles fitting weekly timetable: 0" in output
+    assert "Unavailable section(s): T01" in output
+
+
+def test_paste_cli_rejects_unknown_unavailable_sections(monkeypatch):
+    prepare_cli(monkeypatch, [], unavailable_sections="T99")
+
+    try:
+        cli.main()
+    except SystemExit as error:
+        assert error.code == 2
+    else:
+        raise AssertionError("Expected unknown section validation to fail")
+
+
+def test_paste_cli_reports_combined_credits(monkeypatch, capsys):
+    base_rows = [
+        {
+            "course_code": "BASE1001",
+            "crn": "20001",
+            "section": "C01",
+            "day": "Mon",
+            "start_time": "09:00",
+            "end_time": "10:50",
+            "building": "BOC",
+        },
+    ]
+    prepare_cli(
+        monkeypatch,
+        base_rows,
+        ["--credit-catalog", "credits.json"],
+    )
+    monkeypatch.setattr(
+        cli,
+        "load_credit_catalogs",
+        lambda paths: [
+            CatalogCourse(
+                code="BASE1001",
+                title="Base course",
+                credits=12,
+                sections=(),
+            )
+        ],
+    )
+
+    cli.main()
+
+    output = capsys.readouterr().out
+    assert "Pasted course credits: 3" in output
+    assert "AIMS timetable credits: 12" in output
+    assert "Combined total if added: 15" in output
+
+
+def test_paste_cli_uses_builtin_cs_ge_and_other_credit_catalogs(
+    monkeypatch,
+    capsys,
+):
+    base_rows = [
+        {
+            "course_code": course_code,
+            "crn": str(index),
+            "section": "C01",
+            "day": day,
+            "start_time": "09:00",
+            "end_time": "10:00",
+            "building": "BOC",
+        }
+        for index, (course_code, day) in enumerate(
+            [
+                ("CS1102", "Mon"),
+                ("GE1401", "Tue"),
+                ("MA1200", "Thu"),
+            ],
+            start=1,
+        )
+    ]
+    prepare_cli(monkeypatch, base_rows)
+
+    cli.main()
+
+    output = capsys.readouterr().out
+    assert "AIMS timetable credits: 9" in output
+    assert "Combined total if added: 12" in output
+
+
+def test_paste_cli_reports_missing_base_course_credits(
+    monkeypatch,
+    capsys,
+):
+    base_rows = [
+        {
+            "course_code": "BASE1001",
+            "crn": "20001",
+            "section": "C01",
+            "day": "Mon",
+            "start_time": "09:00",
+            "end_time": "10:50",
+            "building": "BOC",
+        },
+    ]
+    prepare_cli(
+        monkeypatch,
+        base_rows,
+        ["--credit-catalog", "credits.json"],
+    )
+    monkeypatch.setattr(cli, "load_credit_catalogs", lambda paths: [])
+
+    cli.main()
+
+    output = capsys.readouterr().out
+    assert "AIMS timetable credits: incomplete" in output
+    assert "missing: BASE1001" in output
+    assert "Combined total if added: incomplete" in output

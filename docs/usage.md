@@ -172,3 +172,47 @@ row.
 
 If a class time is invalid, ensure that `end\_time` is later than `start\_time`.
 
+\## AIMS course paste and credit totals
+
+The weekly AIMS timetable contains course codes but not credit values. The
+package looks them up in its built-in CS, GE, and other-course credit
+catalogues. If a course is not covered by those catalogues, provide an
+additional credit catalogue:
+
+```json
+[
+  {
+    "course_code": "BASE1001",
+    "title": "Base course",
+    "credits": 12,
+    "sections": []
+  }
+]
+```
+
+Then paste one course's complete AIMS offering table and finish with `END`.
+At the next prompt, enter any section codes you cannot register for, separated
+by spaces or commas, or press Enter for none:
+
+```bash
+cityuschedule --aims-html aims_schedule.html --paste-aims \
+  --prefer-days Mon Tue --avoid-days Fri
+```
+
+For example, enter `T35 T90` at the unavailable-sections prompt to exclude
+those sections from all candidate bundles.
+
+The pasted offering's section-credit values provide the candidate course's
+credits. The built-in catalogues supply credits for courses already in the
+AIMS HTML. `--credit-catalog credits.json` can supplement those catalogues.
+For example:
+
+```text
+Pasted course credits: 3
+AIMS timetable credits: 12
+Combined total if added: 15
+```
+
+If a course is missing from all catalogues, the output reports an incomplete
+total and lists the missing course code(s).
+

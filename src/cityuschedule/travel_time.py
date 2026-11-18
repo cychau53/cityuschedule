@@ -18,6 +18,12 @@ def time(sessions: list[dict[str, str]], time_file=None) -> None:
             / "travel_time.json"
         )
     )
+    if time_file is None and not path.is_file():
+        path = (
+            Path(__file__).resolve().parent
+            / "data"
+            / "travel_time.json"
+        )
 
     with path.open(encoding="utf-8") as f:
         travel_times = json.load(f)
