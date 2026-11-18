@@ -19,6 +19,37 @@ def test_running_without_arguments_opens_menu_and_searches_ge(
     assert "No Gateway Education courses found for 'environment'." in output
 
 
+def test_menu_and_choice_prompt_are_yellow(monkeypatch):
+    class TerminalOutput:
+        def __init__(self):
+            self.text = ""
+
+        def isatty(self):
+            return True
+
+        def write(self, text):
+            self.text += text
+
+        def flush(self):
+            pass
+
+    output = TerminalOutput()
+    monkeypatch.setattr(cli.sys, "stdout", output)
+    monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: None)
+    prompts = []
+
+    def choose_exit(prompt=""):
+        prompts.append(prompt)
+        return "0"
+
+    monkeypatch.setattr("builtins.input", choose_exit)
+
+    cli.interactive_menu()
+
+    assert "\033[33m\nCityU Schedule\n1. Check a CSV timetable" in output.text
+    assert prompts == ["\033[33mChoose an option: \033[0m"]
+
+
 def test_menu_dispatches_paste_aims_command(monkeypatch, capsys, tmp_path):
     inputs = iter(["3", r"C:\Schedules\current AIMS.html", "0"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))

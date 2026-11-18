@@ -82,20 +82,36 @@ def _prompt_path(label: str, default: str | None = None) -> str | None:
     return value
 
 
+def _colorize(
+    text: str,
+    color: str,
+    file: TextIO | None = None,
+) -> str:
+    output = sys.stdout if file is None else file
+    if output.isatty() and "NO_COLOR" not in os.environ:
+        return f"\033[{color}m{text}\033[0m"
+    return text
+
+
 def _print_color(
     text: str,
     color: str,
     file: TextIO | None = None,
 ) -> None:
     output = sys.stdout if file is None else file
-    if output.isatty() and "NO_COLOR" not in os.environ:
-        print(f"\033[{color}m{text}\033[0m", file=output)
-    else:
-        print(text, file=output)
+    print(_colorize(text, color, output), file=output)
 
 
 def _print_green(text: str) -> None:
     _print_color(text, "32")
+
+
+def _print_yellow(text: str) -> None:
+    _print_color(text, "33")
+
+
+def _print_blue(text: str) -> None:
+    _print_color(text, "34")
 
 
 def _print_red(text: str, file: TextIO | None = None) -> None:
@@ -233,8 +249,8 @@ def interactive_menu() -> None:
     saved_aims_path = _load_saved_aims_path()
     while True:
         if saved_aims_path:
-            print(f"\nRemembered AIMS HTML: {saved_aims_path}")
-        print(
+            _print_yellow(f"\nRemembered AIMS HTML: {saved_aims_path}")
+        _print_yellow(
             "\nCityU Schedule\n"
             "1. Check a CSV timetable\n"
             "2. Check or change saved AIMS timetable\n"
@@ -247,7 +263,9 @@ def interactive_menu() -> None:
             "0. Exit"
         )
         try:
-            choice = input("Choose an option: ").strip()
+            choice = input(
+                _colorize("Choose an option: ", "33")
+            ).strip()
             if choice in {"0", "q", "Q"}:
                 return
 
@@ -464,8 +482,10 @@ def main(argv: list[str] | None = None) -> None:
             credit_courses = load_credit_catalogs(args.credit_catalog)
 
             while True:
-                print("Paste ONE course's complete AIMS offering table.")
-                print("Finish by typing END on a new line and pressing Enter.")
+                _print_yellow("Paste ONE course's complete AIMS offering table.")
+                _print_yellow(
+                    "Finish by typing END on a new line and pressing Enter."
+                )
                 print()
 
                 lines = []
@@ -485,12 +505,13 @@ def main(argv: list[str] | None = None) -> None:
                         empty_paste = True
                         break
 
-                    lines.append(line)
+                    if line.strip():
+                        lines.append(line)
 
                 if empty_paste or not any(line.strip() for line in lines):
                     _print_red(
                         "No table was entered. Please paste the AIMS table "
-                        "and try again.\n"
+                        "and try again."
                     )
                     continue
 
@@ -507,7 +528,7 @@ def main(argv: list[str] | None = None) -> None:
                         continue
 
                 while True:
-                    print(
+                    _print_yellow(
                         "If the copied table did not include the course "
                         "heading, enter its course code (for example GE2130); "
                         "otherwise press Enter:"
@@ -538,7 +559,7 @@ def main(argv: list[str] | None = None) -> None:
                     break
 
                 break
-            print(
+            _print_yellow(
                 "Enter unavailable section codes separated by spaces or "
                 "commas, or press Enter for none:"
             )
@@ -601,7 +622,8 @@ def main(argv: list[str] | None = None) -> None:
                 "Unavailable sections excluded: "
                 + ", ".join(sorted(unavailable_sections))
             )
-        _print_green(f"Pasted course credits: {pasted_course_credits}")
+        print()
+        _print_blue(f"Pasted course credits: {pasted_course_credits}")
         if unknown_aims_courses:
             missing_codes = ", ".join(unknown_aims_courses)
             print(
@@ -617,8 +639,8 @@ def main(argv: list[str] | None = None) -> None:
             )
         else:
             combined_credits = aims_credits + pasted_course_credits
-            _print_green(f"AIMS timetable credits: {aims_credits}")
-            _print_green(
+            _print_blue(f"AIMS timetable credits: {aims_credits}")
+            _print_blue(
                 f"Combined total if added: {combined_credits}"
             )
 

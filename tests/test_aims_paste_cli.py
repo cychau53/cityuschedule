@@ -15,10 +15,14 @@ def test_colored_output_uses_terminal_colors(monkeypatch):
     monkeypatch.delenv("NO_COLOR", raising=False)
 
     cli._print_green("Combined total if added: 20")
+    cli._print_yellow("Paste ONE course's complete AIMS offering table.")
+    cli._print_blue("Pasted course credits: 3")
     cli._print_red("Rejected bundles:")
 
     assert output.getvalue().splitlines() == [
         "\033[32mCombined total if added: 20\033[0m",
+        "\033[33mPaste ONE course's complete AIMS offering table.\033[0m",
+        "\033[34mPasted course credits: 3\033[0m",
         "\033[31mRejected bundles:\033[0m",
     ]
 
@@ -138,6 +142,10 @@ def test_paste_cli_reports_fitting_bundle(monkeypatch, capsys):
     assert "Candidate complete bundles: 1" in output
     assert "Bundles fitting weekly timetable: 1" in output
     assert "Suggested bundles:" in output
+    assert (
+        "\nBundles fitting weekly timetable: 1\n\n"
+        "Pasted course credits: 3\n"
+    ) in output
     assert "1. C01 + T01" in output
 
 
