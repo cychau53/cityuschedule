@@ -30,39 +30,60 @@ jobs:
 
           from cityuschedule.ge_courses import load_ge_courses
 
-          courses = load_ge_courses()
+          records = load_ge_courses()
 
           output = Path("output/ge_courses_combined.json")
           output.parent.mkdir(parents=True, exist_ok=True)
 
           output.write_text(
               json.dumps(
-                  courses,
+                  records,
                   ensure_ascii=False,
                   indent=2,
               ) + "\n",
               encoding="utf-8",
           )
 
-          courses_with_sections = sum(
-              bool(course["sections"])
-              for course in courses
-          )
+          course_codes = {
+              record["course_code"]
+              for record in records
+          }
 
-          section_count = sum(
-              len(course["sections"])
-              for course in courses
-          )
+          meeting_records = [
+              record
+              for record in records
+              if record.get("crn")
+          ]
 
-          print(f"Basic GE courses: {len(courses)}")
-          print(f"Courses with sections: {courses_with_sections}")
-          print(f"Section meeting records: {section_count}")
+          courses_with_sections = {
+              record["course_code"]
+              for record in meeting_records
+          }
+
+          unique_sections = {
+              (
+                  record["course_code"],
+                  record.get("term"),
+                  record["crn"],
+                  record.get("section"),
+              )
+              for record in meeting_records
+          }
+
+          print(f"Combined output records: {len(records)}")
+          print(f"Distinct GE courses: {len(course_codes)}")
+          print(
+              "Courses with section information: "
+              f"{len(courses_with_sections)}"
+          )
+          print(f"Distinct sections: {len(unique_sections)}")
+          print(f"Section meeting records: {len(meeting_records)}")
           print(f"Combined JSON written to {output}")
 
-          if courses_with_sections == 0:
+          if not meeting_records:
               print(
-                  "WARNING: No courses have matching section records. "
-                  "Check the section JSON and course_code values."
+                  "WARNING: No matching section information was found. "
+                  "Check ge_course_information.json and its course_code values."
               )
           PY
 
