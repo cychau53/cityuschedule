@@ -101,16 +101,9 @@ def load_credit_catalogs(
 
     courses = []
     for filename in DEFAULT_CREDIT_CATALOGS:
-        # These are shipped with the application and are required for its
-        # built-in credit lookup.
         courses.extend(load_course_catalog(catalogue_dir / filename))
 
     for path in extra_paths or []:
-        # User-provided catalogues are supplements, not prerequisites. Missing
-        # optional files should not stop timetable checks or credit reporting;
-        # the caller will report any courses whose credits remain unknown.
-        if not Path(path).is_file():
-            continue
         courses.extend(load_course_catalog(path))
 
     courses_by_code: dict[str, CatalogCourse] = {}
@@ -123,5 +116,6 @@ def load_credit_catalogs(
                 f"{existing.credits} and {course.credits}"
             )
         courses_by_code.setdefault(code, course)
+
 
     return list(courses_by_code.values())
