@@ -1,0 +1,74 @@
+name: Check combined GE information
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  combine:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install package
+        run: python -m pip install -e .
+
+      - name: Combine GE course information
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          from cityuschedule.ge_courses import load_ge_courses
+
+          courses = load_ge_courses()
+
+          output = Path("output/ge_courses_combined.json")
+          output.parent.mkdir(parents=True, exist_ok=True)
+
+          output.write_text(
+              json.dumps(
+                  courses,
+                  ensure_ascii=False,
+                  indent=2,
+              ) + "\n",
+              encoding="utf-8",
+          )
+
+          courses_with_sections = sum(
+              bool(course["sections"])
+              for course in courses
+          )
+
+          section_count = sum(
+              len(course["sections"])
+              for course in courses
+          )
+
+          print(f"Basic GE courses: {len(courses)}")
+          print(f"Courses with sections: {courses_with_sections}")
+          print(f"Section meeting records: {section_count}")
+          print(f"Combined JSON written to {output}")
+
+          if courses_with_sections == 0:
+              print(
+                  "WARNING: No courses have matching section records. "
+                  "Check the section JSON and course_code values."
+              )
+          PY
+
+      - name: Upload combined JSON
+        uses: actions/upload-artifact@v4
+        with:
+          name: combined-ge-information
+          path: output/ge_courses_combined.json
+          if-no-files-found: error
