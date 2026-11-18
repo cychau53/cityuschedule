@@ -9,6 +9,11 @@ def find_gaps(
     sessions_by_day = {}
 
     for session in sessions:
+        if not all(
+            session.get(field)
+            for field in ("day", "start_time", "end_time")
+        ):
+            continue
         sessions_by_day.setdefault(session["day"], []).append(session)
 
     for day, day_sessions in sessions_by_day.items():

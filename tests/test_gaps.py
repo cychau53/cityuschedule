@@ -41,6 +41,21 @@ def test_ignores_short_gap():
     assert gaps == []
 
 
+def test_ignores_unscheduled_sessions():
+    sessions = [
+        make_session("Mon", "09:00", "10:00", "CS1000"),
+        make_session("", "", "", "GE1000"),
+        make_session("", "", "", "GE2000"),
+        make_session("Mon", "11:00", "12:00", "MA1000"),
+    ]
+
+    gaps = find_gaps(sessions, minimum_minutes=0)
+
+    assert len(gaps) == 1
+    assert gaps[0]["minutes"] == "60"
+    assert gaps[0]["day"] == "Mon"
+
+
 def test_formats_no_gaps():
     output = format_gaps([])
 
