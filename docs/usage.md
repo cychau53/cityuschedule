@@ -239,4 +239,6 @@ Combined total if added: 15
 
 If a course is missing from all catalogues, the output reports an incomplete
 total and lists the missing course code(s).
+Rejected bundles that fit the AIMS timetable except for an avoided day are
+listed before bundles rejected for other reasons.
 

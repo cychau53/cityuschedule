@@ -326,6 +326,51 @@ def test_paste_cli_rejects_avoided_days(monkeypatch, capsys):
     assert "Uses avoided day(s): Wed" in output
 
 
+def test_paste_cli_lists_avoid_only_rejections_first(monkeypatch, capsys):
+    base_bundle = PASTED_TABLE.replace(
+        "\nW\n12:00 - 13:50",
+        "\nT\n12:00 - 13:50",
+    ).replace(
+        "\nW\n14:00 - 14:50",
+        "\nT\n14:00 - 14:50",
+    )
+    avoid_bundle = (
+        PASTED_TABLE.replace("13401", "13403")
+        .replace("C01", "CA1")
+        .replace("13402", "13404")
+        .replace("T01", "TA1")
+    )
+    pasted_table = (
+        base_bundle
+        + "\n"
+        + "\n".join(avoid_bundle.splitlines()[1:])
+    )
+    base_rows = [
+        {
+            "course_code": "BASE1001",
+            "crn": "20001",
+            "section": "C01",
+            "day": "Tue",
+            "start_time": "12:30",
+            "end_time": "13:20",
+            "building": "BOC",
+        },
+    ]
+    prepare_cli(
+        monkeypatch,
+        base_rows,
+        ["--avoid-days", "Wed"],
+        pasted_table=pasted_table,
+    )
+
+    cli.main()
+
+    output = capsys.readouterr().out
+    avoid_only_index = output.index("1. CA1 + TA1 (crash with avoid days)")
+    other_rejection_index = output.index("2. C01 + T01")
+    assert avoid_only_index < other_rejection_index
+
+
 def test_paste_cli_colors_preferred_bundle_and_days(monkeypatch):
     output = TerminalOutput()
     monkeypatch.setattr(cli.sys, "stdout", output)

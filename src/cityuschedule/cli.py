@@ -1062,24 +1062,35 @@ def main(argv: list[str] | None = None) -> None:
                         _print_green(session_label)
 
         fitting_set = set(fitting)
-        rejected = [
+        rejected_bundles = [
             bundle
             for bundle in candidates
             if bundle not in fitting_set
         ]
-
-        if rejected:
-            _print_red("\nRejected bundles:")
-
-            for number, bundle in enumerate(rejected, start=1):
-                reasons = registration_bundle_conflicts(
+        rejected = [
+            (
+                bundle,
+                registration_bundle_conflicts(
                     table,
                     bundle,
                     base_sessions,
                     avoid_days=args.avoid_days,
                     unavailable_sections=unavailable_sections,
-                )
+                ),
+            )
+            for bundle in rejected_bundles
+        ]
+        rejected.sort(
+            key=lambda item: not (
+                len(item[1]) == 1
+                and item[1][0].startswith("Uses avoided day(s):")
+            )
+        )
 
+        if rejected:
+            _print_red("\nRejected bundles:")
+
+            for number, (bundle, reasons) in enumerate(rejected, start=1):
                 has_avoided_day = any(
                     reason.startswith("Uses avoided day(s):")
                     for reason in reasons
