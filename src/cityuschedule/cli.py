@@ -382,7 +382,7 @@ def _menu_command(
             else (None, None)
         )
 
-        if choice == "4":
+    if choice == "4":
         path = saved_aims_path or _prompt_path(
             "Saved AIMS timetable HTML path"
         )
