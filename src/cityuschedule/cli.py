@@ -3,6 +3,7 @@ import csv
 import json
 import os
 import sys
+import tempfile
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TextIO
@@ -19,7 +20,14 @@ from .aims_table_parser import parse_aims_table
 from .calendar_export import export_ics
 from .conflicts import find_conflicts
 from .course_catalog import load_course_catalog, load_credit_catalogs
-from .ge_courses import get_ge_course_info, search_ge_courses
+from .ge_courses import (
+    get_ge_course_info,
+    load_ge_courses,
+    search_ge_courses,
+)
+from .ge_course_information_importer import (
+    store_ge_sections_temporarily,
+)
 from .ge_importer import update_ge_courses_from_html
 from .planner import (
     calculate_course_credits,
@@ -28,8 +36,6 @@ from .planner import (
     generate_plans,
 )
 from .timetable import format_timetable
-import tempfile
-
 
 
 @dataclass(frozen=True)
@@ -129,17 +135,24 @@ def _load_basic_settings() -> BasicSettings:
         avoid_days = values.get("avoid_days", [])
         min_credits = values.get("min_credits")
         max_credits = values.get("max_credits")
+
         if not isinstance(prefer_days, list) or not all(
             isinstance(day, str) for day in prefer_days
         ):
-            raise ValueError("Preferred days in saved settings must be a list.")
+            raise ValueError(
+                "Preferred days in saved settings must be a list."
+            )
+
         if not isinstance(avoid_days, list) or not all(
             isinstance(day, str) for day in avoid_days
         ):
-            raise ValueError("Avoided days in saved settings must be a list.")
+            raise ValueError(
+                "Avoided days in saved settings must be a list."
+            )
 
         normalized_prefer = _parse_day_list(" ".join(prefer_days))
         normalized_avoid = _parse_day_list(" ".join(avoid_days))
+
         for label, credits in (
             ("minimum", min_credits),
             ("maximum", max_credits),
@@ -150,6 +163,7 @@ def _load_basic_settings() -> BasicSettings:
                 raise ValueError(
                     f"Saved {label} credits must be a non-negative integer."
                 )
+
         if (
             min_credits is not None
             and max_credits is not None
@@ -158,6 +172,7 @@ def _load_basic_settings() -> BasicSettings:
             raise ValueError(
                 "Saved minimum credits exceed maximum credits."
             )
+
         if set(normalized_prefer) & set(normalized_avoid):
             raise ValueError(
                 "A day cannot be both preferred and avoided."
@@ -216,7 +231,9 @@ def _prompt_credit_limit(
     try:
         credits = int(response)
     except ValueError:
-        raise ValueError(f"{label} must be a non-negative integer.") from None
+        raise ValueError(
+            f"{label} must be a non-negative integer."
+        ) from None
     if credits < 0:
         raise ValueError(f"{label} must be a non-negative integer.")
     return credits
@@ -225,12 +242,18 @@ def _prompt_credit_limit(
 def _prompt_basic_settings(current: BasicSettings) -> BasicSettings:
     while True:
         _print_yellow(
-            "Basic settings: days may be entered as Mon/Tue/Wed/Thu/Fri/Sat/Sun "
-            "or M/T/W/R/F/S/U."
+            "Basic settings: days may be entered as "
+            "Mon/Tue/Wed/Thu/Fri/Sat/Sun or M/T/W/R/F/S/U."
         )
         try:
-            prefer_days = _prompt_days("Prefer days", current.prefer_days)
-            avoid_days = _prompt_days("Avoid days", current.avoid_days)
+            prefer_days = _prompt_days(
+                "Prefer days",
+                current.prefer_days,
+            )
+            avoid_days = _prompt_days(
+                "Avoid days",
+                current.avoid_days,
+            )
             min_credits = _prompt_credit_limit(
                 "Minimum credits",
                 current.min_credits,
@@ -239,10 +262,12 @@ def _prompt_basic_settings(current: BasicSettings) -> BasicSettings:
                 "Maximum credits",
                 current.max_credits,
             )
+
             if set(prefer_days) & set(avoid_days):
                 raise ValueError(
                     "A day cannot be both preferred and avoided."
                 )
+
             if (
                 min_credits is not None
                 and max_credits is not None
@@ -359,337 +384,27 @@ class _CityUScheduleArgumentParser(argparse.ArgumentParser):
         self.exit(2)
 
 
-def _menu_command(
-    choice: str,
-    saved_aims_path: str | None = None,
-    settings: BasicSettings | None = None,
-) -> tuple[list[str] | None, str | None]:
-    settings = settings or BasicSettings()
-
-    if choice == "2":
-        path = _prompt_path("CSV timetable path")
-        return ([path], None) if path else (None, None)
-
-    if choice == "3":
-        path = _prompt_path(
-            "AIMS timetable HTML path (enter a new path to change it)",
-            saved_aims_path,
-        )
-        return (
-            (["--aims-html", path], path)
-            if path
-            else (None, None)
-        )
-
-    if choice == "4":
-        path = saved_aims_path or _prompt_path(
-            "Saved AIMS timetable HTML path"
-        )
-        if not path:
-            return None, None
-        command = ["--aims-html", path, "--paste-aims"]
-        command.extend(_basic_settings_arguments(settings))
-        return command, path
-
-    if choice == "5":
-        keyword = input("GE search keyword: ").strip()
-        return (
-            (["--ge-search", keyword], None)
-            if keyword
-            else (None, None)
-        )
-
-    if choice == "6":
-        course_code = input("GE course code: ").strip()
-        return (
-            (["--ge-info", course_code], None)
-            if course_code
-            else (None, None)
-        )
-
-    if choice == "7":
-        source_type = input("Export source (CSV or AIMS): ").strip().upper()
-        if source_type not in {"CSV", "AIMS"}:
-            _print_red("Choose CSV or AIMS.")
-            return None, None
-
-        if source_type == "AIMS":
-            path = saved_aims_path or _prompt_path("AIMS timetable HTML path")
-        else:
-            path = _prompt_path("CSV file path")
-        if not path:
-            return None, None
-
-        command = [path] if source_type == "CSV" else [
-            "--aims-html",
-            path,
-        ]
-        command.append("--export")
-
-        output = _prompt_path("Output .ics path", "cityu_timetable.ics")
-        if output:
-            command.extend(["--output", output])
-
-        start = input(
-            "Semester start [2026-08-31]: "
-        ).strip()
-        if start:
-            command.extend(["--semester-start", start])
-
-        end = input(
-            "Semester end [2026-11-28]: "
-        ).strip()
-        if end:
-            command.extend(["--semester-end", end])
-
-        return command, path if source_type == "AIMS" else None
-
-    if choice == "8":
-        aims_path = saved_aims_path or _prompt_path(
-            "Saved AIMS timetable HTML path"
-        )
-        catalogue_path = _prompt_path(
-            "Course timetable catalogue JSON path"
-        )
-        if not aims_path or not catalogue_path:
-            return None, None
-        command = [
-            "--aims-html",
-            aims_path,
-            "--timetable-catalog",
-            catalogue_path,
-        ]
-        command.extend(_basic_settings_arguments(settings))
-        return command, aims_path
-
-    if choice == "9":
-        html_path = _prompt_path("Saved GE course HTML path")
-        if not html_path:
-            return None, None
-        output_path = _prompt_path(
-            "Output JSON path",
-            "data/ge_courses.json",
-        )
-        command = ["--ge-html", html_path]
-        if output_path:
-            command.extend(["--ge-output", output_path])
-        return command, None
-
-    return None, None
-
-
-def interactive_menu() -> None:
-    saved_aims_path = _load_saved_aims_path()
-    basic_settings = _load_basic_settings()
-    while True:
-        if saved_aims_path:
-            _print_yellow(f"\nRemembered AIMS HTML: {saved_aims_path}")
-        _print_yellow(
-            "\nCityU Schedule\n"
-            "1. Basic settings\n"
-            "2. Check a CSV timetable\n"
-            "3. Check or change saved AIMS timetable\n"
-            "4. Paste and check an AIMS course offering\n"
-            "5. Search GE courses\n"
-            "6. Show GE course details\n"
-            "7. Export a timetable calendar\n"
-            "8. Generate course plans\n"
-            "9. Import GE courses from HTML\n"
-            "0. Exit\n"
-            "Type delete all or delete names joined by 'and' to clear data."
-        )
-        try:
-            choice = input(
-                _colorize("Choose an option: ", "33")
-            ).strip()
-            if choice.casefold() in {"0", "q"}:
-                return
-
-            delete_command = choice.casefold()
-            if delete_command.startswith("delete"):
-                try:
-                    if delete_command == "delete all":
-                        _basic_settings_config_file().unlink(
-                            missing_ok=True
-                        )
-                        _aims_path_config_file().unlink(missing_ok=True)
-                        basic_settings = BasicSettings()
-                        saved_aims_path = None
-                        message = (
-                            "All saved settings and AIMS path deleted."
-                        )
-                    else:
-                        setting_fields = {
-                            "avoid": (
-                                "avoid_days",
-                                (),
-                                "avoid days",
-                            ),
-                            "prefer": (
-                                "prefer_days",
-                                (),
-                                "preferred days",
-                            ),
-                            "min": (
-                                "min_credits",
-                                None,
-                                "minimum credits",
-                            ),
-                            "max": (
-                                "max_credits",
-                                None,
-                                "maximum credits",
-                            ),
-                        }
-                        targets = list(
-                            dict.fromkeys(
-                                target.strip()
-                                for target in delete_command[
-                                    len("delete"):
-                                ].split("and")
-                            )
-                        )
-                        if not targets or any(
-                            target not in {*setting_fields, "aims"}
-                            for target in targets
-                        ):
-                            raise ValueError(
-                                "Use delete all, delete avoid, delete "
-                                "prefer, delete min, delete max, or "
-                                "delete AIMS. Join multiple names with "
-                                "'and'."
-                            )
-
-                        if "aims" in targets:
-                            _aims_path_config_file().unlink(
-                                missing_ok=True
-                            )
-                            saved_aims_path = None
-
-                        labels = []
-                        for target in targets:
-                            if target == "aims":
-                                labels.append("AIMS path")
-                                continue
-                            field, empty_value, label = setting_fields[
-                                target
-                            ]
-                            basic_settings = replace(
-                                basic_settings,
-                                **{field: empty_value},
-                            )
-                            labels.append(label)
-                        if any(target != "aims" for target in targets):
-                            _save_basic_settings(basic_settings)
-                        message = (
-                            "Saved " + " and ".join(labels) + " deleted."
-                        )
-                except OSError as error:
-                    basic_settings = _load_basic_settings()
-                    saved_aims_path = _load_saved_aims_path()
-                    _print_red(
-                        f"Could not delete saved information: {error}"
-                    )
-                except ValueError as error:
-                    _print_red(str(error))
-                else:
-                    _print_green(message)
-                continue
-
-            if choice == "1":
-                basic_settings = _prompt_basic_settings(basic_settings)
-                try:
-                    _save_basic_settings(basic_settings)
-                except OSError as error:
-                    _print_red(f"Could not save basic settings: {error}")
-                else:
-                    _print_green("Basic settings saved.")
-                continue
-
-            command, aims_path_to_save = _menu_command(
-                choice,
-                saved_aims_path,
-                basic_settings,
-            )
-        except EOFError:
-            return
-
-        if command is None:
-            if choice not in {
-                "2", "3", "4", "5", "6", "7", "8", "9"
-            }:
-                _print_red("Choose an option from 0 to 9.")
-            else:
-                _print_red("Required input was not provided.")
-            continue
-
-        try:
-            main(command)
-        except SystemExit as error:
-            if error.code == 0:
-                return
-            if error.code:
-                print(
-                    "\nTask failed. Returning to the menu; "
-                    "choose another option or 0 to exit."
-                )
-            continue
-
-        if aims_path_to_save:
-            saved_aims_path = aims_path_to_save
-            try:
-                _save_aims_path(aims_path_to_save)
-            except OSError as error:
-                _print_red(f"Could not save AIMS path: {error}")
-
-def run_cli_session(basic_html_paths: list[str | Path]) -> None:
-    """Run the interactive CLI using temporary GE data sources."""
-    from .ge_courses import use_ge_session_sources
-    from .ge_importer import store_ge_courses_temporarily
-
-    with tempfile.TemporaryDirectory(
-        prefix="cityuschedule-"
-    ) as directory:
-        session_directory = Path(directory)
-
-        basic_path = store_ge_courses_temporarily(
-            basic_html_paths,
-            session_directory,
-        )
-
-        section_path = (
-            session_directory / "ge_course_information.json"
-        )
-        section_path.write_text("[]\n", encoding="utf-8")
-
-        with use_ge_session_sources(
-            basic_path,
-            section_path,
-        ):
-            interactive_menu()
-
-    print("Session ended. Temporary GE files have been deleted.")
-
-
-def main(argv: list[str] | None = None) -> None:
-    command_line = sys.argv[1:] if argv is None else argv
-    if not command_line:
-        interactive_menu()
-        return
-
+def _build_argument_parser() -> _CityUScheduleArgumentParser:
+    """Create the command-line argument parser."""
     parser = _CityUScheduleArgumentParser(
         prog="cityuschedule",
-        description="Check CityU course timetables for clashes and export them as calendar events.",
+        description=(
+            "Check CityU course timetables for clashes and export "
+            "them as calendar events."
+        ),
     )
+
     parser.add_argument(
         "csv_file",
         nargs="?",
         help="Path to a course timetable CSV file",
     )
+
     parser.add_argument(
         "--aims-html",
         help="Path to a saved AIMS weekly timetable HTML page",
     )
+
     parser.add_argument(
         "--export",
         action="store_true",
@@ -698,12 +413,19 @@ def main(argv: list[str] | None = None) -> None:
 
     parser.add_argument(
         "--exclusions",
-        help="JSON file containing holidays and teaching breaks to exclude",
+        help=(
+            "JSON file containing holidays and teaching breaks "
+            "to exclude"
+        ),
     )
+
     parser.add_argument(
         "--timetable-catalog",
         nargs="+",
-        help="JSON timetable catalogue(s) containing course sections for planning",
+        help=(
+            "JSON timetable catalogue(s) containing course sections "
+            "for planning"
+        ),
     )
 
     parser.add_argument(
@@ -718,6 +440,7 @@ def main(argv: list[str] | None = None) -> None:
         default=20,
         help="Maximum number of course plans to display",
     )
+
     parser.add_argument(
         "--min-credits",
         type=int,
@@ -728,12 +451,16 @@ def main(argv: list[str] | None = None) -> None:
         "--add-ge",
         type=int,
         default=0,
-        help="Number of GE courses to add to the fixed AIMS timetable",
+        help=(
+            "Number of GE courses to add to the fixed AIMS timetable"
+        ),
     )
 
     parser.add_argument(
         "--ge-bundles",
-        help="JSON file containing complete GE section combinations",
+        help=(
+            "JSON file containing complete GE section combinations"
+        ),
     )
 
     parser.add_argument(
@@ -741,11 +468,15 @@ def main(argv: list[str] | None = None) -> None:
         type=int,
         help="Maximum total credits for generated course plans",
     )
+
     parser.add_argument(
         "--required",
         nargs="+",
-        help="Course codes that must appear in every generated plan",
+        help=(
+            "Course codes that must appear in every generated plan"
+        ),
     )
+
     parser.add_argument(
         "--prefer-days",
         nargs="+",
@@ -754,11 +485,15 @@ def main(argv: list[str] | None = None) -> None:
             "such as Mon Tue Wed"
         ),
     )
+
     parser.add_argument(
         "--require-section",
         nargs="+",
-        help="Exact course sections that must appear, such as TEST101 C01",
+        help=(
+            "Exact course sections that must appear, such as TEST101 C01"
+        ),
     )
+
     parser.add_argument(
         "--avoid-days",
         nargs="+",
@@ -769,10 +504,23 @@ def main(argv: list[str] | None = None) -> None:
     )
 
     parser.add_argument(
+        "--min-gap",
+        type=float,
+        default=0.0,
+        help=(
+            "Minimum gap in hours between consecutive class meetings"
+        ),
+    )
+
+    parser.add_argument(
         "--export-plan",
         type=int,
-        help="Export the selected plan number as an ICS calendar, starting from 1",
+        help=(
+            "Export the selected plan number as an ICS calendar, "
+            "starting from 1"
+        ),
     )
+
     parser.add_argument(
         "--output",
         default="cityu_timetable.ics",
@@ -806,35 +554,1284 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--ge-info",
         metavar="COURSE_CODE",
-        help="Show basic information for a Gateway Education course, e.g. GE2230",
+        help=(
+            "Show a Gateway Education course and check whether its "
+            "sections fit the current timetable, such as GE2230"
+        ),
     )
+
     parser.add_argument(
         "--ge-search",
         metavar="KEYWORD",
-        help="Search Gateway Education courses by course code, title, area, or offering unit",
+        help=(
+            "Search Gateway Education courses by course code, title, "
+            "area, or offering unit"
+        ),
     )
 
     parser.add_argument(
         "--paste-aims",
         action="store_true",
-        help="Paste one AIMS course table and check weekly timetable fit",
+        help=(
+            "Paste one AIMS course table and check weekly timetable fit"
+        ),
     )
 
-    args = parser.parse_args(command_line)
+    return parser
+
+
+def _menu_command(
+    choice: str,
+    saved_aims_path: str | None = None,
+    settings: BasicSettings | None = None,
+) -> tuple[list[str] | None, str | None]:
+    settings = settings or BasicSettings()
+
+    if choice == "2":
+        path = _prompt_path("CSV timetable path")
+        return ([path], None) if path else (None, None)
+
+    if choice == "3":
+        path = _prompt_path(
+            "AIMS timetable HTML path (enter a new path to change it)",
+            saved_aims_path,
+        )
+        return (
+            (["--aims-html", path], path)
+            if path
+            else (None, None)
+        )
+
+    if choice == "4":
+        path = saved_aims_path or _prompt_path(
+            "Saved AIMS timetable HTML path"
+        )
+        if not path:
+            return None, None
+
+        command = ["--aims-html", path, "--paste-aims"]
+        command.extend(_basic_settings_arguments(settings))
+        return command, path
+
+    if choice == "5":
+        keyword = input("GE search keyword: ").strip()
+        return (
+            (["--ge-search", keyword], None)
+            if keyword
+            else (None, None)
+        )
+
+    if choice == "6":
+        course_code = input("GE course code: ").strip()
+
+        if not course_code:
+            return None, None
+
+        if saved_aims_path:
+            command = [
+                "--aims-html",
+                saved_aims_path,
+                "--ge-info",
+                course_code,
+            ]
+        else:
+            csv_path = _prompt_path("CSV timetable path")
+
+            if not csv_path:
+                return None, None
+
+            command = [
+                csv_path,
+                "--ge-info",
+                course_code,
+            ]
+
+        return command, None
+
+    if choice == "7":
+        source_type = input(
+            "Export source (CSV or AIMS): "
+        ).strip().upper()
+
+        if source_type not in {"CSV", "AIMS"}:
+            _print_red("Choose CSV or AIMS.")
+            return None, None
+
+        if source_type == "AIMS":
+            path = saved_aims_path or _prompt_path(
+                "AIMS timetable HTML path"
+            )
+        else:
+            path = _prompt_path("CSV file path")
+
+        if not path:
+            return None, None
+
+        command = (
+            [path]
+            if source_type == "CSV"
+            else ["--aims-html", path]
+        )
+        command.append("--export")
+
+        output = _prompt_path(
+            "Output .ics path",
+            "cityu_timetable.ics",
+        )
+        if output:
+            command.extend(["--output", output])
+
+        start = input(
+            "Semester start [2026-08-31]: "
+        ).strip()
+        if start:
+            command.extend(["--semester-start", start])
+
+        end = input(
+            "Semester end [2026-11-28]: "
+        ).strip()
+        if end:
+            command.extend(["--semester-end", end])
+
+        return command, path if source_type == "AIMS" else None
+
+    if choice == "8":
+        aims_path = saved_aims_path or _prompt_path(
+            "Saved AIMS timetable HTML path"
+        )
+        catalogue_path = _prompt_path(
+            "Course timetable catalogue JSON path"
+        )
+
+        if not aims_path or not catalogue_path:
+            return None, None
+
+        command = [
+            "--aims-html",
+            aims_path,
+            "--timetable-catalog",
+            catalogue_path,
+        ]
+        command.extend(_basic_settings_arguments(settings))
+        return command, aims_path
+
+    if choice == "9":
+        html_path = _prompt_path("Saved GE course HTML path")
+
+        if not html_path:
+            return None, None
+
+        output_path = _prompt_path(
+            "Output JSON path",
+            "data/ge_courses.json",
+        )
+
+        command = ["--ge-html", html_path]
+        if output_path:
+            command.extend(["--ge-output", output_path])
+
+        return command, None
+
+    return None, None
+
+
+def _load_current_timetable_sessions(
+    args: argparse.Namespace,
+) -> list[dict[str, str]]:
+    """Load timetable sessions from CSV or AIMS HTML."""
+    if args.aims_html:
+        return load_aims_html(args.aims_html)
+
+    if args.csv_file:
+        return load_sessions(args.csv_file)
+
+    raise ValueError(
+        "Provide either a CSV timetable or an AIMS timetable."
+    )
+
+
+def _print_timetable_report(
+    sessions: list[dict[str, str]],
+    conflicts: list[tuple[dict[str, str], dict[str, str]]],
+) -> None:
+    """Print a timetable and its conflicts."""
+    print(format_timetable(sessions))
+    print(f"\nLoaded {len(sessions)} class sessions.")
+    print(f"Found {len(conflicts)} clash(es).")
+
+    for first, second in conflicts:
+        print(
+            f"CLASH: {first['course_code']} {first['type']} "
+            f"({first['day']} {first['start_time']}-"
+            f"{first['end_time']}) overlaps "
+            f"{second['course_code']} {second['type']} "
+            f"({second['day']} {second['start_time']}-"
+            f"{second['end_time']})"
+        )
+
+
+def run_csv_timetable_check(
+    args: argparse.Namespace,
+) -> None:
+    """Check a CSV timetable for clashes."""
+    sessions = load_sessions(args.csv_file)
+    conflicts = find_conflicts(sessions)
+
+    _print_timetable_report(sessions, conflicts)
+
+
+def run_aims_timetable_check(
+    args: argparse.Namespace,
+) -> None:
+    """Check a saved AIMS timetable for clashes."""
+    sessions = load_aims_html(args.aims_html)
+    conflicts = find_conflicts(sessions)
+
+    print(
+        "AIMS import: only scheduled grid classes are included. "
+        "Sections without dates/times are not exported."
+    )
+
+    _print_timetable_report(sessions, conflicts)
+
+
+def run_calendar_export(
+    args: argparse.Namespace,
+) -> None:
+    """Check a timetable and optionally export it as an ICS calendar."""
+    sessions = _load_current_timetable_sessions(args)
+    conflicts = find_conflicts(sessions)
+
+    _print_timetable_report(sessions, conflicts)
+
+    output = export_ics(
+        sessions,
+        args.output,
+        args.semester_start,
+        args.semester_end,
+        exclusions_path=args.exclusions,
+    )
+
+    print(f"Calendar exported to {output}")
+
+
+def run_ge_html_import(
+    args: argparse.Namespace,
+) -> None:
+    """Import basic GE course information from saved HTML."""
+    count = update_ge_courses_from_html(
+        args.ge_html,
+        args.ge_output,
+    )
+
+    print(f"Imported {count} Gateway Education course(s).")
+
+
+def run_ge_search(
+    args: argparse.Namespace,
+) -> None:
+    """Search the GE course catalogue."""
+    results = search_ge_courses(args.ge_search)
+
+    if not results:
+        print(
+            f"No Gateway Education courses found for "
+            f"'{args.ge_search}'."
+        )
+        return
+
+    print(
+        f"Found {len(results)} Gateway Education course(s) "
+        f"for '{args.ge_search}':\n"
+    )
+
+    for course in results:
+        area_name = course.get("area_name", "")
+        area_text = course.get("area", "")
+
+        if area_name:
+            area_text = f"{area_text} — {area_name}"
+
+        print(
+            f"{course['course_code']} — {course['course_title']}\n"
+            f"Area: {area_text}\n"
+            f"Offering unit: {course.get('offering_unit', '')}\n"
+            f"Level: {course.get('level', '')}\n"
+            "Available in: "
+            f"{', '.join(course.get('terms', [])) or 'Not specified'}\n"
+            "Cross-institutional: "
+            f"{'Yes' if course.get('cross_institutional') else 'No'}\n"
+            "Partner institutions: "
+            f"{', '.join(course.get('partner_institutions', [])) or 'None'}\n"
+            "With exam: "
+            f"{'Yes' if course.get('with_exam') else 'No'}\n"
+        )
+
+
+def _ge_time_parts(time_text: str) -> tuple[str, str] | None:
+    """Split a GE meeting time such as '10:00-11:50'."""
+    if not time_text:
+        return None
+
+    normalized = time_text.replace("–", "-").strip()
+    parts = normalized.split("-")
+
+    if len(parts) != 2:
+        return None
+
+    return parts[0].strip(), parts[1].strip()
+
+
+def _ge_records_to_sessions(
+    records: list[dict],
+) -> list[dict[str, str]]:
+    """Convert GE section records into conflict-check sessions."""
+    sessions = []
+
+    for record in records:
+        day = record.get("day")
+        time_parts = _ge_time_parts(record.get("time", ""))
+
+        if not day or time_parts is None:
+            continue
+
+        normalized_day = day.strip().title()[:3]
+
+        if normalized_day not in DAY_NAMES:
+            continue
+
+        sessions.append(
+            {
+                "course_code": record.get("course_code", ""),
+                "type": "GE",
+                "day": normalized_day,
+                "start_time": time_parts[0],
+                "end_time": time_parts[1],
+            }
+        )
+
+    return sessions
+
+
+def run_ge_course_details(
+    args: argparse.Namespace,
+    session_directory: Path | None,
+) -> None:
+    """Show a GE course and check whether it fits the timetable."""
+    if session_directory is None:
+        raise ValueError(
+            "GE course details require an active temporary GE session."
+        )
+
+    if not (args.aims_html or args.csv_file):
+        raise ValueError(
+            "GE course details require a CSV or AIMS timetable."
+        )
+
+    course = get_ge_course_info(args.ge_info)
+
+    if course is None:
+        raise ValueError(
+            "No Gateway Education course information found for "
+            f"{args.ge_info}."
+        )
+
+    area_name = course.get("area_name", "")
+    area_text = course.get("area", "")
+
+    if area_name:
+        area_text = f"{area_text} — {area_name}"
+
+    print(
+        f"\n{course['course_code']} — {course['course_title']}\n"
+        f"Area: {area_text}\n"
+        f"Offering unit: {course.get('offering_unit', '')}\n"
+        f"Level: {course.get('level', '')}\n"
+        "Available in: "
+        f"{', '.join(course.get('terms', [])) or 'Not specified'}\n"
+        "With exam: "
+        f"{'Yes' if course.get('with_exam') else 'No'}\n"
+        "Cross-institutional: "
+        f"{'Yes' if course.get('cross_institutional') else 'No'}\n"
+        "Partner institutions: "
+        f"{', '.join(course.get('partner_institutions', [])) or 'None'}\n"
+    )
+
+    store_ge_sections_temporarily(
+        [args.ge_info],
+        session_directory,
+    )
+
+    records = [
+        record
+        for record in load_ge_courses()
+        if record["course_code"] == course["course_code"]
+    ]
+
+    if not records:
+        _print_yellow(
+            "No section meeting records are available for this course."
+        )
+        return
+
+    print("Available section meetings:")
+
+    for record in records:
+        print(
+            f"  CRN {record.get('crn', 'Unknown')} | "
+            f"Section {record.get('section', 'Unknown')} | "
+            f"{record.get('day', 'Unknown')} "
+            f"{record.get('time', 'Unknown')} | "
+            f"{record.get('room') or 'Room unknown'}"
+        )
+
+    candidate_sessions = _ge_records_to_sessions(records)
+
+    if not candidate_sessions:
+        _print_yellow(
+            "No usable section meeting times were found."
+        )
+        return
+
+    base_sessions = _load_current_timetable_sessions(args)
+    conflicts = find_conflicts(
+        [*base_sessions, *candidate_sessions]
+    )
+
+    if conflicts:
+        _print_red(
+            "\nThis GE course does not fit the current timetable."
+        )
+
+        for first, second in conflicts:
+            print(
+                f"CLASH: {first['course_code']} {first['type']} "
+                f"({first['day']} {first['start_time']}-"
+                f"{first['end_time']}) overlaps "
+                f"{second['course_code']} {second['type']} "
+                f"({second['day']} {second['start_time']}-"
+                f"{second['end_time']})"
+            )
+    else:
+        _print_green(
+            "\nThis GE course fits the current timetable."
+        )
+
+
+def run_course_planning(
+    args: argparse.Namespace,
+) -> None:
+    """Generate course plans from an AIMS timetable and catalogues."""
+    timetable_courses = []
+    credit_courses = []
+
+    for catalog_path in args.timetable_catalog or []:
+        timetable_courses.extend(
+            load_course_catalog(catalog_path)
+        )
+
+    for catalog_path in args.credit_catalog or []:
+        credit_courses.extend(
+            load_course_catalog(catalog_path)
+        )
+
+    if args.add_ge > 0:
+        if not args.ge_bundles:
+            raise ValueError(
+                "--ge-bundles is required when using --add-ge"
+            )
+
+        with open(
+            args.ge_bundles,
+            "r",
+            encoding="utf-8-sig",
+        ) as file:
+            course_bundles = json.load(file)
+
+        ge_courses = [
+            course
+            for course in timetable_courses
+            if course.code.upper().startswith("GE")
+        ]
+
+        plans = generate_aims_ge_plans(
+            args.aims_html,
+            ge_courses,
+            credit_courses,
+            args.add_ge,
+            max_results=args.max_results,
+            min_credits=args.min_credits,
+            max_credits=args.max_credits,
+            preferred_days=args.prefer_days,
+            avoid_days=args.avoid_days,
+            course_bundles=course_bundles,
+        )
+    else:
+        plans = generate_plans(
+            args.aims_html,
+            timetable_courses,
+            credit_courses=credit_courses,
+            max_results=args.max_results,
+            min_credits=args.min_credits,
+            max_credits=args.max_credits,
+            required_courses=args.required,
+            preferred_days=args.prefer_days,
+            required_sections=args.require_section,
+            avoid_days=args.avoid_days,
+            min_gap=args.min_gap,
+        )
+
+    if not plans:
+        print("No clash-free course plans were found.")
+        return
+
+    print(f"Found {len(plans)} valid course plan(s):\n")
+
+    for number, plan in enumerate(plans, start=1):
+        preferred_label = (
+            f", {plan.preferred_day_count} preferred day(s)"
+            if plan.preferred_day_count
+            else ""
+        )
+
+        print(
+            f"Plan {number} — {plan.total_credits} credits"
+            f"{preferred_label}"
+        )
+
+        for section in plan.sections:
+            print(
+                f"  {section.course_code} {section.section} "
+                f"{section.day} {section.start}-{section.end} "
+                f"{section.location}"
+            )
+
+        print()
+
+    if args.export_plan is not None:
+        if not (args.semester_start and args.semester_end):
+            raise ValueError(
+                "--semester-start and --semester-end are required "
+                "when using --export-plan"
+            )
+
+        plan_index = args.export_plan - 1
+
+        if plan_index < 0 or plan_index >= len(plans):
+            raise ValueError(
+                f"Plan {args.export_plan} does not exist. "
+                f"Choose a plan from 1 to {len(plans)}."
+            )
+
+        export_plan_ics(
+            args.aims_html,
+            plans[plan_index],
+            args.output,
+            args.semester_start,
+            args.semester_end,
+            exclusions_path=args.exclusions,
+        )
+
+        print(
+            f"Exported plan {args.export_plan} to {args.output}"
+        )
+
+
+def run_paste_aims(
+    args: argparse.Namespace,
+) -> None:
+    """Paste one AIMS course offering and check timetable fit."""
+    base_rows = load_aims_html(args.aims_html)
+    base_sessions = convert_aims_sessions(base_rows)
+    credit_courses = load_credit_catalogs(args.credit_catalog)
+
+    while True:
+        _print_yellow(
+            "Paste ONE course's complete AIMS offering table."
+        )
+        _print_yellow(
+            "Finish by typing END on a new line and pressing Enter."
+        )
+        print()
+
+        lines = []
+        empty_paste = False
+
+        while True:
+            try:
+                line = input()
+            except EOFError:
+                raise ValueError(
+                    "Input ended before END. Paste again and finish "
+                    "with END on its own line."
+                ) from None
+
+            if not lines:
+                _exit_if_requested(line)
+
+            if line.strip() == "END":
+                break
+
+            if not line.strip() and not lines:
+                empty_paste = True
+                break
+
+            if line.strip():
+                lines.append(line)
+
+        if empty_paste or not any(
+            line.strip() for line in lines
+        ):
+            _print_red(
+                "No table was entered. Please paste the AIMS table "
+                "and try again."
+            )
+            continue
+
+        pasted_table = "\n".join(lines)
+
+        try:
+            parse_aims_table(pasted_table)
+        except ValueError as error:
+            if not str(error).startswith(
+                "Course code is required."
+            ):
+                _print_red(
+                    "That doesn't look like a complete AIMS course "
+                    "offering table. Paste the full table, including "
+                    "its CRN, Section, and Credit rows, and try again."
+                )
+                continue
+
+            while True:
+                _print_yellow(
+                    "If the copied table did not include the course "
+                    "heading, enter its course code (for example "
+                    "GE2130); otherwise press Enter:"
+                )
+
+                try:
+                    course_code_input = input()
+                except EOFError:
+                    raise ValueError(
+                        "Input ended before the course code was "
+                        "confirmed."
+                    ) from None
+
+                _exit_if_requested(course_code_input)
+                course_code = course_code_input.strip() or None
+
+                try:
+                    table = parse_aims_table(
+                        pasted_table,
+                        course_code=course_code,
+                    )
+                except ValueError as error:
+                    if (
+                        course_code is None
+                        and str(error).startswith(
+                            "Course code is required."
+                        )
+                    ):
+                        _print_red(
+                            "A course code is required for this table. "
+                            "Enter it now; do not press Enter."
+                        )
+                        continue
+                    raise
+
+                break
+
+            break
+
+        _print_yellow(
+            "Enter unavailable section codes separated by spaces or "
+            "commas, or press Enter for none:"
+        )
+
+        try:
+            unavailable_input = input()
+        except EOFError:
+            raise ValueError(
+                "Input ended before unavailable sections were "
+                "confirmed. Press Enter to continue without exclusions."
+            ) from None
+
+        _exit_if_requested(unavailable_input)
+
+        unavailable_sections = list(
+            {
+                section.upper()
+                for section in unavailable_input.replace(
+                    ",",
+                    " ",
+                ).split()
+            }
+        )
+
+        known_sections = {
+            session.section.upper()
+            for session in table.sessions
+        }
+        unknown_sections = (
+            set(unavailable_sections) - known_sections
+        )
+
+        if unknown_sections:
+            raise ValueError(
+                "Unknown section code(s): "
+                + ", ".join(sorted(unknown_sections))
+            )
+
+        pasted_course_credits = table.course_credit
+
+        aims_credits, unknown_aims_courses = (
+            calculate_course_credits(
+                {
+                    row["course_code"]
+                    for row in base_rows
+                },
+                credit_courses,
+            )
+        )
+
+        candidates = table.registration_bundles()
+        fitting = fitting_registration_bundles(
+            table,
+            base_sessions,
+            preferred_days=args.prefer_days,
+            avoid_days=args.avoid_days,
+            unavailable_sections=unavailable_sections,
+        )
+
+        break
+
+    print()
+    print(f"Course: {table.course_code}")
+    print(f"Parsed sections: {len(table.sessions)}")
+    print(
+        f"Scheduled sections: {len(table.scheduled_sessions)}"
+    )
+    print(
+        "Ignored unscheduled sections: "
+        f"{len(table.sessions) - len(table.scheduled_sessions)}"
+    )
+    print(f"Candidate complete bundles: {len(candidates)}")
+    print(f"Bundles fitting weekly timetable: {len(fitting)}")
+
+    preferred_days = {
+        day.capitalize()
+        for day in (args.prefer_days or [])
+    }
+    avoided_days = {
+        day.capitalize()
+        for day in (args.avoid_days or [])
+    }
+
+    if preferred_days or avoided_days:
+        print()
+
+        if preferred_days:
+            _print_purple(
+                "Current prefer days: "
+                + ", ".join(sorted(preferred_days))
+            )
+
+        if avoided_days:
+            _print_purple(
+                "Current avoid days: "
+                + ", ".join(sorted(avoided_days))
+            )
+
+    if unavailable_sections:
+        print(
+            "Unavailable sections excluded: "
+            + ", ".join(sorted(unavailable_sections))
+        )
+
+    print()
+
+    _print_blue(
+        f"Pasted course credits: {pasted_course_credits}"
+    )
+
+    if unknown_aims_courses:
+        missing_codes = ", ".join(unknown_aims_courses)
+
+        print(
+            "AIMS timetable credits: incomplete "
+            f"(known subtotal {aims_credits}; missing: "
+            f"{missing_codes})"
+        )
+        print(
+            "Combined total if added: incomplete "
+            f"(known subtotal "
+            f"{aims_credits + pasted_course_credits}; "
+            f"missing: {missing_codes})"
+        )
+
+        if (
+            args.min_credits is not None
+            or args.max_credits is not None
+        ):
+            _print_red(
+                "Warning: credit limits could not be checked because "
+                "some AIMS course credits are missing."
+            )
+    else:
+        combined_credits = aims_credits + pasted_course_credits
+
+        _print_blue(f"AIMS timetable credits: {aims_credits}")
+        _print_blue(
+            f"Combined total if added: {combined_credits}"
+        )
+
+        if (
+            args.min_credits is not None
+            and combined_credits < args.min_credits
+        ):
+            _print_red(
+                f"Warning: combined credits ({combined_credits}) are "
+                f"below the minimum ({args.min_credits})."
+            )
+
+        if (
+            args.max_credits is not None
+            and combined_credits > args.max_credits
+        ):
+            _print_red(
+                f"Warning: combined credits ({combined_credits}) "
+                f"exceed the maximum ({args.max_credits})."
+            )
+
+    print()
+
+    by_section = {
+        session.section: session
+        for session in table.scheduled_sessions
+    }
+
+    if not candidates:
+        _print_red(
+            "No complete scheduled bundle was generated. "
+            "Check the pasted table and section-family rules."
+        )
+    elif not fitting:
+        _print_red(
+            "No complete bundle fits: each has an internal overlap, "
+            "overlaps the base timetable, lacks sufficient travel time, "
+            "or uses an avoided day."
+        )
+    else:
+        _print_green("Suggested bundles:")
+
+        for number, bundle in enumerate(fitting, start=1):
+            preferred_count = bundle_preferred_day_count(
+                table,
+                bundle,
+                args.prefer_days,
+            )
+
+            print()
+            bundle_label = f"{number}. {' + '.join(bundle)}"
+
+            if preferred_count:
+                print(
+                    _colorize(bundle_label, "32")
+                    + " "
+                    + _colorize(
+                        "(match with prefer days)",
+                        "95",
+                    )
+                )
+            else:
+                _print_green(bundle_label)
+
+            for section in bundle:
+                session = by_section[section]
+                session_label = (
+                    f"   CRN {session.crn}: {session.section} "
+                    f"{session.day} "
+                    f"{session.start_time}-{session.end_time}"
+                )
+
+                day_name = DAY_NAMES.get(session.day or "")
+
+                if day_name in preferred_days:
+                    _print_purple(session_label)
+                else:
+                    _print_green(session_label)
+
+    fitting_set = set(fitting)
+    rejected_bundles = [
+        bundle
+        for bundle in candidates
+        if bundle not in fitting_set
+    ]
+
+    rejected = [
+        (
+            bundle,
+            registration_bundle_conflicts(
+                table,
+                bundle,
+                base_sessions,
+                avoid_days=args.avoid_days,
+                unavailable_sections=unavailable_sections,
+            ),
+        )
+        for bundle in rejected_bundles
+    ]
+
+    rejected.sort(
+        key=lambda item: not (
+            len(item[1]) == 1
+            and item[1][0].startswith(
+                "Uses avoided day(s):"
+            )
+        )
+    )
+
+    for number, (bundle, reasons) in enumerate(
+        rejected,
+        start=1,
+    ):
+        has_avoided_day = any(
+            reason.startswith("Uses avoided day(s):")
+            for reason in reasons
+        )
+
+        if has_avoided_day:
+            bundle_label = _colorize(
+                f"{number}. {' + '.join(bundle)}",
+                "31",
+            )
+
+            print(
+                f"\n{bundle_label} "
+                f"{_colorize('(crash with avoid days)', '95')}"
+            )
+
+            for section in bundle:
+                session = by_section[section]
+                session_label = (
+                    f"   CRN {session.crn}: {session.section} "
+                    f"{session.day} "
+                    f"{session.start_time}-{session.end_time}"
+                )
+
+                if (
+                    DAY_NAMES.get(session.day or "")
+                    in avoided_days
+                ):
+                    _print_purple(session_label)
+                else:
+                    _print_red(session_label)
+        else:
+            _print_red(
+                f"\n{number}. {' + '.join(bundle)}"
+            )
+
+        for reason in reasons:
+            if (
+                has_avoided_day
+                and reason.startswith(
+                    "Uses avoided day(s):"
+                )
+            ):
+                _print_purple(f"   - {reason}")
+            else:
+                _print_red(f"   - {reason}")
+
+    print()
+    print(
+        "Weekly time-fit and travel between known buildings only. "
+        "Eligibility, seat availability, date ranges, and multiple "
+        "meeting rows are not validated."
+    )
+
+
+def interactive_menu(
+    session_directory: Path | None = None,
+) -> None:
+    saved_aims_path = _load_saved_aims_path()
+    basic_settings = _load_basic_settings()
+
+    while True:
+        if saved_aims_path:
+            _print_yellow(
+                f"\nRemembered AIMS HTML: {saved_aims_path}"
+            )
+
+        _print_yellow(
+            "\nCityU Schedule\n"
+            "1. Basic settings\n"
+            "2. Check a CSV timetable\n"
+            "3. Check or change saved AIMS timetable\n"
+            "4. Paste and check an AIMS course offering\n"
+            "5. Search GE courses\n"
+            "6. Show GE course details\n"
+            "7. Export a timetable calendar\n"
+            "8. Generate course plans\n"
+            "9. Import GE courses from HTML\n"
+            "0. Exit\n"
+            "Type delete all or delete names joined by 'and' "
+            "to clear data."
+        )
+
+        try:
+            choice = input(
+                _colorize("Choose an option: ", "33")
+            ).strip()
+
+            if choice.casefold() in {"0", "q"}:
+                return
+
+            delete_command = choice.casefold()
+
+            if delete_command.startswith("delete"):
+                try:
+                    if delete_command == "delete all":
+                        _basic_settings_config_file().unlink(
+                            missing_ok=True
+                        )
+                        _aims_path_config_file().unlink(
+                            missing_ok=True
+                        )
+                        basic_settings = BasicSettings()
+                        saved_aims_path = None
+                        message = (
+                            "All saved settings and AIMS path deleted."
+                        )
+                    else:
+                        setting_fields = {
+                            "avoid": (
+                                "avoid_days",
+                                (),
+                                "avoid days",
+                            ),
+                            "prefer": (
+                                "prefer_days",
+                                (),
+                                "preferred days",
+                            ),
+                            "min": (
+                                "min_credits",
+                                None,
+                                "minimum credits",
+                            ),
+                            "max": (
+                                "max_credits",
+                                None,
+                                "maximum credits",
+                            ),
+                        }
+
+                        targets = list(
+                            dict.fromkeys(
+                                target.strip()
+                                for target in delete_command[
+                                    len("delete"):
+                                ].split("and")
+                            )
+                        )
+
+                        if not targets or any(
+                            target
+                            not in {*setting_fields, "aims"}
+                            for target in targets
+                        ):
+                            raise ValueError(
+                                "Use delete all, delete avoid, delete "
+                                "prefer, delete min, delete max, or "
+                                "delete AIMS. Join multiple names with "
+                                "'and'."
+                            )
+
+                        if "aims" in targets:
+                            _aims_path_config_file().unlink(
+                                missing_ok=True
+                            )
+                            saved_aims_path = None
+
+                        labels = []
+
+                        for target in targets:
+                            if target == "aims":
+                                labels.append("AIMS path")
+                                continue
+
+                            field, empty_value, label = (
+                                setting_fields[target]
+                            )
+                            basic_settings = replace(
+                                basic_settings,
+                                **{field: empty_value},
+                            )
+                            labels.append(label)
+
+                        if any(
+                            target != "aims"
+                            for target in targets
+                        ):
+                            _save_basic_settings(basic_settings)
+
+                        message = (
+                            "Saved "
+                            + " and ".join(labels)
+                            + " deleted."
+                        )
+                except OSError as error:
+                    basic_settings = _load_basic_settings()
+                    saved_aims_path = _load_saved_aims_path()
+                    _print_red(
+                        f"Could not delete saved information: {error}"
+                    )
+                except ValueError as error:
+                    _print_red(str(error))
+                else:
+                    _print_green(message)
+
+                continue
+
+            if choice == "1":
+                basic_settings = _prompt_basic_settings(
+                    basic_settings
+                )
+
+                try:
+                    _save_basic_settings(basic_settings)
+                except OSError as error:
+                    _print_red(
+                        f"Could not save basic settings: {error}"
+                    )
+                else:
+                    _print_green("Basic settings saved.")
+
+                continue
+
+            command, aims_path_to_save = _menu_command(
+                choice,
+                saved_aims_path,
+                basic_settings,
+            )
+        except EOFError:
+            return
+
+        if command is None:
+            if choice not in {
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+            }:
+                _print_red(
+                    "Choose an option from 0 to 9."
+                )
+            else:
+                _print_red(
+                    "Required input was not provided."
+                )
+
+            continue
+
+        try:
+            main(
+                command,
+                session_directory=session_directory,
+            )
+        except SystemExit as error:
+            if error.code == 0:
+                return
+
+            if error.code:
+                print(
+                    "\nTask failed. Returning to the menu; "
+                    "choose another option or 0 to exit."
+                )
+
+            continue
+
+        if aims_path_to_save:
+            saved_aims_path = aims_path_to_save
+
+            try:
+                _save_aims_path(aims_path_to_save)
+            except OSError as error:
+                _print_red(
+                    f"Could not save AIMS path: {error}"
+                )
+
+
+def run_cli_session(
+    basic_html_paths: list[str | Path],
+) -> None:
+    """Run the interactive CLI using temporary GE data sources."""
+    from .ge_courses import use_ge_session_sources
+    from .ge_importer import store_ge_courses_temporarily
+
+    with tempfile.TemporaryDirectory(
+        prefix="cityuschedule-"
+    ) as directory:
+        session_directory = Path(directory)
+
+        basic_path = store_ge_courses_temporarily(
+            basic_html_paths,
+            session_directory,
+        )
+
+        section_path = (
+            session_directory / "ge_course_information.json"
+        )
+        section_path.write_text("[]\n", encoding="utf-8")
+
+        with use_ge_session_sources(
+            basic_path,
+            section_path,
+        ):
+            interactive_menu(
+                session_directory=session_directory,
+            )
+
+    print(
+        "Session ended. Temporary GE files have been deleted."
+    )
+
+
+def main(
+    argv: list[str] | None = None,
+    *,
+    session_directory: Path | None = None,
+) -> None:
+    command_line = sys.argv[1:] if argv is None else argv
+
+    if not command_line:
+        interactive_menu(session_directory=session_directory)
+        return
+
+    args = _build_argument_parser().parse_args(command_line)
 
     if (
         args.min_credits is not None
         and args.max_credits is not None
         and args.min_credits > args.max_credits
     ):
-        parser.error("--min-credits cannot exceed --max-credits.")
+        _CityUScheduleArgumentParser.error(
+            "--min-credits cannot exceed --max-credits."
+        )
 
     if args.paste_aims:
         if not args.aims_html:
-            parser.error("--paste-aims requires --aims-html.")
+            _CityUScheduleArgumentParser.error(
+                "--paste-aims requires --aims-html."
+            )
 
         if args.csv_file:
-            parser.error(
+            _CityUScheduleArgumentParser.error(
                 "--paste-aims uses --aims-html, not a CSV timetable."
             )
 
@@ -848,571 +1845,94 @@ def main(argv: list[str] | None = None) -> None:
             or args.ge_info
             or args.ge_search
         ):
-            parser.error(
-                "Run --paste-aims separately from timetable catalogue planning, "
-                "GE lookup/import, and export."
+            _CityUScheduleArgumentParser.error(
+                "Run --paste-aims separately from timetable catalogue "
+                "planning, GE lookup/import, and export."
             )
 
         try:
-            base_rows = load_aims_html(args.aims_html)
-            base_sessions = convert_aims_sessions(base_rows)
-            credit_courses = load_credit_catalogs(args.credit_catalog)
+            run_paste_aims(args)
+        except (OSError, ValueError, RuntimeError) as error:
+            _print_red(str(error))
+            raise SystemExit(1)
 
-            while True:
-                _print_yellow("Paste ONE course's complete AIMS offering table.")
-                _print_yellow(
-                    "Finish by typing END on a new line and pressing Enter."
-                )
-                print()
-
-                lines = []
-                empty_paste = False
-                while True:
-                    try:
-                        line = input()
-                    except EOFError:
-                        raise ValueError(
-                            "Input ended before END. Paste again and finish "
-                            "with END on its own line."
-                        ) from None
-
-                    if not lines:
-                        _exit_if_requested(line)
-                    if line.strip() == "END":
-                        break
-                    if not line.strip() and not lines:
-                        empty_paste = True
-                        break
-
-                    if line.strip():
-                        lines.append(line)
-
-                if empty_paste or not any(line.strip() for line in lines):
-                    _print_red(
-                        "No table was entered. Please paste the AIMS table "
-                        "and try again."
-                    )
-                    continue
-
-                pasted_table = "\n".join(lines)
-                try:
-                    parse_aims_table(pasted_table)
-                except ValueError as error:
-                    if not str(error).startswith("Course code is required."):
-                        _print_red(
-                            "That doesn't look like a complete AIMS course "
-                            "offering table. Paste the full table, including "
-                            "its CRN, Section, and Credit rows, and try again."
-                        )
-                        continue
-
-                while True:
-                    _print_yellow(
-                        "If the copied table did not include the course "
-                        "heading, enter its course code (for example GE2130); "
-                        "otherwise press Enter:"
-                    )
-                    try:
-                        course_code_input = input()
-                    except EOFError:
-                        raise ValueError(
-                            "Input ended before the course code was confirmed."
-                        ) from None
-                    _exit_if_requested(course_code_input)
-                    course_code = course_code_input.strip() or None
-
-                    try:
-                        table = parse_aims_table(
-                            pasted_table,
-                            course_code=course_code,
-                        )
-                    except ValueError as error:
-                        if (
-                            course_code is None
-                            and str(error).startswith("Course code is required.")
-                        ):
-                            _print_red(
-                                "A course code is required for this table. "
-                                "Enter it now; do not press Enter."
-                            )
-                            continue
-                        raise
-                    break
-
-                break
-            _print_yellow(
-                "Enter unavailable section codes separated by spaces or "
-                "commas, or press Enter for none:"
-            )
-            try:
-                unavailable_input = input()
-            except EOFError:
-                raise ValueError(
-                    "Input ended before unavailable sections were "
-                    "confirmed. Press Enter to continue without exclusions."
-                ) from None
-            _exit_if_requested(unavailable_input)
-            unavailable_sections = list({
-                section.upper()
-                for section in unavailable_input.replace(",", " ").split()
-            })
-
-            known_sections = {
-                session.section.upper()
-                for session in table.sessions
-            }
-            unknown_sections = (
-                set(unavailable_sections) - known_sections
-            )
-            if unknown_sections:
-                raise ValueError(
-                    "Unknown section code(s): "
-                    + ", ".join(sorted(unknown_sections))
-                )
-
-            pasted_course_credits = table.course_credit
-            aims_credits, unknown_aims_courses = calculate_course_credits(
-                {
-                    row["course_code"]
-                    for row in base_rows
-                },
-                credit_courses,
-            )
-            candidates = table.registration_bundles()
-            fitting = fitting_registration_bundles(
-                table,
-                base_sessions,
-                preferred_days=args.prefer_days,
-                avoid_days=args.avoid_days,
-                unavailable_sections=unavailable_sections,
-            )
-
-        except (OSError, ValueError) as error:
-            parser.error(str(error))
-
-        print()
-        print(f"Course: {table.course_code}")
-        print(f"Parsed sections: {len(table.sessions)}")
-        print(f"Scheduled sections: {len(table.scheduled_sessions)}")
-        print(
-            "Ignored unscheduled sections: "
-            f"{len(table.sessions) - len(table.scheduled_sessions)}"
-        )
-        print(f"Candidate complete bundles: {len(candidates)}")
-        print(f"Bundles fitting weekly timetable: {len(fitting)}")
-        preferred_days = {
-            day.capitalize() for day in (args.prefer_days or [])
-        }
-        avoided_days = {
-            day.capitalize() for day in (args.avoid_days or [])
-        }
-        if preferred_days or avoided_days:
-            print()
-            if preferred_days:
-                _print_purple(
-                    "Current prefer days: "
-                    + ", ".join(sorted(preferred_days))
-                )
-            if avoided_days:
-                _print_purple(
-                    "Current avoid days: "
-                    + ", ".join(sorted(avoided_days))
-                )
-        if unavailable_sections:
-            print(
-                "Unavailable sections excluded: "
-                + ", ".join(sorted(unavailable_sections))
-            )
-        print()
-        _print_blue(f"Pasted course credits: {pasted_course_credits}")
-        if unknown_aims_courses:
-            missing_codes = ", ".join(unknown_aims_courses)
-            print(
-                "AIMS timetable credits: incomplete "
-                f"(known subtotal {aims_credits}; missing: "
-                f"{missing_codes})"
-            )
-            print(
-                "Combined total if added: incomplete "
-                f"(known subtotal "
-                f"{aims_credits + pasted_course_credits}; "
-                f"missing: {missing_codes})"
-            )
-            if (
-                args.min_credits is not None
-                or args.max_credits is not None
-            ):
-                _print_red(
-                    "Warning: credit limits could not be checked because "
-                    "some AIMS course credits are missing."
-                )
-        else:
-            combined_credits = aims_credits + pasted_course_credits
-            _print_blue(f"AIMS timetable credits: {aims_credits}")
-            _print_blue(
-                f"Combined total if added: {combined_credits}"
-            )
-            if (
-                args.min_credits is not None
-                and combined_credits < args.min_credits
-            ):
-                _print_red(
-                    f"Warning: combined credits ({combined_credits}) are "
-                    f"below the minimum ({args.min_credits})."
-                )
-            if (
-                args.max_credits is not None
-                and combined_credits > args.max_credits
-            ):
-                _print_red(
-                    f"Warning: combined credits ({combined_credits}) exceed "
-                    f"the maximum ({args.max_credits})."
-                )
-
-        print()
-        by_section = {
-            session.section: session
-            for session in table.scheduled_sessions
-        }
-        if not candidates:
-            _print_red(
-                "No complete scheduled bundle was generated. "
-                "Check the pasted table and section-family rules."
-            )
-        elif not fitting:
-            _print_red(
-                "No complete bundle fits: each has an internal overlap, "
-                "overlaps the base timetable, lacks sufficient travel time, "
-                "or uses an avoided day."
-            )
-        else:
-            _print_green("Suggested bundles:")
-            for number, bundle in enumerate(fitting, start=1):
-                preferred_count = bundle_preferred_day_count(
-                    table,
-                    bundle,
-                    args.prefer_days,
-                )
-                print()
-                bundle_label = f"{number}. {' + '.join(bundle)}"
-                if preferred_count:
-                    print(
-                        _colorize(bundle_label, "32")
-                        + " "
-                        + _colorize("(match with prefer days)", "95")
-                    )
-                else:
-                    _print_green(bundle_label)
-
-                for section in bundle:
-                    session = by_section[section]
-                    session_label = (
-                        f"   CRN {session.crn}: {session.section} "
-                        f"{session.day} "
-                        f"{session.start_time}-{session.end_time}"
-                    )
-                    day_name = DAY_NAMES.get(session.day or "")
-                    if day_name in preferred_days:
-                        _print_purple(session_label)
-                    else:
-                        _print_green(session_label)
-
-        fitting_set = set(fitting)
-        rejected_bundles = [
-            bundle
-            for bundle in candidates
-            if bundle not in fitting_set
-        ]
-        rejected = [
-            (
-                bundle,
-                registration_bundle_conflicts(
-                    table,
-                    bundle,
-                    base_sessions,
-                    avoid_days=args.avoid_days,
-                    unavailable_sections=unavailable_sections,
-                ),
-            )
-            for bundle in rejected_bundles
-        ]
-        rejected.sort(
-            key=lambda item: not (
-                len(item[1]) == 1
-                and item[1][0].startswith("Uses avoided day(s):")
-            )
-        )
-
-        if rejected:
-            _print_red("\nRejected bundles:")
-
-            for number, (bundle, reasons) in enumerate(rejected, start=1):
-                has_avoided_day = any(
-                    reason.startswith("Uses avoided day(s):")
-                    for reason in reasons
-                )
-                if has_avoided_day:
-                    bundle_label = _colorize(
-                        f"{number}. {' + '.join(bundle)}",
-                        "31",
-                    )
-                    print(
-                        f"\n{bundle_label} "
-                        f"{_colorize('(crash with avoid days)', '95')}"
-                    )
-                    for section in bundle:
-                        session = by_section[section]
-                        session_label = (
-                            f"   CRN {session.crn}: {session.section} "
-                            f"{session.day} "
-                            f"{session.start_time}-{session.end_time}"
-                        )
-                        if DAY_NAMES.get(session.day or "") in avoided_days:
-                            _print_purple(session_label)
-                        else:
-                            _print_red(session_label)
-                else:
-                    _print_red(f"\n{number}. {' + '.join(bundle)}")
-
-                for reason in reasons:
-                    if (
-                        has_avoided_day
-                        and reason.startswith("Uses avoided day(s):")
-                    ):
-                        _print_purple(f"   - {reason}")
-                    else:
-                        _print_red(f"   - {reason}")
-
-        print()
-        print(
-            "Weekly time-fit and travel between known buildings only. "
-            "Eligibility, seat availability, date ranges, and multiple "
-            "meeting rows are not validated."
-        )
         return
 
     if args.ge_html:
-        count = update_ge_courses_from_html(
-            args.ge_html,
-            args.ge_output,
-        )
+        try:
+            run_ge_html_import(args)
+        except (OSError, ValueError, RuntimeError) as error:
+            _print_red(str(error))
+            raise SystemExit(1)
 
-        print(f"Imported {count} Gateway Education course(s).")
         return
 
     if args.ge_info:
-        course = get_ge_course_info(args.ge_info)
-
-        if course is None:
-            parser.error(
-                f"No Gateway Education course information found for {args.ge_info}."
+        try:
+            run_ge_course_details(
+                args,
+                session_directory,
             )
+        except (OSError, ValueError, RuntimeError) as error:
+            _print_red(str(error))
+            raise SystemExit(1)
 
-        area_name = course.get("area_name", "")
-        area_text = course.get("area", "")
-
-        if area_name:
-            area_text = f"{area_text} — {area_name}"
-
-        print(
-            f"{course['course_code']} — {course['course_title']}\n"
-            f"Area: {area_text}\n"
-            f"Offering unit: {course.get('offering_unit', '')}\n"
-            f"Level: {course.get('level', '')}\n"
-            f"Available in: {', '.join(course.get('terms', [])) or 'Not specified'}\n"
-            f"With exam: {'Yes' if course.get('with_exam') else 'No'}\n"
-            f"Cross-institutional: {'Yes' if course.get('cross_institutional') else 'No'}\n"
-            f"Partner institutions: {', '.join(course.get('partner_institutions', [])) or 'None'}\n"
-        )
         return
 
-    if args.ge_search:
-        results = search_ge_courses(args.ge_search)
+    if args.ge_search is not None:
+        try:
+            run_ge_search(args)
+        except (OSError, ValueError, RuntimeError) as error:
+            _print_red(str(error))
+            raise SystemExit(1)
 
-        if not results:
-            print(f"No Gateway Education courses found for '{args.ge_search}'.")
-            return
+        return
 
-        print(
-            f"Found {len(results)} Gateway Education course(s) "
-            f"for '{args.ge_search}':\n"
-        )
-
-        for course in results:
-            area_name = course.get("area_name", "")
-            area_text = course.get("area", "")
-
-            if area_name:
-                area_text = f"{area_text} — {area_name}"
-
-            print(
-                f"{course['course_code']} — {course['course_title']}\n"
-                f"Area: {area_text}\n"
-                f"Offering unit: {course.get('offering_unit', '')}\n"
-                f"Level: {course.get('level', '')}\n"
-                f"Available in: {', '.join(course.get('terms', [])) or 'Not specified'}\n"
-                f"Cross-institutional: {'Yes' if course.get('cross_institutional') else 'No'}\n"
-                f"Partner institutions: {', '.join(course.get('partner_institutions', [])) or 'None'}\n"
-                f"With exam: {'Yes' if course.get('with_exam') else 'No'}\n"
+    if args.export:
+        if args.csv_file and args.aims_html:
+            _CityUScheduleArgumentParser.error(
+                "Choose either a CSV file or --aims-html, not both."
             )
+
+        try:
+            run_calendar_export(args)
+        except (OSError, ValueError, RuntimeError) as error:
+            _print_red(str(error))
+            raise SystemExit(1)
+
+        return
+
+    if args.timetable_catalog:
+        if not args.aims_html:
+            _CityUScheduleArgumentParser.error(
+                "--timetable-catalog requires --aims-html."
+            )
+
+        try:
+            run_course_planning(args)
+        except (OSError, ValueError, RuntimeError) as error:
+            _print_red(str(error))
+            raise SystemExit(1)
 
         return
 
     if args.csv_file and args.aims_html:
-        parser.error("Choose either a CSV file or --aims-html, not both.")
+        _CityUScheduleArgumentParser.error(
+            "Choose either a CSV file or --aims-html, not both."
+        )
 
     if not args.csv_file and not args.aims_html:
-        parser.print_help()
+        _build_argument_parser().print_help()
         return
-    if args.aims_html and (args.timetable_catalog or args.credit_catalog):
-        try:
-            timetable_courses = []
-            credit_courses = []
 
-            for catalog_path in args.timetable_catalog or []:
-                timetable_courses.extend(load_course_catalog(catalog_path))
-
-            for catalog_path in args.credit_catalog or []:
-                credit_courses.extend(load_course_catalog(catalog_path))
-
-            if args.add_ge > 0:
-                if not args.ge_bundles:
-                    raise ValueError(
-                        "--ge-bundles is required when using --add-ge"
-                    )
-
-                with open(
-                    args.ge_bundles,
-                    "r",
-                    encoding="utf-8-sig",
-                ) as file:
-                    course_bundles = json.load(file)
-
-                ge_courses = [
-                    course
-                    for course in timetable_courses
-                    if course.code.upper().startswith("GE")
-                ]
-
-                plans = generate_aims_ge_plans(
-                    args.aims_html,
-                    ge_courses,
-                    credit_courses,
-                    args.add_ge,
-                    max_results=args.max_results,
-                    min_credits=args.min_credits,
-                    max_credits=args.max_credits,
-                    preferred_days=args.prefer_days,
-                    avoid_days=args.avoid_days,
-                    course_bundles=course_bundles,
-                )
-            else:
-
-                plans = generate_plans(
-                    args.aims_html,
-                    timetable_courses,
-                    credit_courses=credit_courses,
-                    max_results=args.max_results,
-                    min_credits=args.min_credits,
-                    max_credits=args.max_credits,
-                    required_courses=args.required,
-                    preferred_days=args.prefer_days,
-                    required_sections=args.require_section,
-                    avoid_days=args.avoid_days,
-                    min_gap=args.min_gap,                
-                )
-        except (OSError, ValueError) as error:
-            parser.error(str(error))
-
-        if not plans:
-            print("No clash-free course plans were found.")
-            return
-
-        print(f"Found {len(plans)} valid course plan(s):\n")
-
-        for number, plan in enumerate(plans, start=1):
-            preferred_label = (
-                f", {plan.preferred_day_count} preferred day(s)"
-                if plan.preferred_day_count
-                else ""
-            )
-
-            print(
-                f"Plan {number} — {plan.total_credits} credits"
-                f"{preferred_label}"
-            )
-            for section in plan.sections:
-                print(
-                    f"  {section.course_code} {section.section} "
-                    f"{section.day} {section.start}-{section.end} "
-                    f"{section.location}"
-                )
-
-            print()
-
-        if args.export_plan is not None:
-            if not (args.semester_start and args.semester_end):
-                parser.error(
-                    "--semester-start and --semester-end are required "
-                    "when using --export-plan"
-                )
-
-            plan_index = args.export_plan - 1
-
-            if plan_index < 0 or plan_index >= len(plans):
-                parser.error(
-                    f"Plan {args.export_plan} does not exist. "
-                    f"Choose a plan from 1 to {len(plans)}."
-                )
-
-            export_plan_ics(
-                args.aims_html,
-                plans[plan_index],
-                args.output,
-                args.semester_start,
-                args.semester_end,
-                exclusions_path=args.exclusions,
-            )
-
-            print(f"Exported plan {args.export_plan} to {args.output}")
-
-        return
-    
     try:
         if args.aims_html:
-            sessions = load_aims_html(args.aims_html)
-            print(
-                "AIMS import: only scheduled grid classes are included. "
-                "Sections without dates/times are not exported."
-            )
+            run_aims_timetable_check(args)
         else:
-            sessions = load_sessions(args.csv_file)
-    except (OSError, ValueError) as error:
-        parser.error(str(error))
-
-    conflicts = find_conflicts(sessions)
-
-    print(format_timetable(sessions))
-    print(f"\nLoaded {len(sessions)} class sessions.")
-    print(f"Found {len(conflicts)} clash(es).")
-
-    for first, second in conflicts:
-        print(
-            f"CLASH: {first['course_code']} {first['type']} "
-            f"({first['day']} {first['start_time']}-{first['end_time']}) overlaps "
-            f"{second['course_code']} {second['type']} "
-            f"({second['day']} {second['start_time']}-{second['end_time']})"
-        )
-
-    if args.export:
-        output = export_ics(
-            sessions,
-            args.output,
-            args.semester_start,
-            args.semester_end,
-            exclusions_path=args.exclusions,
-        )
-        print(f"Calendar exported to {output}")
+            run_csv_timetable_check(args)
+    except (OSError, ValueError, RuntimeError) as error:
+        _print_red(str(error))
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
