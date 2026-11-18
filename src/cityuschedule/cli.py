@@ -30,16 +30,6 @@ from .planner import (
 from .timetable import format_timetable
 import tempfile
 
-from .ge_course_information_importer import (
-    store_ge_sections_temporarily,
-)
-
-store_ge_sections_temporarily(
-    [course_code],
-    session_directory,
-)
-
-course = get_ge_course_info(course_code)
 
 
 @dataclass(frozen=True)
