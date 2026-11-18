@@ -343,10 +343,6 @@ def _print_purple(text: str) -> None:
     _print_color(text, "95")
 
 
-def _print_orange(text: str) -> None:
-    _print_color(text, "38;5;208")
-
-
 def _print_red(text: str, file: TextIO | None = None) -> None:
     _print_color(text, "31", file)
 
@@ -1107,7 +1103,7 @@ def main(argv: list[str] | None = None) -> None:
                         if DAY_NAMES.get(session.day or "") in avoided_days:
                             _print_purple(session_label)
                         else:
-                            _print_orange(session_label)
+                            _print_red(session_label)
                 else:
                     _print_red(f"\n{number}. {' + '.join(bundle)}")
 

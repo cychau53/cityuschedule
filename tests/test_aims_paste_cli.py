@@ -364,7 +364,7 @@ def test_paste_cli_colors_avoided_bundle_and_days(monkeypatch):
         "\033[31m1. C01 + T01\033[0m "
         "\033[95m(crash with avoid days)\033[0m"
     ) in text
-    assert "\033[38;5;208m   CRN 13401: C01 W 12:00-13:50\033[0m" in text
+    assert "\033[31m   CRN 13401: C01 W 12:00-13:50\033[0m" in text
     assert "\033[95m   CRN 13402: T01 R 14:00-14:50\033[0m" in text
 
 
