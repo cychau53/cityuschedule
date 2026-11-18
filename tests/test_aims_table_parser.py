@@ -83,6 +83,25 @@ def test_parse_copied_tabular_aims_row_with_course_code_argument():
     assert session.building == "YEUNG"
 
 
+def test_parse_copied_tabular_aims_row_wrapped_across_lines():
+    copied_table = (
+        "CRN\tSection\tCredit\tCampus\tWEB\tLevel\tAvail\tCap\tWaitlist\n"
+        "Avail\tDate\tDay\tTime\tBldg\tRoom\tInstructor\tMedium of\n"
+        "Instruction\n"
+        "10681\tC01\t3\tMain Campus\n"
+        "Y\tB\t79\t80\tN\t11/01/2027 - 17/04/2027\tF\t"
+        "12:00 - 14:50\tYEUNG\tG4702\tHE Yutian\tEnglish"
+    )
+
+    table = parse_aims_table(copied_table, course_code="GE2310")
+
+    assert table.course_credit == 3
+    assert len(table.scheduled_sessions) == 1
+    assert table.scheduled_sessions[0].day == "F"
+    assert table.scheduled_sessions[0].start_time == "12:00"
+    assert table.scheduled_sessions[0].end_time == "14:50"
+
+
 def test_parse_c_and_t_course():
     sample = """
 EXAMPLE1001

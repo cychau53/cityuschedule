@@ -233,17 +233,31 @@ def _parse_tabular_sessions(
     section_pattern: re.Pattern[str],
     time_pattern: re.Pattern[str],
 ) -> list[AimsSession]:
-    sessions = []
+    records: list[list[str]] = []
+    current_record: list[str] | None = None
+
     for line in lines:
         fields = [field.strip() for field in line.split("\t")]
-        if (
-            len(fields) < 3
-            or not fields[0].isdigit()
-            or not section_pattern.fullmatch(fields[1])
-            or not re.fullmatch(r"\d+", fields[2])
-        ):
+        starts_record = (
+            len(fields) >= 3
+            and fields[0].isdigit()
+            and section_pattern.fullmatch(fields[1])
+            and re.fullmatch(r"\d+", fields[2])
+        )
+        if not starts_record:
+            if current_record is not None:
+                current_record.extend(fields)
             continue
 
+        if current_record is not None:
+            records.append(current_record)
+        current_record = fields
+
+    if current_record is not None:
+        records.append(current_record)
+
+    sessions = []
+    for fields in records:
         day = None
         start_time = None
         end_time = None

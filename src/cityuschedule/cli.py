@@ -1,5 +1,7 @@
 import argparse
 import csv
+import json
+import os
 from pathlib import Path
 import sys
 
@@ -18,8 +20,6 @@ from .planner import (
 
 from .ge_courses import get_ge_course_info, search_ge_courses
 from .ge_importer import update_ge_courses_from_html
-
-import json
 
 from .aims_table_parser import parse_aims_table
 from .aims_fit import (
@@ -45,36 +45,99 @@ def load_sessions(csv_path: str) -> list[dict[str, str]]:
     return sessions
 
 
-def _menu_command(choice: str) -> list[str] | None:
+def _aims_path_config_file() -> Path:
+    config_root = Path(
+        os.environ.get("APPDATA")
+        or str(Path.home() / ".config")
+    )
+    return config_root / "cityuschedule" / "aims_html_path.txt"
+
+
+def _load_saved_aims_path() -> str | None:
+    config_file = _aims_path_config_file()
+    try:
+        saved_path = config_file.read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        return None
+    except OSError as error:
+        print(f"Could not read saved AIMS path: {error}")
+        return None
+    return saved_path or None
+
+
+def _save_aims_path(path: str) -> None:
+    config_file = _aims_path_config_file()
+    config_file.parent.mkdir(parents=True, exist_ok=True)
+    config_file.write_text(path, encoding="utf-8")
+
+
+def _prompt_path(label: str, default: str | None = None) -> str | None:
+    default_text = f" [{default}]" if default else ""
+    value = input(f"{label}{default_text}: ").strip()
+    if not value:
+        return default
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        value = value[1:-1]
+    return value
+
+
+def _menu_command(
+    choice: str,
+    saved_aims_path: str | None = None,
+) -> tuple[list[str] | None, str | None]:
     if choice == "1":
-        path = input("CSV timetable path: ").strip()
-        return [path] if path else None
+        path = _prompt_path("CSV timetable path")
+        return ([path], None) if path else (None, None)
 
     if choice == "2":
-        path = input("Saved AIMS timetable HTML path: ").strip()
-        return ["--aims-html", path] if path else None
+        path = _prompt_path(
+            "AIMS timetable HTML path (enter a new path to change it)",
+            saved_aims_path,
+        )
+        return (
+            (["--aims-html", path], path)
+            if path
+            else (None, None)
+        )
 
     if choice == "3":
-        path = input("Saved AIMS timetable HTML path: ").strip()
-        return ["--aims-html", path, "--paste-aims"] if path else None
+        path = saved_aims_path or _prompt_path(
+            "Saved AIMS timetable HTML path"
+        )
+        return (
+            (["--aims-html", path, "--paste-aims"], path)
+            if path
+            else (None, None)
+        )
 
     if choice == "4":
         keyword = input("GE search keyword: ").strip()
-        return ["--ge-search", keyword] if keyword else None
+        return (
+            (["--ge-search", keyword], None)
+            if keyword
+            else (None, None)
+        )
 
     if choice == "5":
         course_code = input("GE course code: ").strip()
-        return ["--ge-info", course_code] if course_code else None
+        return (
+            (["--ge-info", course_code], None)
+            if course_code
+            else (None, None)
+        )
 
     if choice == "6":
         source_type = input("Export source (CSV or AIMS): ").strip().upper()
         if source_type not in {"CSV", "AIMS"}:
             print("Choose CSV or AIMS.")
-            return None
+            return None, None
 
-        path = input(f"{source_type} file path: ").strip()
+        if source_type == "AIMS":
+            path = saved_aims_path or _prompt_path("AIMS timetable HTML path")
+        else:
+            path = _prompt_path("CSV file path")
         if not path:
-            return None
+            return None, None
 
         command = [path] if source_type == "CSV" else [
             "--aims-html",
@@ -82,9 +145,7 @@ def _menu_command(choice: str) -> list[str] | None:
         ]
         command.append("--export")
 
-        output = input(
-            "Output .ics path [cityu_timetable.ics]: "
-        ).strip()
+        output = _prompt_path("Output .ics path", "cityu_timetable.ics")
         if output:
             command.extend(["--output", output])
 
@@ -100,41 +161,52 @@ def _menu_command(choice: str) -> list[str] | None:
         if end:
             command.extend(["--semester-end", end])
 
-        return command
+        return command, path if source_type == "AIMS" else None
 
     if choice == "7":
-        aims_path = input("Saved AIMS timetable HTML path: ").strip()
-        catalogue_path = input("Course timetable catalogue JSON path: ").strip()
+        aims_path = saved_aims_path or _prompt_path(
+            "Saved AIMS timetable HTML path"
+        )
+        catalogue_path = _prompt_path(
+            "Course timetable catalogue JSON path"
+        )
         if not aims_path or not catalogue_path:
-            return None
-        return [
-            "--aims-html",
+            return None, None
+        return (
+            [
+                "--aims-html",
+                aims_path,
+                "--timetable-catalog",
+                catalogue_path,
+            ],
             aims_path,
-            "--timetable-catalog",
-            catalogue_path,
-        ]
+        )
 
     if choice == "8":
-        html_path = input("Saved GE course HTML path: ").strip()
+        html_path = _prompt_path("Saved GE course HTML path")
         if not html_path:
-            return None
-        output_path = input(
-            "Output JSON path [data/ge_courses.json]: "
-        ).strip()
+            return None, None
+        output_path = _prompt_path(
+            "Output JSON path",
+            "data/ge_courses.json",
+        )
         command = ["--ge-html", html_path]
         if output_path:
             command.extend(["--ge-output", output_path])
-        return command
+        return command, None
 
-    return None
+    return None, None
 
 
 def interactive_menu() -> None:
+    saved_aims_path = _load_saved_aims_path()
     while True:
+        if saved_aims_path:
+            print(f"\nRemembered AIMS HTML: {saved_aims_path}")
         print(
             "\nCityU Schedule\n"
             "1. Check a CSV timetable\n"
-            "2. Check a saved AIMS timetable\n"
+            "2. Check or change saved AIMS timetable\n"
             "3. Paste and check an AIMS course offering\n"
             "4. Search GE courses\n"
             "5. Show GE course details\n"
@@ -148,16 +220,27 @@ def interactive_menu() -> None:
             if choice in {"0", "q", "Q"}:
                 return
 
-            command = _menu_command(choice)
+            command, aims_path_to_save = _menu_command(
+                choice,
+                saved_aims_path,
+            )
         except EOFError:
             return
 
         if command is None:
             if choice not in {"1", "2", "3", "4", "5", "6", "7", "8"}:
                 print("Choose an option from 0 to 8.")
+            else:
+                print("Required input was not provided.")
             continue
 
         main(command)
+        if aims_path_to_save:
+            saved_aims_path = aims_path_to_save
+            try:
+                _save_aims_path(aims_path_to_save)
+            except OSError as error:
+                print(f"Could not save AIMS path: {error}")
 
 
 def main(argv: list[str] | None = None) -> None:

@@ -27,7 +27,9 @@ cityuschedule
 Choose a numbered option to check a CSV or AIMS timetable, paste an AIMS
 offering, search or inspect GE courses, export a calendar, generate course
 plans, or import GE course HTML. The menu asks for the required file paths and
-then runs the selected task. Press `0` to exit.
+then runs the selected task. The AIMS HTML path is remembered across launches
+and reused by other AIMS menu options. Choose option `2` and enter a different
+path to change the saved one; press Enter to keep using it. Press `0` to exit.
 
 For advanced options, use `cityuschedule --help` or run a command directly.
 
