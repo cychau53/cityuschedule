@@ -20,8 +20,6 @@ from .calendar_export import export_ics
 from .conflicts import find_conflicts
 from .course_catalog import load_course_catalog, load_credit_catalogs
 from .ge_courses import get_ge_course_info, search_ge_courses
-from .ge_course_information_importer import fetch_ge_course_information
-from .ge_aims_adapter import convert_ge_records_to_aims_table
 from .ge_importer import update_ge_courses_from_html
 from .planner import (
     calculate_course_credits,
@@ -389,17 +387,7 @@ def _menu_command(
         )
         if not path:
             return None, None
-        course_code = input(
-            "Enter the GE course code, for example GE1102: "
-        ).strip()
-        if not course_code:
-            return None, None
-        command = [
-            "--aims-html",
-            path,
-            "--ge-course-code",
-            course_code,
-        ]
+        command = ["--aims-html", path, "--paste-aims"]
         command.extend(_basic_settings_arguments(settings))
         return command, path
 
@@ -501,7 +489,7 @@ def interactive_menu() -> None:
             "1. Basic settings\n"
             "2. Check a CSV timetable\n"
             "3. Check or change saved AIMS timetable\n"
-            "4. Check a GE course offering by course code\n"
+            "4. Paste and check an AIMS course offering\n"
             "5. Search GE courses\n"
             "6. Show GE course details\n"
             "7. Export a timetable calendar\n"
@@ -825,14 +813,6 @@ def main(argv: list[str] | None = None) -> None:
         metavar="KEYWORD",
         help="Search Gateway Education courses by course code, title, area, or offering unit",
     )
-    parser.add_argument(
-        "--ge-course-code",
-        metavar="COURSE_CODE",
-        help=(
-            "Retrieve a GE course offering by course code and check "
-            "whether it fits the saved AIMS timetable."
-        ),
-    )
 
     parser.add_argument(
         "--paste-aims",
@@ -849,12 +829,14 @@ def main(argv: list[str] | None = None) -> None:
     ):
         parser.error("--min-credits cannot exceed --max-credits.")
 
-    if args.ge_course_code:
+    if args.paste_aims:
         if not args.aims_html:
-            parser.error("--ge-course-code requires --aims-html.")
+            parser.error("--paste-aims requires --aims-html.")
 
         if args.csv_file:
-            parser.error("--ge-course-code uses --aims-html, not a CSV timetable.")
+            parser.error(
+                "--paste-aims uses --aims-html, not a CSV timetable."
+            )
 
         if (
             args.timetable_catalog
@@ -867,8 +849,8 @@ def main(argv: list[str] | None = None) -> None:
             or args.ge_search
         ):
             parser.error(
-                "Run --ge-course-code separately from timetable "
-                "catalogue planning, GE lookup/import, and export."
+                "Run --paste-aims separately from timetable catalogue planning, "
+                "GE lookup/import, and export."
             )
 
         try:
@@ -876,19 +858,88 @@ def main(argv: list[str] | None = None) -> None:
             base_sessions = convert_aims_sessions(base_rows)
             credit_courses = load_credit_catalogs(args.credit_catalog)
 
-            course_records = fetch_ge_course_information(args.ge_course_code)
-
-            if not course_records:
-                raise ValueError(
-                    f"No section information was found for "
-                    f"{args.ge_course_code}."
+            while True:
+                _print_yellow("Paste ONE course's complete AIMS offering table.")
+                _print_yellow(
+                    "Finish by typing END on a new line and pressing Enter."
                 )
+                print()
 
-            table = convert_ge_records_to_aims_table(
-                args.ge_course_code,
-                course_records,
-            )
-            
+                lines = []
+                empty_paste = False
+                while True:
+                    try:
+                        line = input()
+                    except EOFError:
+                        raise ValueError(
+                            "Input ended before END. Paste again and finish "
+                            "with END on its own line."
+                        ) from None
+
+                    if not lines:
+                        _exit_if_requested(line)
+                    if line.strip() == "END":
+                        break
+                    if not line.strip() and not lines:
+                        empty_paste = True
+                        break
+
+                    if line.strip():
+                        lines.append(line)
+
+                if empty_paste or not any(line.strip() for line in lines):
+                    _print_red(
+                        "No table was entered. Please paste the AIMS table "
+                        "and try again."
+                    )
+                    continue
+
+                pasted_table = "\n".join(lines)
+                try:
+                    parse_aims_table(pasted_table)
+                except ValueError as error:
+                    if not str(error).startswith("Course code is required."):
+                        _print_red(
+                            "That doesn't look like a complete AIMS course "
+                            "offering table. Paste the full table, including "
+                            "its CRN, Section, and Credit rows, and try again."
+                        )
+                        continue
+
+                while True:
+                    _print_yellow(
+                        "If the copied table did not include the course "
+                        "heading, enter its course code (for example GE2130); "
+                        "otherwise press Enter:"
+                    )
+                    try:
+                        course_code_input = input()
+                    except EOFError:
+                        raise ValueError(
+                            "Input ended before the course code was confirmed."
+                        ) from None
+                    _exit_if_requested(course_code_input)
+                    course_code = course_code_input.strip() or None
+
+                    try:
+                        table = parse_aims_table(
+                            pasted_table,
+                            course_code=course_code,
+                        )
+                    except ValueError as error:
+                        if (
+                            course_code is None
+                            and str(error).startswith("Course code is required.")
+                        ):
+                            _print_red(
+                                "A course code is required for this table. "
+                                "Enter it now; do not press Enter."
+                            )
+                            continue
+                        raise
+                    break
+
+                break
             _print_yellow(
                 "Enter unavailable section codes separated by spaces or "
                 "commas, or press Enter for none:"
@@ -901,11 +952,18 @@ def main(argv: list[str] | None = None) -> None:
                     "confirmed. Press Enter to continue without exclusions."
                 ) from None
             _exit_if_requested(unavailable_input)
-            unavailable_sections = list({section.upper() for section in unavailable_input.replace(",", " ").split()})
+            unavailable_sections = list({
+                section.upper()
+                for section in unavailable_input.replace(",", " ").split()
+            })
 
-            known_sections = {session.section.upper() for session in table.sessions}
-            unknown_sections = (set(unavailable_sections) - known_sections)
-            
+            known_sections = {
+                session.section.upper()
+                for session in table.sessions
+            }
+            unknown_sections = (
+                set(unavailable_sections) - known_sections
+            )
             if unknown_sections:
                 raise ValueError(
                     "Unknown section code(s): "
@@ -929,7 +987,7 @@ def main(argv: list[str] | None = None) -> None:
                 unavailable_sections=unavailable_sections,
             )
 
-        except (OSError, ValueError, RuntimeError) as error:
+        except (OSError, ValueError) as error:
             parser.error(str(error))
 
         print()
@@ -966,7 +1024,7 @@ def main(argv: list[str] | None = None) -> None:
                 + ", ".join(sorted(unavailable_sections))
             )
         print()
-        _print_blue(f"GE course credits: {pasted_course_credits}")
+        _print_blue(f"Pasted course credits: {pasted_course_credits}")
         if unknown_aims_courses:
             missing_codes = ", ".join(unknown_aims_courses)
             print(
