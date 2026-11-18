@@ -28,6 +28,18 @@ from .planner import (
     generate_plans,
 )
 from .timetable import format_timetable
+import tempfile
+
+from .ge_course_information_importer import (
+    store_ge_sections_temporarily,
+)
+
+store_ge_sections_temporarily(
+    [course_code],
+    session_directory,
+)
+
+course = get_ge_course_info(course_code)
 
 
 @dataclass(frozen=True)
@@ -639,6 +651,34 @@ def interactive_menu() -> None:
                 _save_aims_path(aims_path_to_save)
             except OSError as error:
                 _print_red(f"Could not save AIMS path: {error}")
+
+def run_cli_session(basic_html_paths: list[str | Path]) -> None:
+    """Run the interactive CLI using temporary GE data sources."""
+    from .ge_courses import use_ge_session_sources
+    from .ge_importer import store_ge_courses_temporarily
+
+    with tempfile.TemporaryDirectory(
+        prefix="cityuschedule-"
+    ) as directory:
+        session_directory = Path(directory)
+
+        basic_path = store_ge_courses_temporarily(
+            basic_html_paths,
+            session_directory,
+        )
+
+        section_path = (
+            session_directory / "ge_course_information.json"
+        )
+        section_path.write_text("[]\n", encoding="utf-8")
+
+        with use_ge_session_sources(
+            basic_path,
+            section_path,
+        ):
+            interactive_menu()
+
+    print("Session ended. Temporary GE files have been deleted.")
 
 
 def main(argv: list[str] | None = None) -> None:
