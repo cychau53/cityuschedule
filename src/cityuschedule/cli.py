@@ -885,33 +885,6 @@ def main(argv: list[str] | None = None) -> None:
 
             table = convert_ge_records_to_aims_table(args.ge_course_code,course_records,)
             
-            try:
-                course_code_input = input()
-            except EOFError:
-                raise ValueError(
-                    "Input ended before the course code was confirmed."
-                ) from None
-            _exit_if_requested(course_code_input)
-            course_code = course_code_input.strip() or None
-
-            try:
-                table = parse_aims_table(
-                    pasted_table,
-                    course_code=course_code,
-                )
-            except ValueError as error:
-                if (
-                    course_code is None
-                    and str(error).startswith("Course code is required.")
-                ):
-                    _print_red(
-                        "A course code is required for this table. "
-                        "Enter it now; do not press Enter."
-                    )
-                    continue
-                raise
-            break
-            
             _print_yellow(
                 "Enter unavailable section codes separated by spaces or "
                 "commas, or press Enter for none:"
@@ -924,18 +897,11 @@ def main(argv: list[str] | None = None) -> None:
                     "confirmed. Press Enter to continue without exclusions."
                 ) from None
             _exit_if_requested(unavailable_input)
-            unavailable_sections = list({
-                section.upper()
-                for section in unavailable_input.replace(",", " ").split()
-            })
+            unavailable_sections = list({section.upper() for section in unavailable_input.replace(",", " ").split()})
 
-            known_sections = {
-                session.section.upper()
-                for session in table.sessions
-            }
-            unknown_sections = (
-                set(unavailable_sections) - known_sections
-            )
+            known_sections = {session.section.upper() for session in table.sessions}
+            unknown_sections = (set(unavailable_sections) - known_sections)
+            
             if unknown_sections:
                 raise ValueError(
                     "Unknown section code(s): "
