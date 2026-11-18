@@ -99,3 +99,29 @@ def update_ge_courses_from_html(
         json.dump(courses, file, ensure_ascii=False, indent=2)
 
     return len(courses)
+
+def store_ge_courses_temporarily(
+    html_paths: list[str | Path],
+    session_directory: str | Path,
+) -> Path:
+    """
+    Import basic GE information into a caller-owned session directory.
+
+    The caller is responsible for deleting the session directory.
+    """
+    session_directory = Path(session_directory)
+    session_directory.mkdir(parents=True, exist_ok=True)
+
+    output_path = session_directory / "ge_courses.json"
+
+    count = update_ge_courses_from_html(
+        html_paths,
+        output_path=output_path,
+    )
+
+    if count == 0:
+        raise ValueError(
+            "No basic GE courses were imported."
+        )
+
+    return output_path
