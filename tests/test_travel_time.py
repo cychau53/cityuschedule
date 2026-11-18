@@ -18,7 +18,7 @@ def make_session(
         "day": day,
         "start_time": start_time,
         "end_time": end_time,
-        "building": "AC1",
+        "building": "YEUNG",
         "room": "LT-1",
     }
 
