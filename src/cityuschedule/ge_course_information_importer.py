@@ -351,6 +351,80 @@ def update_ge_course_information(
     _write_records(records, output_path)
     return len(records)
 
+def store_ge_sections_temporarily(
+    course_codes: list[str],
+    session_directory: str | Path,
+    *,
+    timeout: float = 30,
+) -> Path:
+    """
+    Fetch courses and update their section records in the session file.
+
+    Previously fetched courses are preserved.
+    Requested courses are replaced only after every fetch succeeds.
+    """
+    session_directory = Path(session_directory)
+    session_directory.mkdir(parents=True, exist_ok=True)
+
+    output_path = (
+        session_directory / "ge_course_information.json"
+    )
+
+    codes = list(
+        dict.fromkeys(
+            normalize_course_code(code)
+            for code in course_codes
+        )
+    )
+
+    if not codes:
+        raise ValueError("Enter at least one GE course code.")
+
+    existing_records = []
+
+    if output_path.exists():
+        existing_records = json.loads(
+            output_path.read_text(encoding="utf-8")
+        )
+
+        if (
+            not isinstance(existing_records, list)
+            or not all(
+                isinstance(record, dict)
+                and isinstance(record.get("course_code"), str)
+                for record in existing_records
+            )
+        ):
+            raise ValueError(
+                "The temporary section file contains invalid records."
+            )
+
+    fetched_records = []
+
+    for code in codes:
+        fetched_records.extend(
+            fetch_ge_course_information(
+                code,
+                timeout=timeout,
+            )
+        )
+
+    requested_codes = set(codes)
+
+    preserved_records = [
+        record
+        for record in existing_records
+        if record["course_code"].strip().upper()
+        not in requested_codes
+    ]
+
+    _write_records(
+        preserved_records + fetched_records,
+        output_path,
+    )
+
+    return output_path
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
