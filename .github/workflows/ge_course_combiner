@@ -1,4 +1,4 @@
-name: CI
+name: ge_course_combiner
 
 on:
   push:
