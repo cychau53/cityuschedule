@@ -1,4 +1,5 @@
 from cityuschedule.aims_fit import (
+    bundle_preferred_day_count,
     fitting_registration_bundles,
     sessions_overlap,
 )
@@ -14,6 +15,7 @@ def make_session(section, day, start, end, course="TEST1001"):
         day=day,
         start_time=start,
         end_time=end,
+        building="BOC",
     )
 
 
@@ -95,6 +97,45 @@ def test_lecture_conflict_rejects_every_bundle():
 
     assert fitting_registration_bundles(table, base) == []
 
+
+def test_preferred_days_rank_bundles_and_avoided_days_filter_them():
+    table = ParsedAimsTable(
+        course_code="TEST1001",
+        sessions=(
+            make_session("C01", "M", "09:00", "10:00"),
+            make_session("C02", "T", "09:00", "10:00"),
+            make_session("T01", "W", "11:00", "12:00"),
+            make_session("T02", "F", "11:00", "12:00"),
+        ),
+    )
+
+    preferred = fitting_registration_bundles(
+        table,
+        (),
+        preferred_days=["Fri"],
+    )
+    assert preferred[:2] == [
+        ("C01", "T02"),
+        ("C02", "T02"),
+    ]
+    assert bundle_preferred_day_count(
+        table,
+        ("C01", "T02"),
+        ["Fri", "Mon"],
+    ) == 2
+
+    avoided = fitting_registration_bundles(
+        table,
+        (),
+        preferred_days=["Fri"],
+        avoid_days=["Tue"],
+    )
+    assert avoided == [
+        ("C01", "T02"),
+        ("C01", "T01"),
+    ]
+
+
 def test_convert_aims_sessions_maps_days_and_skips_unscheduled():
     from cityuschedule.aims_fit import convert_aims_sessions
 
@@ -116,6 +157,7 @@ def test_convert_aims_sessions_maps_days_and_skips_unscheduled():
             "day": day,
             "start_time": "09:00",
             "end_time": "10:50",
+            "building": "BOC",
         }
         for index, (day, _) in enumerate(day_pairs)
     ]
@@ -127,6 +169,7 @@ def test_convert_aims_sessions_maps_days_and_skips_unscheduled():
         "day": "",
         "start_time": "",
         "end_time": "",
+        "building": "",
     })
 
     converted = convert_aims_sessions(rows)
@@ -139,6 +182,7 @@ def test_convert_aims_sessions_maps_days_and_skips_unscheduled():
     assert converted[0].crn == "20000"
     assert converted[0].start_time == "09:00"
     assert converted[0].end_time == "10:50"
+    assert converted[0].building == "BOC"
 
 
 def test_converted_base_sessions_work_with_fit_checker():
@@ -152,6 +196,7 @@ def test_converted_base_sessions_work_with_fit_checker():
             "day": "Wed",
             "start_time": "12:00",
             "end_time": "13:50",
+            "building": "BOC",
         },
     ])
 

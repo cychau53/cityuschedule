@@ -39,7 +39,7 @@ English
 """
 
 
-def prepare_cli(monkeypatch, base_rows):
+def prepare_cli(monkeypatch, base_rows, extra_args=None):
     monkeypatch.setattr(
         sys,
         "argv",
@@ -48,7 +48,7 @@ def prepare_cli(monkeypatch, base_rows):
             "--aims-html",
             "test_base.html",
             "--paste-aims",
-        ],
+        ] + (extra_args or []),
     )
 
     monkeypatch.setattr(
@@ -73,6 +73,7 @@ def test_paste_cli_reports_fitting_bundle(monkeypatch, capsys):
             "day": "Mon",
             "start_time": "09:00",
             "end_time": "10:50",
+            "building": "BOC",
         },
     ]
     prepare_cli(monkeypatch, base_rows)
@@ -96,6 +97,7 @@ def test_paste_cli_reports_conflicting_bundle(monkeypatch, capsys):
             "day": "Wed",
             "start_time": "12:30",
             "end_time": "13:20",
+            "building": "BOC",
         },
     ]
     prepare_cli(monkeypatch, base_rows)
@@ -113,3 +115,47 @@ def test_paste_cli_reports_conflicting_bundle(monkeypatch, capsys):
         "TEST1001-C01 W 12:00-13:50 overlaps "
         "BASE1001-C01 W 12:30-13:20"
     ) in output
+
+
+def test_paste_cli_rejects_bundle_without_enough_travel_time(
+    monkeypatch,
+    capsys,
+):
+    base_rows = [
+        {
+            "course_code": "BASE1001",
+            "crn": "20001",
+            "section": "C01",
+            "day": "Wed",
+            "start_time": "10:50",
+            "end_time": "11:50",
+            "building": "CMC",
+        },
+    ]
+    prepare_cli(monkeypatch, base_rows)
+
+    cli.main()
+
+    output = capsys.readouterr().out
+
+    assert "Bundles fitting weekly timetable: 0" in output
+    assert "Requires 16 minutes, but only 10 minutes are available." in output
+
+
+def test_paste_cli_ranks_preferred_days(monkeypatch, capsys):
+    prepare_cli(monkeypatch, [], ["--prefer-days", "Wed"])
+
+    cli.main()
+
+    output = capsys.readouterr().out
+    assert "1. C01 + T01 (1 preferred day(s))" in output
+
+
+def test_paste_cli_rejects_avoided_days(monkeypatch, capsys):
+    prepare_cli(monkeypatch, [], ["--avoid-days", "Wed"])
+
+    cli.main()
+
+    output = capsys.readouterr().out
+    assert "Bundles fitting weekly timetable: 0" in output
+    assert "Uses avoided day(s): Wed" in output

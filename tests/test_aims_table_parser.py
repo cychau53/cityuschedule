@@ -54,6 +54,7 @@ def test_parse_course_code_and_scheduled_session():
     assert tutorial.day == "F"
     assert tutorial.start_time == "09:00"
     assert tutorial.end_time == "11:50"
+    assert tutorial.building == "LI"
     assert tutorial.is_scheduled
 
 def test_parse_c_and_t_course():

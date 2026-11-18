@@ -15,6 +15,7 @@ class AimsSession:
     day: str | None
     start_time: str | None
     end_time: str | None
+    building: str = ""
 
     @property
     def activity_type(self) -> str:
@@ -140,6 +141,7 @@ def parse_aims_table(text: str) -> ParsedAimsTable:
         day = None
         start_time = None
         end_time = None
+        building = ""
 
         for offset in range(len(record) - 1):
             if not re.fullmatch(r"[MTWRFSU]", record[offset]):
@@ -155,6 +157,8 @@ def parse_aims_table(text: str) -> ParsedAimsTable:
             day = record[offset]
             start_time = f"{start_hour}:{start_minute}"
             end_time = f"{end_hour}:{end_minute}"
+            if offset + 2 < len(record):
+                building = record[offset + 2]
             break
 
         sessions.append(
@@ -166,6 +170,7 @@ def parse_aims_table(text: str) -> ParsedAimsTable:
                 day=day,
                 start_time=start_time,
                 end_time=end_time,
+                building=building,
             )
         )
 

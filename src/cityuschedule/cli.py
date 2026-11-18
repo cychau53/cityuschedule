@@ -18,6 +18,7 @@ import json
 
 from .aims_table_parser import parse_aims_table
 from .aims_fit import (
+    bundle_preferred_day_count,
     convert_aims_sessions,
     fitting_registration_bundles,
     registration_bundle_conflicts,
@@ -118,7 +119,10 @@ def main() -> None:
     parser.add_argument(
         "--prefer-days",
         nargs="+",
-        help="Days to prefer when ranking generated plans, such as Mon Tue Wed",
+        help=(
+            "Days to prefer when ranking plans or AIMS paste bundles, "
+            "such as Mon Tue Wed"
+        ),
     )
     parser.add_argument(
         "--require-section",
@@ -128,7 +132,10 @@ def main() -> None:
     parser.add_argument(
         "--avoid-days",
         nargs="+",
-        help="Days that generated plans must not use, such as Fri Sat",
+        help=(
+            "Days that plans or AIMS paste bundles must not use, "
+            "such as Fri Sat"
+        ),
     )
 
     parser.add_argument(
@@ -239,6 +246,8 @@ def main() -> None:
             fitting = fitting_registration_bundles(
                 table,
                 base_sessions,
+                preferred_days=args.prefer_days,
+                avoid_days=args.avoid_days,
             )
 
         except (OSError, ValueError) as error:
@@ -262,8 +271,9 @@ def main() -> None:
             )
         elif not fitting:
             print(
-                "No complete bundle fits: each has an internal overlap "
-                "or overlaps the base timetable."
+                "No complete bundle fits: each has an internal overlap, "
+                "overlaps the base timetable, lacks sufficient travel time, "
+                "or uses an avoided day."
             )
         else:
             by_section = {
@@ -272,7 +282,20 @@ def main() -> None:
             }
 
             for number, bundle in enumerate(fitting, start=1):
-                print(f"\n{number}. {' + '.join(bundle)}")
+                preferred_count = bundle_preferred_day_count(
+                    table,
+                    bundle,
+                    args.prefer_days,
+                )
+                preferred_label = (
+                    f" ({preferred_count} preferred day(s))"
+                    if preferred_count
+                    else ""
+                )
+                print(
+                    f"\n{number}. {' + '.join(bundle)}"
+                    f"{preferred_label}"
+                )
 
                 for section in bundle:
                     session = by_section[section]
@@ -299,6 +322,7 @@ def main() -> None:
                     table,
                     bundle,
                     base_sessions,
+                    avoid_days=args.avoid_days,
                 )
 
                 for reason in reasons:
@@ -306,9 +330,9 @@ def main() -> None:
 
         print()
         print(
-            "Weekly time-fit only. Eligibility, seat availability, "
-            "date ranges, travel time, and multiple meeting rows "
-            "are not validated."
+            "Weekly time-fit and travel between known buildings only. "
+            "Eligibility, seat availability, date ranges, and multiple "
+            "meeting rows are not validated."
         )
         return
 
