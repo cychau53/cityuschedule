@@ -66,16 +66,29 @@ def _record_course_code(
 
 def load_ge_courses() -> list[dict]:
     """
-    Load basic GE course information with associated section records.
+    Combine basic GE information with section meeting records.
 
-    Basic courses without stored sections receive sections=[].
-    The source JSON files are not modified.
+    Returns one flat dictionary per section meeting.
+    Courses without section records are retained with empty section fields.
     """
     courses = _read_json_records(DATA_PATH)
 
     sections = _read_json_records(
         SECTION_DATA_PATH,
         allow_missing_or_blank=True,
+    )
+
+    section_fields = (
+        "crn",
+        "section",
+        "term",
+        "capacity",
+        "day",
+        "time",
+        "type",
+        "building",
+        "room",
+        "instructor",
     )
 
     sections_by_course: dict[str, list[dict]] = {}
@@ -87,14 +100,9 @@ def load_ge_courses() -> list[dict]:
             index=index,
         )
 
-        sections_by_course.setdefault(course_code, []).append(
-            {
-                **section,
-                "course_code": course_code,
-            }
-        )
+        sections_by_course.setdefault(course_code, []).append(section)
 
-    combined_courses = []
+    combined_records = []
 
     for index, course in enumerate(courses):
         course_code = _record_course_code(
@@ -103,15 +111,40 @@ def load_ge_courses() -> list[dict]:
             index=index,
         )
 
-        combined_courses.append(
-            {
-                **course,
-                "course_code": course_code,
-                "sections": sections_by_course.get(course_code, []),
-            }
-        )
+        # Remove a previously attached nested field, if present.
+        basic_info = {
+            key: value
+            for key, value in course.items()
+            if key != "sections"
+        }
+        basic_info["course_code"] = course_code
 
-    return combined_courses
+        matching_sections = sections_by_course.get(course_code, [])
+
+        if not matching_sections:
+            combined_records.append(
+                {
+                    **basic_info,
+                    **{
+                        field: None
+                        for field in section_fields
+                    },
+                }
+            )
+            continue
+
+        for section in matching_sections:
+            combined_records.append(
+                {
+                    **basic_info,
+                    **{
+                        field: section.get(field)
+                        for field in section_fields
+                    },
+                }
+            )
+
+    return combined_records
 
 
 def get_ge_course_info(course_code: str) -> dict | None:
