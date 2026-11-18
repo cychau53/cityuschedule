@@ -227,7 +227,6 @@ def main() -> None:
             credit_courses = load_credit_catalogs(args.credit_catalog)
 
             print("Paste ONE course's complete AIMS offering table.")
-            print("Include its course code as the first line.")
             print("Finish by typing END on a new line and pressing Enter.")
             print()
 
@@ -246,7 +245,22 @@ def main() -> None:
 
                 lines.append(line)
 
-            table = parse_aims_table("\n".join(lines))
+            print(
+                "If the copied table did not include the course heading, "
+                "enter its course code (for example GE2130); otherwise "
+                "press Enter:"
+            )
+            try:
+                course_code = input().strip() or None
+            except EOFError:
+                raise ValueError(
+                    "Input ended before the course code was confirmed."
+                ) from None
+
+            table = parse_aims_table(
+                "\n".join(lines),
+                course_code=course_code,
+            )
             print(
                 "Enter unavailable section codes separated by spaces or "
                 "commas, or press Enter for none:"

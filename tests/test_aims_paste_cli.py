@@ -45,6 +45,8 @@ def prepare_cli(
     base_rows,
     extra_args=None,
     unavailable_sections="",
+    course_code="",
+    pasted_table=PASTED_TABLE,
 ):
     monkeypatch.setattr(
         sys,
@@ -64,7 +66,8 @@ def prepare_cli(
     )
 
     lines = iter(
-        PASTED_TABLE.splitlines() + ["END", unavailable_sections]
+        pasted_table.splitlines()
+        + ["END", course_code, unavailable_sections]
     )
     monkeypatch.setattr(
         "builtins.input",
@@ -178,6 +181,30 @@ def test_paste_cli_excludes_user_unavailable_sections(monkeypatch, capsys):
     assert "Unavailable sections excluded: T01" in output
     assert "Bundles fitting weekly timetable: 0" in output
     assert "Unavailable section(s): T01" in output
+
+
+def test_paste_cli_accepts_copied_tabular_table(monkeypatch, capsys):
+    copied_table = (
+        "CRN\tSection\tCredit\tCampus\tWEB\tLevel\tAvail\tCap\tWaitlist\n"
+        "Avail\tDate\tDay\tTime\tBldg\tRoom\tInstructor\tMedium of\n"
+        "Instruction\n"
+        "10681\tC01\t3\tMain Campus\tY\tB\t79\t80\tN\t"
+        "11/01/2027 - 17/04/2027\tF\t12:00 - 14:50\tYEUNG\t"
+        "G4702\tHE Yutian, CHAN Kim Lui Raise\tEnglish"
+    )
+    prepare_cli(
+        monkeypatch,
+        [],
+        course_code="GE2130",
+        pasted_table=copied_table,
+    )
+
+    cli.main()
+
+    output = capsys.readouterr().out
+    assert "Course: GE2130" in output
+    assert "Parsed sections: 1" in output
+    assert "Bundles fitting weekly timetable: 1" in output
 
 
 def test_paste_cli_rejects_unknown_unavailable_sections(monkeypatch):

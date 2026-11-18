@@ -102,8 +102,11 @@ class ParsedAimsTable:
         return sorted(bundles)
 
 
-def parse_aims_table(text: str) -> ParsedAimsTable:
-    """Parse one course's AIMS table in one-field-per-line format."""
+def parse_aims_table(
+    text: str,
+    course_code: str | None = None,
+) -> ParsedAimsTable:
+    """Parse one course's AIMS table in copied-table or field-per-line form."""
     lines = [
         line.strip()
         for line in text.splitlines()
@@ -118,24 +121,54 @@ def parse_aims_table(text: str) -> ParsedAimsTable:
         lines[0],
         flags=re.IGNORECASE,
     )
-    if not heading:
+    if heading:
+        parsed_course_code = "".join(heading.groups()).upper()
+    elif course_code:
+        code_match = re.fullmatch(
+            r"([A-Z]+)\s*(\d{4}[A-Z]?)",
+            course_code.strip(),
+            flags=re.IGNORECASE,
+        )
+        if code_match is None:
+            raise ValueError(
+                f"Invalid course code {course_code!r}. "
+                "Enter a code such as GE2130."
+            )
+        parsed_course_code = "".join(code_match.groups()).upper()
+    else:
         raise ValueError(
-            "Include the course code above the table, for example CS3481."
+            "Course code is required. Enter a code such as GE2130."
         )
 
-    course_code = "".join(heading.groups()).upper()
     section_pattern = re.compile(r"[A-Z]{1,2}\d+")
     time_pattern = re.compile(
         r"([01]\d|2[0-3]):([0-5]\d)\s*[-–]\s*"
         r"([01]\d|2[0-3]):([0-5]\d)"
     )
 
+    if any("\t" in line for line in lines):
+        sessions = _parse_tabular_sessions(
+            lines,
+            parsed_course_code,
+            section_pattern,
+            time_pattern,
+        )
+        if not sessions:
+            raise ValueError(
+                "No section records were found in the copied AIMS table."
+            )
+        return ParsedAimsTable(
+            course_code=parsed_course_code,
+            sessions=tuple(sessions),
+        )
+
+    record_lines = lines[1:] if heading else lines
+
     section_indices = [
-        index
-        for index in range(1, len(lines) - 1)
-        if section_pattern.fullmatch(lines[index])
-        and re.fullmatch(r"\d+", lines[index - 1])
-        and re.fullmatch(r"\d+", lines[index + 1])
+        index for index in range(1, len(record_lines) - 1)
+        if section_pattern.fullmatch(record_lines[index])
+        and re.fullmatch(r"\d+", record_lines[index - 1])
+        and re.fullmatch(r"\d+", record_lines[index + 1])
     ]
 
     if not section_indices:
@@ -148,9 +181,9 @@ def parse_aims_table(text: str) -> ParsedAimsTable:
         stop = (
             section_indices[position + 1] - 1
             if position + 1 < len(section_indices)
-            else len(lines)
+            else len(record_lines)
         )
-        record = lines[index + 2:stop]
+        record = record_lines[index + 2:stop]
 
         day = None
         start_time = None
@@ -177,10 +210,10 @@ def parse_aims_table(text: str) -> ParsedAimsTable:
 
         sessions.append(
             AimsSession(
-                course_code=course_code,
-                crn=lines[index - 1],
-                section=lines[index],
-                credit=int(lines[index + 1]),
+                course_code=parsed_course_code,
+                crn=record_lines[index - 1],
+                section=record_lines[index],
+                credit=int(record_lines[index + 1]),
                 day=day,
                 start_time=start_time,
                 end_time=end_time,
@@ -189,7 +222,60 @@ def parse_aims_table(text: str) -> ParsedAimsTable:
         )
 
     return ParsedAimsTable(
-        course_code=course_code,
+        course_code=parsed_course_code,
         sessions=tuple(sessions),
     )
+
+
+def _parse_tabular_sessions(
+    lines: list[str],
+    course_code: str,
+    section_pattern: re.Pattern[str],
+    time_pattern: re.Pattern[str],
+) -> list[AimsSession]:
+    sessions = []
+    for line in lines:
+        fields = [field.strip() for field in line.split("\t")]
+        if (
+            len(fields) < 3
+            or not fields[0].isdigit()
+            or not section_pattern.fullmatch(fields[1])
+            or not re.fullmatch(r"\d+", fields[2])
+        ):
+            continue
+
+        day = None
+        start_time = None
+        end_time = None
+        building = ""
+        for index in range(len(fields) - 1):
+            if not re.fullmatch(r"[MTWRFSU]", fields[index]):
+                continue
+            match = time_pattern.fullmatch(fields[index + 1])
+            if match is None:
+                continue
+            start_hour, start_minute, end_hour, end_minute = (
+                match.groups()
+            )
+            day = fields[index]
+            start_time = f"{start_hour}:{start_minute}"
+            end_time = f"{end_hour}:{end_minute}"
+            if index + 2 < len(fields):
+                building = fields[index + 2]
+            break
+
+        sessions.append(
+            AimsSession(
+                course_code=course_code,
+                crn=fields[0],
+                section=fields[1],
+                credit=int(fields[2]),
+                day=day,
+                start_time=start_time,
+                end_time=end_time,
+                building=building,
+            )
+        )
+
+    return sessions
 

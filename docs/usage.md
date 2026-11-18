@@ -190,8 +190,10 @@ additional credit catalogue:
 ]
 ```
 
-Then paste one course's complete AIMS offering table and finish with `END`.
-At the next prompt, enter any section codes you cannot register for, separated
+Then paste one course's complete AIMS offering table (the tab-separated table
+copied from AIMS is supported) and finish with `END`. If the copied selection
+does not include the course heading, enter the course code when prompted. At
+the next prompt, enter any section codes you cannot register for, separated
 by spaces or commas, or press Enter for none:
 
 ```bash
