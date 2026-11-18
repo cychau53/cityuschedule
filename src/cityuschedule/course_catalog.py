@@ -83,38 +83,28 @@ def load_course_catalog(path: str | Path) -> list[CatalogCourse]:
 
 
 def load_credit_catalogs(
-    extra_paths: list[str] | None = None,
-) -> list[CatalogCourse]:
-    source_catalogue_dir = (
-        Path(__file__).resolve().parents[2]
-        / "data"
-        / "catalogue"
-    )
-    if source_catalogue_dir.is_dir():
-        catalogue_dir = source_catalogue_dir
-    else:
-        catalogue_dir = (
-            Path(__file__).resolve().parent
-            / "data"
-            / "catalogue"
-        )
+    credit_catalog: list[str] | None = None,
+) -> list[dict]:
+    if not credit_catalog:
+        return []
 
-    courses = []
-    for filename in DEFAULT_CREDIT_CATALOGS:
-        courses.extend(load_course_catalog(catalogue_dir / filename))
+    credits = []
 
-    for path in extra_paths or []:
-        courses.extend(load_course_catalog(path))
+    for path in credit_catalog:
+        path = Path(path)
 
-    courses_by_code: dict[str, CatalogCourse] = {}
-    for course in courses:
-        code = course.code.upper()
-        existing = courses_by_code.get(code)
-        if existing is not None and existing.credits != course.credits:
-            raise ValueError(
-                f"Conflicting credits for {code}: "
-                f"{existing.credits} and {course.credits}"
-            )
-        courses_by_code.setdefault(code, course)
+        if not path.exists():
+            continue
 
-    return list(courses_by_code.values())
+        with path.open(
+            "r",
+            encoding="utf-8-sig",
+        ) as file:
+            records = json.load(file)
+
+        if isinstance(records, dict):
+            records = [records]
+
+        credits.extend(records)
+
+    return credits
