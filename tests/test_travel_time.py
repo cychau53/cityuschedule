@@ -1,6 +1,6 @@
 import unittest
 
-from travel_time import time
+from cityuschedule.travel_time import time
 
 
 def make_session(
