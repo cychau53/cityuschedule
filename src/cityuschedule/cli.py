@@ -2,33 +2,41 @@ import argparse
 import csv
 import json
 import os
-from pathlib import Path
 import sys
+from dataclasses import dataclass
+from pathlib import Path
 from typing import TextIO
 
-from .calendar_export import export_ics
-from .conflicts import find_conflicts
-from .timetable import format_timetable
 from .aims import load_aims_html
-
-from .course_catalog import load_course_catalog, load_credit_catalogs
-from .planner import (
-    calculate_course_credits,
-    generate_plans,
-    generate_aims_ge_plans,
-    export_plan_ics,
-)
-
-from .ge_courses import get_ge_course_info, search_ge_courses
-from .ge_importer import update_ge_courses_from_html
-
-from .aims_table_parser import parse_aims_table
 from .aims_fit import (
+    DAY_NAMES,
     bundle_preferred_day_count,
     convert_aims_sessions,
     fitting_registration_bundles,
     registration_bundle_conflicts,
 )
+from .aims_table_parser import parse_aims_table
+from .calendar_export import export_ics
+from .conflicts import find_conflicts
+from .course_catalog import load_course_catalog, load_credit_catalogs
+from .ge_courses import get_ge_course_info, search_ge_courses
+from .ge_importer import update_ge_courses_from_html
+from .planner import (
+    calculate_course_credits,
+    export_plan_ics,
+    generate_aims_ge_plans,
+    generate_plans,
+)
+from .timetable import format_timetable
+
+
+@dataclass(frozen=True)
+class BasicSettings:
+    prefer_days: tuple[str, ...] = ()
+    avoid_days: tuple[str, ...] = ()
+    min_credits: int | None = None
+    max_credits: int | None = None
+
 
 def load_sessions(csv_path: str) -> list[dict[str, str]]:
     path = Path(csv_path)
@@ -46,12 +54,224 @@ def load_sessions(csv_path: str) -> list[dict[str, str]]:
     return sessions
 
 
-def _aims_path_config_file() -> Path:
+def _cityuschedule_config_dir() -> Path:
     config_root = Path(
         os.environ.get("APPDATA")
         or str(Path.home() / ".config")
     )
-    return config_root / "cityuschedule" / "aims_html_path.txt"
+    return config_root / "cityuschedule"
+
+
+def _aims_path_config_file() -> Path:
+    return _cityuschedule_config_dir() / "aims_html_path.txt"
+
+
+def _basic_settings_config_file() -> Path:
+    return _cityuschedule_config_dir() / "basic_settings.json"
+
+
+_DAY_ALIASES = {
+    "m": "Mon",
+    "mon": "Mon",
+    "monday": "Mon",
+    "t": "Tue",
+    "tue": "Tue",
+    "tuesday": "Tue",
+    "w": "Wed",
+    "wed": "Wed",
+    "wednesday": "Wed",
+    "r": "Thu",
+    "thu": "Thu",
+    "thursday": "Thu",
+    "f": "Fri",
+    "fri": "Fri",
+    "friday": "Fri",
+    "s": "Sat",
+    "sat": "Sat",
+    "saturday": "Sat",
+    "u": "Sun",
+    "sun": "Sun",
+    "sunday": "Sun",
+}
+
+
+def _parse_day_list(value: str) -> tuple[str, ...]:
+    days = []
+    for token in value.replace(",", " ").split():
+        day = _DAY_ALIASES.get(token.casefold())
+        if day is None:
+            raise ValueError(
+                f"Unrecognized day {token!r}. Use Mon, Tue, Wed, Thu, "
+                "Fri, Sat, or Sun."
+            )
+        if day not in days:
+            days.append(day)
+    return tuple(days)
+
+
+def _load_basic_settings() -> BasicSettings:
+    settings_file = _basic_settings_config_file()
+    try:
+        values = json.loads(settings_file.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return BasicSettings()
+    except (OSError, json.JSONDecodeError) as error:
+        _print_red(f"Could not read basic settings: {error}")
+        return BasicSettings()
+
+    try:
+        if not isinstance(values, dict):
+            raise TypeError("Basic settings must be a JSON object.")
+
+        prefer_days = values.get("prefer_days", [])
+        avoid_days = values.get("avoid_days", [])
+        min_credits = values.get("min_credits")
+        max_credits = values.get("max_credits")
+        if not isinstance(prefer_days, list) or not all(
+            isinstance(day, str) for day in prefer_days
+        ):
+            raise ValueError("Preferred days in saved settings must be a list.")
+        if not isinstance(avoid_days, list) or not all(
+            isinstance(day, str) for day in avoid_days
+        ):
+            raise ValueError("Avoided days in saved settings must be a list.")
+
+        normalized_prefer = _parse_day_list(" ".join(prefer_days))
+        normalized_avoid = _parse_day_list(" ".join(avoid_days))
+        for label, credits in (
+            ("minimum", min_credits),
+            ("maximum", max_credits),
+        ):
+            if credits is not None and (
+                type(credits) is not int or credits < 0
+            ):
+                raise ValueError(
+                    f"Saved {label} credits must be a non-negative integer."
+                )
+        if (
+            min_credits is not None
+            and max_credits is not None
+            and min_credits > max_credits
+        ):
+            raise ValueError(
+                "Saved minimum credits exceed maximum credits."
+            )
+        if set(normalized_prefer) & set(normalized_avoid):
+            raise ValueError(
+                "A day cannot be both preferred and avoided."
+            )
+    except (TypeError, ValueError) as error:
+        _print_red(f"Invalid basic settings: {error}")
+        return BasicSettings()
+
+    return BasicSettings(
+        prefer_days=normalized_prefer,
+        avoid_days=normalized_avoid,
+        min_credits=min_credits,
+        max_credits=max_credits,
+    )
+
+
+def _save_basic_settings(settings: BasicSettings) -> None:
+    values = {
+        "prefer_days": list(settings.prefer_days),
+        "avoid_days": list(settings.avoid_days),
+        "min_credits": settings.min_credits,
+        "max_credits": settings.max_credits,
+    }
+    settings_file = _basic_settings_config_file()
+    settings_file.parent.mkdir(parents=True, exist_ok=True)
+    settings_file.write_text(
+        json.dumps(values, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _prompt_days(label: str, current: tuple[str, ...]) -> tuple[str, ...]:
+    current_value = ", ".join(current) or "none"
+    response = input(
+        f"{label} [{current_value}] (blank keeps, none clears): "
+    ).strip()
+    if not response:
+        return current
+    if response.casefold() in {"none", "clear"}:
+        return ()
+    return _parse_day_list(response)
+
+
+def _prompt_credit_limit(
+    label: str,
+    current: int | None,
+) -> int | None:
+    current_value = str(current) if current is not None else "none"
+    response = input(
+        f"{label} [{current_value}] (blank keeps, none clears): "
+    ).strip()
+    if not response:
+        return current
+    if response.casefold() in {"none", "clear"}:
+        return None
+    try:
+        credits = int(response)
+    except ValueError:
+        raise ValueError(f"{label} must be a non-negative integer.") from None
+    if credits < 0:
+        raise ValueError(f"{label} must be a non-negative integer.")
+    return credits
+
+
+def _prompt_basic_settings(current: BasicSettings) -> BasicSettings:
+    while True:
+        _print_yellow(
+            "Basic settings: days may be entered as Mon/Tue/Wed/Thu/Fri/Sat/Sun "
+            "or M/T/W/R/F/S/U."
+        )
+        try:
+            prefer_days = _prompt_days("Prefer days", current.prefer_days)
+            avoid_days = _prompt_days("Avoid days", current.avoid_days)
+            min_credits = _prompt_credit_limit(
+                "Minimum credits",
+                current.min_credits,
+            )
+            max_credits = _prompt_credit_limit(
+                "Maximum credits",
+                current.max_credits,
+            )
+            if set(prefer_days) & set(avoid_days):
+                raise ValueError(
+                    "A day cannot be both preferred and avoided."
+                )
+            if (
+                min_credits is not None
+                and max_credits is not None
+                and min_credits > max_credits
+            ):
+                raise ValueError(
+                    "Minimum credits cannot exceed maximum credits."
+                )
+        except ValueError as error:
+            _print_red(str(error))
+            continue
+
+        return BasicSettings(
+            prefer_days=prefer_days,
+            avoid_days=avoid_days,
+            min_credits=min_credits,
+            max_credits=max_credits,
+        )
+
+
+def _basic_settings_arguments(settings: BasicSettings) -> list[str]:
+    arguments = []
+    if settings.prefer_days:
+        arguments.extend(["--prefer-days", *settings.prefer_days])
+    if settings.avoid_days:
+        arguments.extend(["--avoid-days", *settings.avoid_days])
+    if settings.min_credits is not None:
+        arguments.extend(["--min-credits", str(settings.min_credits)])
+    if settings.max_credits is not None:
+        arguments.extend(["--max-credits", str(settings.max_credits)])
+    return arguments
 
 
 def _load_saved_aims_path() -> str | None:
@@ -119,6 +339,14 @@ def _print_blue(text: str) -> None:
     _print_color(text, "34")
 
 
+def _print_purple(text: str) -> None:
+    _print_color(text, "95")
+
+
+def _print_orange(text: str) -> None:
+    _print_color(text, "38;5;208")
+
+
 def _print_red(text: str, file: TextIO | None = None) -> None:
     _print_color(text, "31", file)
 
@@ -136,12 +364,15 @@ class _CityUScheduleArgumentParser(argparse.ArgumentParser):
 def _menu_command(
     choice: str,
     saved_aims_path: str | None = None,
+    settings: BasicSettings | None = None,
 ) -> tuple[list[str] | None, str | None]:
-    if choice == "1":
+    settings = settings or BasicSettings()
+
+    if choice == "2":
         path = _prompt_path("CSV timetable path")
         return ([path], None) if path else (None, None)
 
-    if choice == "2":
+    if choice == "3":
         path = _prompt_path(
             "AIMS timetable HTML path (enter a new path to change it)",
             saved_aims_path,
@@ -152,17 +383,17 @@ def _menu_command(
             else (None, None)
         )
 
-    if choice == "3":
+    if choice == "4":
         path = saved_aims_path or _prompt_path(
             "Saved AIMS timetable HTML path"
         )
-        return (
-            (["--aims-html", path, "--paste-aims"], path)
-            if path
-            else (None, None)
-        )
+        if not path:
+            return None, None
+        command = ["--aims-html", path, "--paste-aims"]
+        command.extend(_basic_settings_arguments(settings))
+        return command, path
 
-    if choice == "4":
+    if choice == "5":
         keyword = input("GE search keyword: ").strip()
         return (
             (["--ge-search", keyword], None)
@@ -170,7 +401,7 @@ def _menu_command(
             else (None, None)
         )
 
-    if choice == "5":
+    if choice == "6":
         course_code = input("GE course code: ").strip()
         return (
             (["--ge-info", course_code], None)
@@ -178,7 +409,7 @@ def _menu_command(
             else (None, None)
         )
 
-    if choice == "6":
+    if choice == "7":
         source_type = input("Export source (CSV or AIMS): ").strip().upper()
         if source_type not in {"CSV", "AIMS"}:
             _print_red("Choose CSV or AIMS.")
@@ -215,7 +446,7 @@ def _menu_command(
 
         return command, path if source_type == "AIMS" else None
 
-    if choice == "7":
+    if choice == "8":
         aims_path = saved_aims_path or _prompt_path(
             "Saved AIMS timetable HTML path"
         )
@@ -224,17 +455,16 @@ def _menu_command(
         )
         if not aims_path or not catalogue_path:
             return None, None
-        return (
-            [
-                "--aims-html",
-                aims_path,
-                "--timetable-catalog",
-                catalogue_path,
-            ],
+        command = [
+            "--aims-html",
             aims_path,
-        )
+            "--timetable-catalog",
+            catalogue_path,
+        ]
+        command.extend(_basic_settings_arguments(settings))
+        return command, aims_path
 
-    if choice == "8":
+    if choice == "9":
         html_path = _prompt_path("Saved GE course HTML path")
         if not html_path:
             return None, None
@@ -252,19 +482,21 @@ def _menu_command(
 
 def interactive_menu() -> None:
     saved_aims_path = _load_saved_aims_path()
+    basic_settings = _load_basic_settings()
     while True:
         if saved_aims_path:
             _print_yellow(f"\nRemembered AIMS HTML: {saved_aims_path}")
         _print_yellow(
             "\nCityU Schedule\n"
-            "1. Check a CSV timetable\n"
-            "2. Check or change saved AIMS timetable\n"
-            "3. Paste and check an AIMS course offering\n"
-            "4. Search GE courses\n"
-            "5. Show GE course details\n"
-            "6. Export a timetable calendar\n"
-            "7. Generate course plans\n"
-            "8. Import GE courses from HTML\n"
+            "1. Basic settings\n"
+            "2. Check a CSV timetable\n"
+            "3. Check or change saved AIMS timetable\n"
+            "4. Paste and check an AIMS course offering\n"
+            "5. Search GE courses\n"
+            "6. Show GE course details\n"
+            "7. Export a timetable calendar\n"
+            "8. Generate course plans\n"
+            "9. Import GE courses from HTML\n"
             "0. Exit"
         )
         try:
@@ -274,16 +506,29 @@ def interactive_menu() -> None:
             if choice.casefold() in {"0", "q"}:
                 return
 
+            if choice == "1":
+                basic_settings = _prompt_basic_settings(basic_settings)
+                try:
+                    _save_basic_settings(basic_settings)
+                except OSError as error:
+                    _print_red(f"Could not save basic settings: {error}")
+                else:
+                    _print_green("Basic settings saved.")
+                continue
+
             command, aims_path_to_save = _menu_command(
                 choice,
                 saved_aims_path,
+                basic_settings,
             )
         except EOFError:
             return
 
         if command is None:
-            if choice not in {"1", "2", "3", "4", "5", "6", "7", "8"}:
-                _print_red("Choose an option from 0 to 8.")
+            if choice not in {
+                "2", "3", "4", "5", "6", "7", "8", "9"
+            }:
+                _print_red("Choose an option from 0 to 9.")
             else:
                 _print_red("Required input was not provided.")
             continue
@@ -459,6 +704,13 @@ def main(argv: list[str] | None = None) -> None:
 
     args = parser.parse_args(command_line)
 
+    if (
+        args.min_credits is not None
+        and args.max_credits is not None
+        and args.min_credits > args.max_credits
+    ):
+        parser.error("--min-credits cannot exceed --max-credits.")
+
     if args.paste_aims:
         if not args.aims_html:
             parser.error("--paste-aims requires --aims-html.")
@@ -630,6 +882,24 @@ def main(argv: list[str] | None = None) -> None:
         )
         print(f"Candidate complete bundles: {len(candidates)}")
         print(f"Bundles fitting weekly timetable: {len(fitting)}")
+        preferred_days = {
+            day.capitalize() for day in (args.prefer_days or [])
+        }
+        avoided_days = {
+            day.capitalize() for day in (args.avoid_days or [])
+        }
+        if preferred_days or avoided_days:
+            print()
+            if preferred_days:
+                _print_purple(
+                    "Current prefer days: "
+                    + ", ".join(sorted(preferred_days))
+                )
+            if avoided_days:
+                _print_purple(
+                    "Current avoid days: "
+                    + ", ".join(sorted(avoided_days))
+                )
         if unavailable_sections:
             print(
                 "Unavailable sections excluded: "
@@ -651,6 +921,14 @@ def main(argv: list[str] | None = None) -> None:
                 f"{aims_credits + pasted_course_credits}; "
                 f"missing: {missing_codes})"
             )
+            if (
+                args.min_credits is not None
+                or args.max_credits is not None
+            ):
+                _print_yellow(
+                    "Warning: credit limits could not be checked because "
+                    "some AIMS course credits are missing."
+                )
         else:
             combined_credits = aims_credits + pasted_course_credits
             _print_blue(f"AIMS timetable credits: {aims_credits}")
@@ -658,7 +936,28 @@ def main(argv: list[str] | None = None) -> None:
             _print_blue(
                 f"Combined total if added: {combined_credits}"
             )
+            if (
+                args.min_credits is not None
+                and combined_credits < args.min_credits
+            ):
+                _print_yellow(
+                    f"Warning: combined credits ({combined_credits}) are "
+                    f"below the minimum ({args.min_credits})."
+                )
+            if (
+                args.max_credits is not None
+                and combined_credits > args.max_credits
+            ):
+                _print_yellow(
+                    f"Warning: combined credits ({combined_credits}) exceed "
+                    f"the maximum ({args.max_credits})."
+                )
 
+        print()
+        by_section = {
+            session.section: session
+            for session in table.scheduled_sessions
+        }
         if not candidates:
             _print_red(
                 "No complete scheduled bundle was generated. "
@@ -672,33 +971,35 @@ def main(argv: list[str] | None = None) -> None:
             )
         else:
             _print_green("Suggested bundles:")
-            by_section = {
-                session.section: session
-                for session in table.scheduled_sessions
-            }
-
             for number, bundle in enumerate(fitting, start=1):
                 preferred_count = bundle_preferred_day_count(
                     table,
                     bundle,
                     args.prefer_days,
                 )
-                preferred_label = (
-                    f" ({preferred_count} preferred day(s))"
-                    if preferred_count
-                    else ""
-                )
                 print()
-                _print_green(
-                    f"{number}. {' + '.join(bundle)}{preferred_label}"
-                )
+                bundle_label = f"{number}. {' + '.join(bundle)}"
+                if preferred_count:
+                    print(
+                        _colorize(bundle_label, "32")
+                        + " "
+                        + _colorize("(match with prefer days)", "95")
+                    )
+                else:
+                    _print_green(bundle_label)
 
                 for section in bundle:
                     session = by_section[section]
-                    _print_green(
+                    session_label = (
                         f"   CRN {session.crn}: {session.section} "
-                        f"{session.day} {session.start_time}-{session.end_time}"
+                        f"{session.day} "
+                        f"{session.start_time}-{session.end_time}"
                     )
+                    day_name = DAY_NAMES.get(session.day or "")
+                    if day_name in preferred_days:
+                        _print_purple(session_label)
+                    else:
+                        _print_green(session_label)
 
         fitting_set = set(fitting)
         rejected = [
@@ -711,8 +1012,6 @@ def main(argv: list[str] | None = None) -> None:
             _print_red("\nRejected bundles:")
 
             for number, bundle in enumerate(rejected, start=1):
-                _print_red(f"\n{number}. {' + '.join(bundle)}")
-
                 reasons = registration_bundle_conflicts(
                     table,
                     bundle,
@@ -721,8 +1020,41 @@ def main(argv: list[str] | None = None) -> None:
                     unavailable_sections=unavailable_sections,
                 )
 
+                has_avoided_day = any(
+                    reason.startswith("Uses avoided day(s):")
+                    for reason in reasons
+                )
+                if has_avoided_day:
+                    bundle_label = _colorize(
+                        f"{number}. {' + '.join(bundle)}",
+                        "38;5;208",
+                    )
+                    print(
+                        f"\n{bundle_label} "
+                        f"{_colorize('(crash with avoid days)', '95')}"
+                    )
+                    for section in bundle:
+                        session = by_section[section]
+                        session_label = (
+                            f"   CRN {session.crn}: {session.section} "
+                            f"{session.day} "
+                            f"{session.start_time}-{session.end_time}"
+                        )
+                        if DAY_NAMES.get(session.day or "") in avoided_days:
+                            _print_purple(session_label)
+                        else:
+                            _print_orange(session_label)
+                else:
+                    _print_red(f"\n{number}. {' + '.join(bundle)}")
+
                 for reason in reasons:
-                    _print_red(f"   - {reason}")
+                    if (
+                        has_avoided_day
+                        and reason.startswith("Uses avoided day(s):")
+                    ):
+                        _print_purple(f"   - {reason}")
+                    else:
+                        _print_red(f"   - {reason}")
 
         print()
         print(

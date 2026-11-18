@@ -24,11 +24,20 @@ Run the command without arguments to open a menu:
 cityuschedule
 ```
 
-Choose a numbered option to check a CSV or AIMS timetable, paste an AIMS
+Choose option `1` to set preferred and avoided days and minimum and maximum
+credits. These settings are saved across launches, and are applied to AIMS
+course paste and course planning. For the day lists, enter days as `Mon`,
+`Tue`, `Wed`, `Thu`, `Fri`, `Sat`, or `Sun`, or use the single-letter aliases
+`M`, `T`, `W`, `R`, `F`, `S`, and `U`. At each setting prompt, press Enter to
+keep the current value or enter `none` to clear it. AIMS paste warns when the
+combined credits are outside the configured limits but still displays fitting
+bundles.
+
+The other numbered options check a CSV or AIMS timetable, paste an AIMS
 offering, search or inspect GE courses, export a calendar, generate course
 plans, or import GE course HTML. The menu asks for the required file paths and
 then runs the selected task. The AIMS HTML path is remembered across launches
-and reused by other AIMS menu options. Choose option `2` and enter a different
+and reused by other AIMS menu options. Choose option `3` and enter a different
 path to change the saved one; press Enter to keep using it. Press `0` to exit.
 If a task reports an error, the menu stays open so you can choose another
 option or correct the input; the saved AIMS path is updated only after a

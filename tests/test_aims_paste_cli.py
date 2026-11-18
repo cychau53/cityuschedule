@@ -1,15 +1,18 @@
-from io import StringIO
 import sys
+from io import StringIO
+
+import pytest
 
 from cityuschedule import cli
 from cityuschedule.course_catalog import CatalogCourse
 
 
-def test_colored_output_uses_terminal_colors(monkeypatch):
-    class TerminalOutput(StringIO):
-        def isatty(self):
-            return True
+class TerminalOutput(StringIO):
+    def isatty(self):
+        return True
 
+
+def test_colored_output_uses_terminal_colors(monkeypatch):
     output = TerminalOutput()
     monkeypatch.setattr(cli.sys, "stdout", output)
     monkeypatch.delenv("NO_COLOR", raising=False)
@@ -289,7 +292,24 @@ def test_paste_cli_ranks_preferred_days(monkeypatch, capsys):
     cli.main()
 
     output = capsys.readouterr().out
-    assert "1. C01 + T01 (1 preferred day(s))" in output
+    assert "1. C01 + T01 (match with prefer days)" in output
+
+
+def test_paste_cli_reminds_user_of_day_settings(monkeypatch, capsys):
+    prepare_cli(
+        monkeypatch,
+        [],
+        ["--prefer-days", "Wed", "--avoid-days", "Thu"],
+    )
+
+    cli.main()
+
+    output = capsys.readouterr().out
+    assert (
+        "Bundles fitting weekly timetable: 1\n\n"
+        "Current prefer days: Wed\n"
+        "Current avoid days: Thu"
+    ) in output
 
 
 def test_paste_cli_rejects_avoided_days(monkeypatch, capsys):
@@ -300,6 +320,87 @@ def test_paste_cli_rejects_avoided_days(monkeypatch, capsys):
     output = capsys.readouterr().out
     assert "Bundles fitting weekly timetable: 0" in output
     assert "Uses avoided day(s): Wed" in output
+
+
+def test_paste_cli_colors_preferred_bundle_and_days(monkeypatch):
+    output = TerminalOutput()
+    monkeypatch.setattr(cli.sys, "stdout", output)
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    pasted_table = PASTED_TABLE.replace(
+        "\nW\n14:00 - 14:50",
+        "\nR\n14:00 - 14:50",
+    )
+    prepare_cli(monkeypatch, [], ["--prefer-days", "Thu"], pasted_table=pasted_table)
+
+    cli.main()
+
+    text = output.getvalue()
+    assert (
+        "\033[32m1. C01 + T01\033[0m "
+        "\033[95m(match with prefer days)\033[0m"
+    ) in text
+    assert "\033[32m   CRN 13401: C01 W 12:00-13:50\033[0m" in text
+    assert "\033[95m   CRN 13402: T01 R 14:00-14:50\033[0m" in text
+
+
+def test_paste_cli_colors_avoided_bundle_and_days(monkeypatch):
+    output = TerminalOutput()
+    monkeypatch.setattr(cli.sys, "stdout", output)
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    pasted_table = PASTED_TABLE.replace(
+        "\nW\n14:00 - 14:50",
+        "\nR\n14:00 - 14:50",
+    )
+    prepare_cli(monkeypatch, [], ["--avoid-days", "Thu"], pasted_table=pasted_table)
+
+    cli.main()
+
+    text = output.getvalue()
+    assert (
+        "\033[38;5;208m1. C01 + T01\033[0m "
+        "\033[95m(crash with avoid days)\033[0m"
+    ) in text
+    assert "\033[38;5;208m   CRN 13401: C01 W 12:00-13:50\033[0m" in text
+    assert "\033[95m   CRN 13402: T01 R 14:00-14:50\033[0m" in text
+
+
+@pytest.mark.parametrize(
+    ("limit_args", "warning"),
+    [
+        (
+            ["--min-credits", "7"],
+            "Warning: combined credits (6) are below the minimum (7).",
+        ),
+        (
+            ["--max-credits", "5"],
+            "Warning: combined credits (6) exceed the maximum (5).",
+        ),
+    ],
+)
+def test_paste_cli_warns_about_credit_limits_without_hiding_bundles(
+    monkeypatch,
+    capsys,
+    limit_args,
+    warning,
+):
+    base_rows = [
+        {
+            "course_code": "GE1401",
+            "crn": "20001",
+            "section": "C01",
+            "day": "Mon",
+            "start_time": "09:00",
+            "end_time": "10:00",
+            "building": "BOC",
+        },
+    ]
+    prepare_cli(monkeypatch, base_rows, limit_args)
+
+    cli.main()
+
+    output = capsys.readouterr().out
+    assert warning in output
+    assert "Suggested bundles:" in output
 
 
 def test_paste_cli_excludes_user_unavailable_sections(monkeypatch, capsys):
@@ -387,6 +488,10 @@ def test_paste_cli_reports_combined_credits(monkeypatch, capsys):
     assert (
         "AIMS timetable credits: 12\n\n"
         "Combined total if added: 15"
+    ) in output
+    assert (
+        "Combined total if added: 15\n\n"
+        "Suggested bundles:"
     ) in output
 
 

@@ -1,3 +1,4 @@
+import json
 import sys
 
 from cityuschedule import cli
@@ -8,7 +9,7 @@ def test_running_without_arguments_opens_menu_and_searches_ge(
     capsys,
 ):
     monkeypatch.setattr(sys, "argv", ["cityuschedule"])
-    inputs = iter(["4", "environment", "0"])
+    inputs = iter(["5", "environment", "0"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
     monkeypatch.setattr(cli, "search_ge_courses", lambda keyword: [])
 
@@ -46,12 +47,12 @@ def test_menu_and_choice_prompt_are_yellow(monkeypatch):
 
     cli.interactive_menu()
 
-    assert "\033[33m\nCityU Schedule\n1. Check a CSV timetable" in output.text
+    assert "\033[33m\nCityU Schedule\n1. Basic settings" in output.text
     assert prompts == ["\033[33mChoose an option: \033[0m"]
 
 
 def test_menu_dispatches_paste_aims_command(monkeypatch, capsys, tmp_path):
-    inputs = iter(["3", r"C:\Schedules\current AIMS.html", "0"])
+    inputs = iter(["4", r"C:\Schedules\current AIMS.html", "0"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
     commands = []
     monkeypatch.setattr(cli, "main", lambda argv=None: commands.append(argv))
@@ -76,7 +77,7 @@ def test_menu_dispatches_paste_aims_command(monkeypatch, capsys, tmp_path):
 def test_menu_saves_aims_path_and_reuses_it(monkeypatch, tmp_path):
     config_file = tmp_path / "aims_html_path.txt"
     saved_path = r"C:\Schedules\current AIMS.html"
-    inputs = iter(["2", f'"{saved_path}"', "0", "3", "0"])
+    inputs = iter(["3", f'"{saved_path}"', "0", "4", "0"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
     monkeypatch.setattr(
         cli,
@@ -99,7 +100,7 @@ def test_menu_saves_aims_path_and_reuses_it(monkeypatch, tmp_path):
 def test_menu_returns_after_task_error(monkeypatch, tmp_path, capsys):
     config_file = tmp_path / "aims_html_path.txt"
     inputs = iter(
-        ["2", r"C:\Schedules\missing.html", "4", "environment", "0"]
+        ["3", r"C:\Schedules\missing.html", "5", "environment", "0"]
     )
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
     monkeypatch.setattr(
@@ -127,7 +128,7 @@ def test_menu_returns_after_task_error(monkeypatch, tmp_path, capsys):
 
 
 def test_menu_exits_when_task_requests_exit(monkeypatch):
-    inputs = iter(["3", r"C:\Schedules\current AIMS.html"])
+    inputs = iter(["4", r"C:\Schedules\current AIMS.html"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
     monkeypatch.setattr(
         cli,
@@ -153,13 +154,91 @@ def test_menu_exits_when_task_requests_exit(monkeypatch):
     ]
 
 
+def test_basic_settings_persist_and_apply_to_paste_and_planning(
+    monkeypatch,
+    tmp_path,
+):
+    settings_file = tmp_path / "basic_settings.json"
+    saved_path = r"C:\Schedules\current AIMS.html"
+    inputs = iter(
+        [
+            "1",
+            "R",
+            "F",
+            "15",
+            "21",
+            "0",
+            "4",
+            "0",
+            "8",
+            "courses.json",
+            "0",
+        ]
+    )
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+    monkeypatch.setattr(
+        cli,
+        "_basic_settings_config_file",
+        lambda: settings_file,
+    )
+    monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: saved_path)
+    monkeypatch.setattr(cli, "_save_aims_path", lambda path: None)
+    commands = []
+    monkeypatch.setattr(cli, "main", lambda argv=None: commands.append(argv))
+
+    cli.interactive_menu()
+    cli.interactive_menu()
+    cli.interactive_menu()
+
+    assert json.loads(settings_file.read_text(encoding="utf-8")) == {
+        "prefer_days": ["Thu"],
+        "avoid_days": ["Fri"],
+        "min_credits": 15,
+        "max_credits": 21,
+    }
+    settings_args = [
+        "--prefer-days",
+        "Thu",
+        "--avoid-days",
+        "Fri",
+        "--min-credits",
+        "15",
+        "--max-credits",
+        "21",
+    ]
+    assert commands == [
+        [
+            "--aims-html",
+            saved_path,
+            "--paste-aims",
+            *settings_args,
+        ],
+        [
+            "--aims-html",
+            saved_path,
+            "--timetable-catalog",
+            "courses.json",
+            *settings_args,
+        ],
+    ]
+
+
 def test_export_and_plan_menu_options_reuse_saved_aims_path(monkeypatch):
     saved_path = r"C:\Schedules\current AIMS.html"
     inputs = iter(["AIMS", "", "", "", "courses.json"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
 
-    export_command, export_path = cli._menu_command("6", saved_path)
-    plan_command, plan_path = cli._menu_command("7", saved_path)
+    export_command, export_path = cli._menu_command("7", saved_path)
+    plan_command, plan_path = cli._menu_command(
+        "8",
+        saved_path,
+        cli.BasicSettings(
+            prefer_days=("Thu",),
+            avoid_days=("Fri",),
+            min_credits=15,
+            max_credits=21,
+        ),
+    )
 
     assert export_command == [
         "--aims-html",
@@ -174,5 +253,13 @@ def test_export_and_plan_menu_options_reuse_saved_aims_path(monkeypatch):
         saved_path,
         "--timetable-catalog",
         "courses.json",
+        "--prefer-days",
+        "Thu",
+        "--avoid-days",
+        "Fri",
+        "--min-credits",
+        "15",
+        "--max-credits",
+        "21",
     ]
     assert plan_path == saved_path
