@@ -16,7 +16,20 @@ pip install cityuschedule
 
 ```
 
+\## Interactive menu
 
+Run the command without arguments to open a menu:
+
+```bash
+cityuschedule
+```
+
+Choose a numbered option to check a CSV or AIMS timetable, paste an AIMS
+offering, search or inspect GE courses, export a calendar, generate course
+plans, or import GE course HTML. The menu asks for the required file paths and
+then runs the selected task. Press `0` to exit.
+
+For advanced options, use `cityuschedule --help` or run a command directly.
 
 \## Check a timetable
 

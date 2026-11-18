@@ -1,6 +1,7 @@
 import argparse
 import csv
 from pathlib import Path
+import sys
 
 from .calendar_export import export_ics
 from .conflicts import find_conflicts
@@ -45,7 +46,127 @@ def load_sessions(csv_path: str) -> list[dict[str, str]]:
     return sessions
 
 
-def main() -> None:
+def _menu_command(choice: str) -> list[str] | None:
+    if choice == "1":
+        path = input("CSV timetable path: ").strip()
+        return [path] if path else None
+
+    if choice == "2":
+        path = input("Saved AIMS timetable HTML path: ").strip()
+        return ["--aims-html", path] if path else None
+
+    if choice == "3":
+        path = input("Saved AIMS timetable HTML path: ").strip()
+        return ["--aims-html", path, "--paste-aims"] if path else None
+
+    if choice == "4":
+        keyword = input("GE search keyword: ").strip()
+        return ["--ge-search", keyword] if keyword else None
+
+    if choice == "5":
+        course_code = input("GE course code: ").strip()
+        return ["--ge-info", course_code] if course_code else None
+
+    if choice == "6":
+        source_type = input("Export source (CSV or AIMS): ").strip().upper()
+        if source_type not in {"CSV", "AIMS"}:
+            print("Choose CSV or AIMS.")
+            return None
+
+        path = input(f"{source_type} file path: ").strip()
+        if not path:
+            return None
+
+        command = [path] if source_type == "CSV" else [
+            "--aims-html",
+            path,
+        ]
+        command.append("--export")
+
+        output = input(
+            "Output .ics path [cityu_timetable.ics]: "
+        ).strip()
+        if output:
+            command.extend(["--output", output])
+
+        start = input(
+            "Semester start [2026-08-31]: "
+        ).strip()
+        if start:
+            command.extend(["--semester-start", start])
+
+        end = input(
+            "Semester end [2026-11-28]: "
+        ).strip()
+        if end:
+            command.extend(["--semester-end", end])
+
+        return command
+
+    if choice == "7":
+        aims_path = input("Saved AIMS timetable HTML path: ").strip()
+        catalogue_path = input("Course timetable catalogue JSON path: ").strip()
+        if not aims_path or not catalogue_path:
+            return None
+        return [
+            "--aims-html",
+            aims_path,
+            "--timetable-catalog",
+            catalogue_path,
+        ]
+
+    if choice == "8":
+        html_path = input("Saved GE course HTML path: ").strip()
+        if not html_path:
+            return None
+        output_path = input(
+            "Output JSON path [data/ge_courses.json]: "
+        ).strip()
+        command = ["--ge-html", html_path]
+        if output_path:
+            command.extend(["--ge-output", output_path])
+        return command
+
+    return None
+
+
+def interactive_menu() -> None:
+    while True:
+        print(
+            "\nCityU Schedule\n"
+            "1. Check a CSV timetable\n"
+            "2. Check a saved AIMS timetable\n"
+            "3. Paste and check an AIMS course offering\n"
+            "4. Search GE courses\n"
+            "5. Show GE course details\n"
+            "6. Export a timetable calendar\n"
+            "7. Generate course plans\n"
+            "8. Import GE courses from HTML\n"
+            "0. Exit"
+        )
+        try:
+            choice = input("Choose an option: ").strip()
+            if choice in {"0", "q", "Q"}:
+                return
+
+            command = _menu_command(choice)
+        except EOFError:
+            return
+
+        if command is None:
+            if choice not in {"1", "2", "3", "4", "5", "6", "7", "8"}:
+                print("Choose an option from 0 to 8.")
+            continue
+
+        main(command)
+
+
+def main(argv: list[str] | None = None) -> None:
+    command_line = sys.argv[1:] if argv is None else argv
+    if not command_line:
+        interactive_menu()
+        return
+
     parser = argparse.ArgumentParser(
         prog="cityuschedule",
         description="Check CityU course timetables for clashes and export them as calendar events.",
@@ -195,7 +316,7 @@ def main() -> None:
         help="Paste one AIMS course table and check weekly timetable fit",
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(command_line)
 
     if args.paste_aims:
         if not args.aims_html:
