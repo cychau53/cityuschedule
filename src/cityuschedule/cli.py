@@ -11,10 +11,17 @@ from .aims import load_aims_html
 from .course_catalog import load_course_catalog
 from .planner import generate_plans, generate_aims_ge_plans, export_plan_ics
 
-from cityuschedule.ge_courses import get_ge_course_info, search_ge_courses
+from .ge_courses import get_ge_course_info, search_ge_courses
 from .ge_importer import update_ge_courses_from_html
 
 import json
+
+from .aims_table_parser import parse_aims_table
+from .aims_fit import (
+    convert_aims_sessions,
+    fitting_registration_bundles,
+    registration_bundle_conflicts,
+)
 
 def load_sessions(csv_path: str) -> list[dict[str, str]]:
     path = Path(csv_path)
@@ -170,7 +177,140 @@ def main() -> None:
         help="Search Gateway Education courses by course code, title, area, or offering unit",
     )
 
+    parser.add_argument(
+        "--paste-aims",
+        action="store_true",
+        help="Paste one AIMS course table and check weekly timetable fit",
+    )
+
     args = parser.parse_args()
+
+    if args.paste_aims:
+        if not args.aims_html:
+            parser.error("--paste-aims requires --aims-html.")
+
+        if args.csv_file:
+            parser.error(
+                "--paste-aims uses --aims-html, not a CSV timetable."
+            )
+
+        if (
+            args.timetable_catalog
+            or args.credit_catalog
+            or args.add_ge
+            or args.ge_bundles
+            or args.export
+            or args.export_plan is not None
+            or args.ge_html
+            or args.ge_info
+            or args.ge_search
+        ):
+            parser.error(
+                "Run --paste-aims separately from catalogue planning, "
+                "GE lookup/import, and export."
+            )
+
+        try:
+            base_rows = load_aims_html(args.aims_html)
+            base_sessions = convert_aims_sessions(base_rows)
+
+            print("Paste ONE course's complete AIMS offering table.")
+            print("Include its course code as the first line.")
+            print("Finish by typing END on a new line and pressing Enter.")
+            print()
+
+            lines = []
+            while True:
+                try:
+                    line = input()
+                except EOFError:
+                    raise ValueError(
+                        "Input ended before END. Paste again and finish "
+                        "with END on its own line."
+                    ) from None
+
+                if line.strip() == "END":
+                    break
+
+                lines.append(line)
+
+            table = parse_aims_table("\n".join(lines))
+            candidates = table.registration_bundles()
+            fitting = fitting_registration_bundles(
+                table,
+                base_sessions,
+            )
+
+        except (OSError, ValueError) as error:
+            parser.error(str(error))
+
+        print()
+        print(f"Course: {table.course_code}")
+        print(f"Parsed sections: {len(table.sessions)}")
+        print(f"Scheduled sections: {len(table.scheduled_sessions)}")
+        print(
+            "Ignored unscheduled sections: "
+            f"{len(table.sessions) - len(table.scheduled_sessions)}"
+        )
+        print(f"Candidate complete bundles: {len(candidates)}")
+        print(f"Bundles fitting weekly timetable: {len(fitting)}")
+
+        if not candidates:
+            print(
+                "No complete scheduled bundle was generated. "
+                "Check the pasted table and section-family rules."
+            )
+        elif not fitting:
+            print(
+                "No complete bundle fits: each has an internal overlap "
+                "or overlaps the base timetable."
+            )
+        else:
+            by_section = {
+                session.section: session
+                for session in table.scheduled_sessions
+            }
+
+            for number, bundle in enumerate(fitting, start=1):
+                print(f"\n{number}. {' + '.join(bundle)}")
+
+                for section in bundle:
+                    session = by_section[section]
+                    print(
+                        f"   CRN {session.crn}: {session.section} "
+                        f"{session.day} "
+                        f"{session.start_time}-{session.end_time}"
+                    )
+
+        fitting_set = set(fitting)
+        rejected = [
+            bundle
+            for bundle in candidates
+            if bundle not in fitting_set
+        ]
+
+        if rejected:
+            print("\nRejected bundles:")
+
+            for number, bundle in enumerate(rejected, start=1):
+                print(f"\n{number}. {' + '.join(bundle)}")
+
+                reasons = registration_bundle_conflicts(
+                    table,
+                    bundle,
+                    base_sessions,
+                )
+
+                for reason in reasons:
+                    print(f"   - {reason}")
+
+        print()
+        print(
+            "Weekly time-fit only. Eligibility, seat availability, "
+            "date ranges, travel time, and multiple meeting rows "
+            "are not validated."
+        )
+        return
 
     if args.ge_html:
         count = update_ge_courses_from_html(
