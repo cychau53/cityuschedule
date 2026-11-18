@@ -21,6 +21,7 @@ from .conflicts import find_conflicts
 from .course_catalog import load_course_catalog, load_credit_catalogs
 from .ge_courses import get_ge_course_info, search_ge_courses
 from .ge_course_information_importer import fetch_ge_course_information
+from .ge_aims_adapter import convert_ge_records_to_aims_table
 from .ge_importer import update_ge_courses_from_html
 from .planner import (
     calculate_course_credits,
@@ -883,7 +884,10 @@ def main(argv: list[str] | None = None) -> None:
                     f"{args.ge_course_code}."
                 )
 
-            table = convert_ge_records_to_aims_table(args.ge_course_code,course_records,)
+            table = convert_ge_records_to_aims_table(
+                args.ge_course_code,
+                course_records,
+            )
             
             _print_yellow(
                 "Enter unavailable section codes separated by spaces or "
