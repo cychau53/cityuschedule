@@ -127,6 +127,7 @@ def parse_ge_course_information_html(
 
             records.append(
                 {
+                    "course_code": course_code,
                     "crn": values["crn"],
                     "section": values["section"],
                     "term": values["term"],
@@ -172,9 +173,14 @@ def parse_ge_course_information_html(
 def parse_ge_course_information(
     html_path: str | Path,
 ) -> list[dict]:
-    """Read section information from a saved HTML file."""
+    """Read a saved course page whose filename identifies the course."""
+    html_path = Path(html_path)
+
+    course_code = normalize_course_code(html_path.stem)
+
     return parse_ge_course_information_html(
-        Path(html_path).read_bytes()
+        html_path.read_bytes(),
+        course_code=course_code,
     )
 
 
