@@ -1,6 +1,7 @@
 import json
 from datetime import datetime
 from pathlib import Path
+from gaps import find_gaps
 
 
 def time(sessions: list[dict[str, str]], time_file=None) -> None:
@@ -26,10 +27,20 @@ def time(sessions: list[dict[str, str]], time_file=None) -> None:
         ordered_sessions = sorted(day_sessions, key=lambda session: datetime.strptime(session["start_time"], "%H:%M"),)
 
         for first, second in zip(ordered_sessions, ordered_sessions[1:]):
-            first_end = datetime.strptime(first["end_time"], "%H:%M")
-            second_start = datetime.strptime(second["start_time"], "%H:%M")
 
-            minutes = int((second_start - first_end).total_seconds() / 60)
+            if second['start_time'] < first['end_time']:
+                raise ValueError(
+                    f"{day}: sessions overlap. "
+                    f"{first['course_code']} ends at "
+                    f"{first['end_time']}, but "
+                    f"{second['course_code']} starts at "
+                    f"{second['start_time']}."
+                )
+
+            gap_list = find_gaps([first, second], minimum_minutes=0)
+            if not gap_list:
+                continue
+            minutes = int(gap_list[0]["minutes"])
 
             start_building = first["building"]
             end_building = second["building"]
