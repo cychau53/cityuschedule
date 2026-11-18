@@ -194,6 +194,10 @@ does not include the course heading, enter the course code when prompted. At
 the next prompt, enter any section codes you cannot register for, separated
 by spaces or commas, or press Enter for none:
 
+If you press Enter before entering any table data, the paste prompt appears
+again. If the table has no course heading and you leave the course-code prompt
+blank, the package asks for the code again.
+
 ```bash
 cityuschedule --aims-html aims_schedule.html --paste-aims \
   --prefer-days Mon Tue --avoid-days Fri

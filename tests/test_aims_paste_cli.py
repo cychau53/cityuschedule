@@ -99,6 +99,43 @@ def test_paste_cli_reports_fitting_bundle(monkeypatch, capsys):
     assert "1. C01 + T01" in output
 
 
+def test_paste_cli_reprompts_after_empty_enter(monkeypatch, capsys):
+    prepare_cli(monkeypatch, [])
+    inputs = iter(
+        ["", *PASTED_TABLE.splitlines(), "END", "", ""]
+    )
+    monkeypatch.setattr("builtins.input", lambda: next(inputs))
+
+    cli.main()
+
+    output = capsys.readouterr().out
+    assert output.count("Paste ONE course's complete AIMS offering table.") == 2
+    assert "No table was entered. Please paste the AIMS table and try again." in output
+    assert "Candidate complete bundles: 1" in output
+
+
+def test_paste_cli_reprompts_for_missing_course_code(monkeypatch, capsys):
+    prepare_cli(monkeypatch, [])
+    table_without_heading = "\n".join(PASTED_TABLE.splitlines()[1:])
+    inputs = iter(
+        [
+            *table_without_heading.splitlines(),
+            "END",
+            "",
+            "TEST1001",
+            "",
+        ]
+    )
+    monkeypatch.setattr("builtins.input", lambda: next(inputs))
+
+    cli.main()
+
+    output = capsys.readouterr().out
+    assert output.count("If the copied table did not include the course heading") == 2
+    assert "A course code is required for this table." in output
+    assert "Course: TEST1001" in output
+
+
 def test_paste_cli_reports_conflicting_bundle(monkeypatch, capsys):
     base_rows = [
         {

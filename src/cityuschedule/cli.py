@@ -432,41 +432,69 @@ def main(argv: list[str] | None = None) -> None:
             base_sessions = convert_aims_sessions(base_rows)
             credit_courses = load_credit_catalogs(args.credit_catalog)
 
-            print("Paste ONE course's complete AIMS offering table.")
-            print("Finish by typing END on a new line and pressing Enter.")
-            print()
-
-            lines = []
             while True:
-                try:
-                    line = input()
-                except EOFError:
-                    raise ValueError(
-                        "Input ended before END. Paste again and finish "
-                        "with END on its own line."
-                    ) from None
+                print("Paste ONE course's complete AIMS offering table.")
+                print("Finish by typing END on a new line and pressing Enter.")
+                print()
 
-                if line.strip() == "END":
+                lines = []
+                empty_paste = False
+                while True:
+                    try:
+                        line = input()
+                    except EOFError:
+                        raise ValueError(
+                            "Input ended before END. Paste again and finish "
+                            "with END on its own line."
+                        ) from None
+
+                    if line.strip() == "END":
+                        break
+                    if not line.strip() and not lines:
+                        empty_paste = True
+                        break
+
+                    lines.append(line)
+
+                if empty_paste or not any(line.strip() for line in lines):
+                    print(
+                        "No table was entered. Please paste the AIMS table "
+                        "and try again.\n"
+                    )
+                    continue
+
+                while True:
+                    print(
+                        "If the copied table did not include the course "
+                        "heading, enter its course code (for example GE2130); "
+                        "otherwise press Enter:"
+                    )
+                    try:
+                        course_code = input().strip() or None
+                    except EOFError:
+                        raise ValueError(
+                            "Input ended before the course code was confirmed."
+                        ) from None
+
+                    try:
+                        table = parse_aims_table(
+                            "\n".join(lines),
+                            course_code=course_code,
+                        )
+                    except ValueError as error:
+                        if (
+                            course_code is None
+                            and str(error).startswith("Course code is required.")
+                        ):
+                            print(
+                                "A course code is required for this table. "
+                                "Enter it now; do not press Enter."
+                            )
+                            continue
+                        raise
                     break
 
-                lines.append(line)
-
-            print(
-                "If the copied table did not include the course heading, "
-                "enter its course code (for example GE2130); otherwise "
-                "press Enter:"
-            )
-            try:
-                course_code = input().strip() or None
-            except EOFError:
-                raise ValueError(
-                    "Input ended before the course code was confirmed."
-                ) from None
-
-            table = parse_aims_table(
-                "\n".join(lines),
-                course_code=course_code,
-            )
+                break
             print(
                 "Enter unavailable section codes separated by spaces or "
                 "commas, or press Enter for none:"
