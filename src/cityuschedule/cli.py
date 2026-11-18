@@ -3,7 +3,7 @@ import csv
 import json
 import os
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TextIO
 
@@ -497,7 +497,8 @@ def interactive_menu() -> None:
             "7. Export a timetable calendar\n"
             "8. Generate course plans\n"
             "9. Import GE courses from HTML\n"
-            "0. Exit"
+            "0. Exit\n"
+            "Type delete all/avoid/prefer/min/max/AIMS to clear saved data."
         )
         try:
             choice = input(
@@ -505,6 +506,71 @@ def interactive_menu() -> None:
             ).strip()
             if choice.casefold() in {"0", "q"}:
                 return
+
+            delete_command = choice.casefold()
+            if delete_command.startswith("delete"):
+                try:
+                    if delete_command == "delete all":
+                        _basic_settings_config_file().unlink(
+                            missing_ok=True
+                        )
+                        _aims_path_config_file().unlink(missing_ok=True)
+                        basic_settings = BasicSettings()
+                        saved_aims_path = None
+                        message = (
+                            "All saved settings and AIMS path deleted."
+                        )
+                    elif delete_command == "delete aims":
+                        _aims_path_config_file().unlink(missing_ok=True)
+                        saved_aims_path = None
+                        message = "Saved AIMS path deleted."
+                    else:
+                        clearable_setting = {
+                            "delete avoid": (
+                                "avoid_days",
+                                (),
+                                "avoid days",
+                            ),
+                            "delete prefer": (
+                                "prefer_days",
+                                (),
+                                "preferred days",
+                            ),
+                            "delete min": (
+                                "min_credits",
+                                None,
+                                "minimum credits",
+                            ),
+                            "delete max": (
+                                "max_credits",
+                                None,
+                                "maximum credits",
+                            ),
+                        }.get(delete_command)
+                        if clearable_setting is None:
+                            raise ValueError(
+                                "Use delete all, delete avoid, delete "
+                                "prefer, delete min, delete max, or "
+                                "delete AIMS."
+                            )
+                        field, empty_value, label = clearable_setting
+                        basic_settings = replace(
+                            basic_settings,
+                            **{field: empty_value},
+                        )
+                        _save_basic_settings(basic_settings)
+                        message = f"Saved {label} deleted."
+                except OSError as error:
+                    basic_settings = _load_basic_settings()
+                    saved_aims_path = _load_saved_aims_path()
+                    _print_red(
+                        f"Could not delete saved information: {error}"
+                    )
+                except ValueError as error:
+                    _print_red(str(error))
+                else:
+                    _print_green(message)
+                continue
 
             if choice == "1":
                 basic_settings = _prompt_basic_settings(basic_settings)
@@ -1025,7 +1091,7 @@ def main(argv: list[str] | None = None) -> None:
                 if has_avoided_day:
                     bundle_label = _colorize(
                         f"{number}. {' + '.join(bundle)}",
-                        "38;5;208",
+                        "31",
                     )
                     print(
                         f"\n{bundle_label} "

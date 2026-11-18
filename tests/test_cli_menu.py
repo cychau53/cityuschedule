@@ -1,6 +1,8 @@
 import json
 import sys
 
+import pytest
+
 from cityuschedule import cli
 
 
@@ -224,6 +226,119 @@ def test_basic_settings_persist_and_apply_to_paste_and_planning(
             *settings_args,
         ],
     ]
+
+
+@pytest.mark.parametrize(
+    ("command", "expected_settings", "expect_aims_path"),
+    [
+        (
+            "delete avoid",
+            {
+                "prefer_days": ["Wed"],
+                "avoid_days": [],
+                "min_credits": 12,
+                "max_credits": 18,
+            },
+            True,
+        ),
+        (
+            "delete prefer",
+            {
+                "prefer_days": [],
+                "avoid_days": ["Fri"],
+                "min_credits": 12,
+                "max_credits": 18,
+            },
+            True,
+        ),
+        (
+            "delete min",
+            {
+                "prefer_days": ["Wed"],
+                "avoid_days": ["Fri"],
+                "min_credits": None,
+                "max_credits": 18,
+            },
+            True,
+        ),
+        (
+            "delete max",
+            {
+                "prefer_days": ["Wed"],
+                "avoid_days": ["Fri"],
+                "min_credits": 12,
+                "max_credits": None,
+            },
+            True,
+        ),
+        (
+            "delete AIMS",
+            {
+                "prefer_days": ["Wed"],
+                "avoid_days": ["Fri"],
+                "min_credits": 12,
+                "max_credits": 18,
+            },
+            False,
+        ),
+        ("delete all", None, False),
+    ],
+)
+def test_menu_deletes_saved_information(
+    monkeypatch,
+    tmp_path,
+    command,
+    expected_settings,
+    expect_aims_path,
+):
+    settings_file = tmp_path / "basic_settings.json"
+    aims_file = tmp_path / "aims_html_path.txt"
+    original_settings = {
+        "prefer_days": ["Wed"],
+        "avoid_days": ["Fri"],
+        "min_credits": 12,
+        "max_credits": 18,
+    }
+    saved_path = r"C:\Schedules\current AIMS.html"
+    settings_file.write_text(json.dumps(original_settings), encoding="utf-8")
+    aims_file.write_text(saved_path, encoding="utf-8")
+    inputs = iter([command, "0"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+    monkeypatch.setattr(
+        cli,
+        "_basic_settings_config_file",
+        lambda: settings_file,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_aims_path_config_file",
+        lambda: aims_file,
+    )
+
+    cli.interactive_menu()
+
+    if expected_settings is None:
+        assert not settings_file.exists()
+    else:
+        assert json.loads(settings_file.read_text(encoding="utf-8")) == (
+            expected_settings
+        )
+    assert aims_file.exists() is expect_aims_path
+    if expect_aims_path:
+        assert aims_file.read_text(encoding="utf-8") == saved_path
+
+
+def test_menu_reports_unknown_delete_command(monkeypatch, capsys):
+    inputs = iter(["delete something", "0"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+    monkeypatch.setattr(cli, "_load_basic_settings", lambda: cli.BasicSettings())
+    monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: None)
+
+    cli.interactive_menu()
+
+    assert "Use delete all, delete avoid, delete prefer" in (
+        capsys.readouterr().out
+    )
 
 
 def test_export_and_plan_menu_options_reuse_saved_aims_path(monkeypatch):

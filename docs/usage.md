@@ -33,6 +33,10 @@ keep the current value or enter `none` to clear it. AIMS paste warns when the
 combined credits are outside the configured limits but still displays fitting
 bundles.
 
+At the main menu prompt, type `delete avoid`, `delete prefer`, `delete min`,
+`delete max`, or `delete AIMS` to clear that saved value. Type `delete all` to
+remove all basic settings and the remembered AIMS path.
+
 The other numbered options check a CSV or AIMS timetable, paste an AIMS
 offering, search or inspect GE courses, export a calendar, generate course
 plans, or import GE course HTML. The menu asks for the required file paths and

@@ -261,10 +261,10 @@ def test_paste_cli_reports_conflicting_bundle(monkeypatch, capsys):
     ) in output
 
 
-def test_paste_cli_rejects_bundle_without_enough_travel_time(
-    monkeypatch,
-    capsys,
-):
+def test_paste_cli_rejects_bundle_without_enough_travel_time(monkeypatch):
+    output = TerminalOutput()
+    monkeypatch.setattr(cli.sys, "stdout", output)
+    monkeypatch.delenv("NO_COLOR", raising=False)
     base_rows = [
         {
             "course_code": "BASE1001",
@@ -280,10 +280,14 @@ def test_paste_cli_rejects_bundle_without_enough_travel_time(
 
     cli.main()
 
-    output = capsys.readouterr().out
+    text = output.getvalue()
 
-    assert "Bundles fitting weekly timetable: 0" in output
-    assert "Requires 16 minutes, but only 10 minutes are available." in output
+    assert "Bundles fitting weekly timetable: 0" in text
+    travel_reason = next(
+        line for line in text.splitlines() if "Requires 16 minutes" in line
+    )
+    assert travel_reason.startswith("\033[31m   - ")
+    assert travel_reason.endswith("\033[0m")
 
 
 def test_paste_cli_ranks_preferred_days(monkeypatch, capsys):
@@ -357,7 +361,7 @@ def test_paste_cli_colors_avoided_bundle_and_days(monkeypatch):
 
     text = output.getvalue()
     assert (
-        "\033[38;5;208m1. C01 + T01\033[0m "
+        "\033[31m1. C01 + T01\033[0m "
         "\033[95m(crash with avoid days)\033[0m"
     ) in text
     assert "\033[38;5;208m   CRN 13401: C01 W 12:00-13:50\033[0m" in text
