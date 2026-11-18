@@ -126,6 +126,33 @@ def test_menu_returns_after_task_error(monkeypatch, tmp_path, capsys):
     assert "Returning to the menu" in capsys.readouterr().out
 
 
+def test_menu_exits_when_task_requests_exit(monkeypatch):
+    inputs = iter(["3", r"C:\Schedules\current AIMS.html"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+    monkeypatch.setattr(
+        cli,
+        "_load_saved_aims_path",
+        lambda: None,
+    )
+    commands = []
+
+    def exit_task(argv=None):
+        commands.append(argv)
+        raise SystemExit(0)
+
+    monkeypatch.setattr(cli, "main", exit_task)
+
+    cli.interactive_menu()
+
+    assert commands == [
+        [
+            "--aims-html",
+            r"C:\Schedules\current AIMS.html",
+            "--paste-aims",
+        ]
+    ]
+
+
 def test_export_and_plan_menu_options_reuse_saved_aims_path(monkeypatch):
     saved_path = r"C:\Schedules\current AIMS.html"
     inputs = iter(["AIMS", "", "", "", "courses.json"])

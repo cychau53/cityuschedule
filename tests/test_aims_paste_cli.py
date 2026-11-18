@@ -216,6 +216,19 @@ def test_paste_cli_reprompts_after_wrong_table(monkeypatch, capsys):
     assert "Course: TEST1001" in output
 
 
+def test_paste_cli_exits_from_retry_prompt(monkeypatch):
+    prepare_cli(monkeypatch, [], pasted_table="")
+    inputs = iter(["q"])
+    monkeypatch.setattr("builtins.input", lambda: next(inputs))
+
+    try:
+        cli.main()
+    except SystemExit as error:
+        assert error.code == 0
+    else:
+        raise AssertionError("Expected q to exit paste input")
+
+
 def test_paste_cli_reports_conflicting_bundle(monkeypatch, capsys):
     base_rows = [
         {

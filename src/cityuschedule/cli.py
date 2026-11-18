@@ -82,6 +82,11 @@ def _prompt_path(label: str, default: str | None = None) -> str | None:
     return value
 
 
+def _exit_if_requested(value: str) -> None:
+    if value.strip().casefold() in {"0", "q"}:
+        raise SystemExit(0)
+
+
 def _colorize(
     text: str,
     color: str,
@@ -266,7 +271,7 @@ def interactive_menu() -> None:
             choice = input(
                 _colorize("Choose an option: ", "33")
             ).strip()
-            if choice in {"0", "q", "Q"}:
+            if choice.casefold() in {"0", "q"}:
                 return
 
             command, aims_path_to_save = _menu_command(
@@ -286,6 +291,8 @@ def interactive_menu() -> None:
         try:
             main(command)
         except SystemExit as error:
+            if error.code == 0:
+                return
             if error.code:
                 print(
                     "\nTask failed. Returning to the menu; "
@@ -499,6 +506,8 @@ def main(argv: list[str] | None = None) -> None:
                             "with END on its own line."
                         ) from None
 
+                    if not lines:
+                        _exit_if_requested(line)
                     if line.strip() == "END":
                         break
                     if not line.strip() and not lines:
@@ -534,11 +543,13 @@ def main(argv: list[str] | None = None) -> None:
                         "otherwise press Enter:"
                     )
                     try:
-                        course_code = input().strip() or None
+                        course_code_input = input()
                     except EOFError:
                         raise ValueError(
                             "Input ended before the course code was confirmed."
                         ) from None
+                    _exit_if_requested(course_code_input)
+                    course_code = course_code_input.strip() or None
 
                     try:
                         table = parse_aims_table(
@@ -564,15 +575,17 @@ def main(argv: list[str] | None = None) -> None:
                 "commas, or press Enter for none:"
             )
             try:
-                unavailable_sections = list({
-                    section.upper()
-                    for section in input().replace(",", " ").split()
-                })
+                unavailable_input = input()
             except EOFError:
                 raise ValueError(
                     "Input ended before unavailable sections were "
                     "confirmed. Press Enter to continue without exclusions."
                 ) from None
+            _exit_if_requested(unavailable_input)
+            unavailable_sections = list({
+                section.upper()
+                for section in unavailable_input.replace(",", " ").split()
+            })
 
             known_sections = {
                 session.section.upper()
