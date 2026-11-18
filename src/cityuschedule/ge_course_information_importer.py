@@ -52,7 +52,28 @@ def parse_ge_course_information_html(
 ) -> list[dict]:
     """Extract section records from an HTML document."""
     soup = BeautifulSoup(html, "html.parser")
-    records = []
+    record = {
+    "crn": values["crn"],
+    "section": values["section"],
+    "term": values["term"],
+    "capacity": (
+        int(capacity)
+        if capacity.isdigit()
+        else capacity
+    ),
+    "day": values["day"],
+    "time": values["time"],
+    "type": values["type"],
+    "building": values["building"],
+    "room": values["room"],
+    "instructor": (
+        ", ".join(instructors)
+        if instructors
+        else values["instructor"]
+    ),
+}
+
+records.append(record)
     found_table = False
 
     for table in soup.find_all("table"):
@@ -120,9 +141,6 @@ def parse_ge_course_information_html(
 
             if instructors:
                 record["Instructor"] = ", ".join(instructors)
-
-            if course_code is not None:
-                record["course_code"] = course_code
 
             records.append(record)
 
@@ -257,12 +275,12 @@ def update_ge_course_information_from_web(
     output_path: str | Path = DATA_PATH,
     *,
     timeout: float = 30,
-) -> dict:
+) -> list[dict]:
     """
-    Fetch requested courses and merge successful results into the JSON.
+    Fetch the requested courses and save a list of section dictionaries.
 
-    For a successfully fetched course, its previous records are replaced.
-    Other courses and failed-course records are preserved.
+    Replaces the output file only after every requested course
+    has been fetched and parsed successfully.
     """
     codes = list(
         dict.fromkeys(
@@ -274,48 +292,19 @@ def update_ge_course_information_from_web(
     if not codes:
         raise ValueError("Enter at least one GE course code.")
 
-    existing_records = _load_existing_records(output_path)
-    fetched_records = []
-    successful_codes = set()
-    failures = {}
+    records = []
 
     for code in codes:
-        try:
-            records = fetch_ge_course_information(
+        records.extend(
+            fetch_ge_course_information(
                 code,
                 timeout=timeout,
             )
-        except (ValueError, RuntimeError) as exc:
-            failures[code] = str(exc)
-            print(f"Failed: {exc}")
-            continue
+        )
 
-        fetched_records.extend(records)
-        successful_codes.add(code)
-        print(f"{code}: fetched {len(records)} section record(s).")
+    _write_records(records, output_path)
 
-    if successful_codes:
-        preserved_records = [
-            record
-            for record in existing_records
-            if str(record.get("course_code", "")).strip().upper()
-            not in successful_codes
-        ]
-
-        all_records = preserved_records + fetched_records
-        _write_records(all_records, output_path)
-    else:
-        all_records = existing_records
-        print("No courses were updated. Output file left unchanged.")
-
-    return {
-        "updated_courses": sorted(successful_codes),
-        "failed_courses": failures,
-        "imported_records": len(fetched_records),
-        "total_records": len(all_records),
-        "output_path": str(Path(output_path)),
-    }
-
+    return records
 
 def update_ge_course_information(
     html_directory: str | Path,
@@ -431,7 +420,7 @@ def main() -> None:
         if summary["failed_courses"]:
             raise SystemExit(1)
 
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, RuntimeError) as exc:
         parser.error(str(exc))
 
 
