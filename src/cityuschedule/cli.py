@@ -70,6 +70,28 @@ def _aims_path_config_file() -> Path:
 
 def _basic_settings_config_file() -> Path:
     return _cityuschedule_config_dir() / "basic_settings.json"
+def _saved_bundles_file() -> Path:
+    return _cityuschedule_config_dir() / "saved_bundles.json"
+
+
+def _load_saved_bundles() -> list[dict]:
+    path = _saved_bundles_file()
+    if not path.exists():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, list) else []
+    except (OSError, json.JSONDecodeError):
+        return []
+
+
+def _save_bundles_to_disk(bundles: list[dict]) -> None:
+    path = _saved_bundles_file()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(bundles, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
 
 
 _DAY_ALIASES = {
@@ -495,6 +517,7 @@ def interactive_menu() -> None:
             "7. Export a timetable calendar\n"
             "8. Generate course plans\n"
             "9. Import GE courses from HTML\n"
+            "10. Bundles saved\n"
             "0. Exit\n"
             "Type delete all or delete names joined by 'and' to clear data."
         )
@@ -605,6 +628,9 @@ def interactive_menu() -> None:
                 else:
                     _print_green("Basic settings saved.")
                 continue
+            if choice == "10":
+                _show_saved_bundles()
+                continue
 
             command, aims_path_to_save = _menu_command(
                 choice,
@@ -616,9 +642,9 @@ def interactive_menu() -> None:
 
         if command is None:
             if choice not in {
-                "2", "3", "4", "5", "6", "7", "8", "9"
+                "2", "3", "4", "5", "6", "7", "8", "9", "10"
             }:
-                _print_red("Choose an option from 0 to 9.")
+                _print_red("Choose an option from 0 to 10.")
             else:
                 _print_red("Required input was not provided.")
             continue
@@ -1349,7 +1375,55 @@ def main(argv: list[str] | None = None) -> None:
                 )
 
             print()
+        save_choice = input(
+        "Save plans (e.g. 1 or 1,2, or Enter to skip): "
+    ).strip()
+    if save_choice:
+        selected_indexes: list[int] = []
+        for raw_item in save_choice.split(","):
+            item = raw_item.strip()
+            if not item.isdigit():
+                continue
+            idx = int(item) - 1
+            if 0 <= idx < len(plans) and idx not in selected_indexes:
+                selected_indexes.append(idx)
 
+        if selected_indexes:
+            from dataclasses import asdict, is_dataclass
+
+            saved_bundles = _load_saved_bundles()
+            for idx in selected_indexes:
+                chosen_plan = plans[idx]
+                plan_data = (
+                    asdict(chosen_plan)
+                    if is_dataclass(chosen_plan)
+                    else {
+                        "total_credits": getattr(chosen_plan, "total_credits", None),
+                        "preferred_day_count": getattr(
+                            chosen_plan, "preferred_day_count", None
+                        ),
+                        "sections": [
+                            {
+                                "course_code": getattr(s, "course_code", None),
+                                "section": getattr(s, "section", None),
+                                "day": getattr(s, "day", None),
+                                "start": getattr(s, "start", None),
+                                "end": getattr(s, "end", None),
+                                "location": getattr(s, "location", None),
+                            }
+                            for s in getattr(chosen_plan, "sections", [])
+                        ],
+                    }
+                )
+                saved_bundles.append({
+                    "plan": plan_data,
+                    # 預留位置：日後爬蟲資料可直接加落呢度，例如 "scraped_info": None
+                })
+            try:
+                _save_bundles_to_disk(saved_bundles)
+                _print_green(f"Saved {len(selected_indexes)} bundle(s).")
+            except OSError as error:
+                _print_red(f"Could not save bundles: {error}")
         if args.export_plan is not None:
             if not (args.semester_start and args.semester_end):
                 parser.error(
