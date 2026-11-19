@@ -629,8 +629,8 @@ def interactive_menu() -> None:
                     _print_green("Basic settings saved.")
                 continue
             if choice == "10":
-            _show_saved_bundles()
-            continue
+                _show_saved_bundles()
+                continue
 
             command, aims_path_to_save = _menu_command(
                 choice,
