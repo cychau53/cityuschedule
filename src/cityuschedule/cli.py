@@ -19,7 +19,12 @@ from .aims_table_parser import parse_aims_table
 from .calendar_export import export_ics
 from .conflicts import find_conflicts
 from .course_catalog import load_course_catalog, load_credit_catalogs
-from .ge_courses import get_ge_course_info, search_ge_courses
+from .ge_courses import (
+    get_ge_course_info,
+    load_ge_courses,
+    search_ge_courses,
+    SECTION_DATA_PATH,
+)
 from .ge_importer import update_ge_courses_from_html
 from .planner import (
     calculate_course_credits,
@@ -1299,53 +1304,60 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     if args.ge_info:
-        course = get_ge_course_info(args.ge_info)
+        course_code = args.ge_info.strip().upper()
 
-        if course is None:
+        try:
+            with SECTION_DATA_PATH.open(
+                "r",
+                encoding="utf-8-sig",
+            ) as file:
+                section_records = json.load(file)
+
+            if not isinstance(section_records, list):
+                raise ValueError(
+                    "The GE section file must contain a JSON list."
+                )
+
+            if not all(
+                isinstance(record, dict)
+                for record in section_records
+            ):
+                raise ValueError(
+                    "Every GE section record must be a JSON object."
+                )
+
+        except FileNotFoundError:
             parser.error(
-                f"No Gateway Education course information found for {args.ge_info}."
+                "GE section information file not found: "
+                f"{SECTION_DATA_PATH}"
+            )
+        except (OSError, ValueError) as error:
+            parser.error(
+                f"Could not read GE section information: {error}"
             )
 
-        area_name = course.get("area_name", "")
-        area_text = course.get("area", "")
+        matching_sections = [
+            record
+            for record in section_records
+            if str(record.get("course_code") or "")
+            .strip()
+            .upper() == course_code
+        ]
 
-        if area_name:
-            area_text = f"{area_text} — {area_name}"
-
-        print(
-            f"{course['course_code']} — {course['course_title']}\n"
-            f"Area: {area_text}\n"
-            f"Offering unit: {course.get('offering_unit', '')}\n"
-            f"Level: {course.get('level', '')}\n"
-            f"Available in: {', '.join(course.get('terms', [])) or 'Not specified'}\n"
-            f"With exam: {'Yes' if course.get('with_exam') else 'No'}\n"
-            f"Cross-institutional: {'Yes' if course.get('cross_institutional') else 'No'}\n"
-            f"Partner institutions: {', '.join(course.get('partner_institutions', [])) or 'None'}\n"
-        )
-        return
-
-    if args.ge_search is not None:
-        results = search_ge_courses(args.ge_search)
-
-        if not results:
+        if not matching_sections:
             print(
-                "No Gateway Education courses found for "
-                f"'{args.ge_search}'."
+                "No section information found for "
+                f"'{course_code}'."
             )
             return
 
-        courses_by_code: dict[str, list[dict]] = {}
-
-        for record in results:
-            course_code = record["course_code"].strip().upper()
-            courses_by_code.setdefault(course_code, []).append(record)
-
         print(
-            f"Found {len(courses_by_code)} Gateway Education course(s) "
-            f"for '{args.ge_search}':\n"
+            f"\n{course_code}\n"
+            f"Found {len(matching_sections)} "
+            "section meeting record(s).\n"
         )
 
-        meeting_fields = (
+        section_fields = (
             ("crn", "CRN"),
             ("section", "Section"),
             ("term", "Term"),
@@ -1358,92 +1370,71 @@ def main(argv: list[str] | None = None) -> None:
             ("instructor", "Instructor"),
         )
 
-        def display_value(value: object) -> str:
-            """Format a value without hiding valid zero values."""
-            if value is None:
-                return "Not specified"
+        for number, record in enumerate(
+            matching_sections,
+            start=1,
+        ):
+            print(f"Meeting {number}")
 
-            if isinstance(value, (list, tuple)):
-                return ", ".join(str(item) for item in value) or "Not specified"
+            for field, label in section_fields:
+                value = record.get(field)
 
-            return str(value).strip() or "Not specified"
+                if value is None:
+                    text = "Not specified"
+                elif isinstance(value, list):
+                    text = (
+                        ", ".join(str(item) for item in value)
+                        or "Not specified"
+                    )
+                else:
+                    text = str(value).strip() or "Not specified"
 
-        for course_code, records in courses_by_code.items():
-            course = records[0]
+                print(f"  {label}: {text}")
 
-            area_text = display_value(course.get("area"))
-            area_name = course.get("area_name")
+            print()
+
+        return
+
+    if args.ge_search:
+        results = search_ge_courses(args.ge_search)
+
+        unique_courses = {}
+
+        for course in results:
+            course_code = course["course_code"].strip().upper()
+            unique_courses.setdefault(course_code, course)
+
+        results = list(unique_courses.values())
+
+        if not results:
+            print(
+                f"No Gateway Education courses found for "
+                f"'{args.ge_search}'."
+            )
+            return
+
+        print(
+            f"Found {len(results)} Gateway Education course(s) "
+            f"for '{args.ge_search}':\n"
+        )
+
+        for course in results:
+            area_name = course.get("area_name", "")
+            area_text = course.get("area", "")
 
             if area_name:
                 area_text = f"{area_text} — {area_name}"
 
-            exam_status = course.get("with_exam")
-
-            if exam_status is True:
-                exam_text = "Yes"
-            elif exam_status is False:
-                exam_text = "No"
-            else:
-                exam_text = "Not specified"
-
             print(
-                f"{course_code} — "
-                f"{display_value(course.get('course_title'))}\n"
+                f"{course['course_code']} — {course['course_title']}\n"
                 f"Area: {area_text}\n"
-                "Offering unit: "
-                f"{display_value(course.get('offering_unit'))}\n"
-                f"Level: {display_value(course.get('level'))}\n"
-                f"With exam: {exam_text}"
+                f"Offering unit: {course.get('offering_unit', '')}\n"
+                f"Level: {course.get('level', '')}\n"
+                f"Available in: {', '.join(course.get('terms', [])) or 'Not specified'}\n"
+                f"Cross-institutional: {'Yes' if course.get('cross_institutional') else 'No'}\n"
+                f"Partner institutions: {', '.join(course.get('partner_institutions', [])) or 'None'}\n"
+                f"With exam: {'Yes' if course.get('with_exam') else 'No'}\n"
             )
-
-            meetings = []
-            seen_meetings = set()
-
-            for record in records:
-                # Ignore placeholder records without section information.
-                if not any(
-                    record.get(field) is not None
-                    and str(record.get(field)).strip() != ""
-                    for field, _ in meeting_fields
-                ):
-                    continue
-
-                # Remove exact duplicate meetings, not different meetings
-                # belonging to the same CRN or section.
-                meeting_key = json.dumps(
-                    {
-                        field: record.get(field)
-                        for field, _ in meeting_fields
-                    },
-                    sort_keys=True,
-                    ensure_ascii=False,
-                )
-
-                if meeting_key in seen_meetings:
-                    continue
-
-                seen_meetings.add(meeting_key)
-                meetings.append(record)
-
-            if not meetings:
-                print(
-                    "\nNo section meeting information is available "
-                    "for this course.\n"
-                )
-                continue
-
-            print(f"\nSection meeting records: {len(meetings)}")
-
-            for number, meeting in enumerate(meetings, start=1):
-                print(f"\n  Meeting {number}")
-
-                for field, label in meeting_fields:
-                    print(
-                        f"    {label}: "
-                        f"{display_value(meeting.get(field))}"
-                    )
-
-            print()
 
         return
 
