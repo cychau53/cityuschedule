@@ -670,6 +670,7 @@ def interactive_menu() -> None:
 
 def main(argv: list[str] | None = None) -> None:
     command_line = sys.argv[1:] if argv is None else argv
+
     if not command_line:
         interactive_menu()
         return
