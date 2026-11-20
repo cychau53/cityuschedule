@@ -126,3 +126,9 @@ def test_menu_runs_plan_generator(monkeypatch, capsys):
     output = capsys.readouterr().out
     assert "11. Smart plan generator" in output
     assert "Plan 1:" in output
+
+
+def test_menu_option_11_q_returns_to_menu(monkeypatch):
+    feed(monkeypatch, "my_catalogue.json", "", "q")
+    with pytest.raises(cli._ReturnToMenu):
+        cli._menu_command("11", None, cli.BasicSettings())

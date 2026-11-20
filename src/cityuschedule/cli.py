@@ -534,6 +534,7 @@ def _plan_generator_menu_command(
         answer = input(
             f"Plan around saved AIMS timetable {saved_aims_path}? [Y/n]: "
         ).strip().casefold()
+        _exit_if_requested(answer)
         if answer in {"", "y", "yes"}:
             aims_path = saved_aims_path
     if aims_path is None:
@@ -543,9 +544,11 @@ def _plan_generator_menu_command(
     if aims_path:
         command.extend(["--aims-html", aims_path])
 
-    required = input(
+    required_text = input(
         "Courses that must be included (e.g. CS2311 GE1401, Enter for none): "
-    ).replace(",", " ").split()
+    )
+    _exit_if_requested(required_text)
+    required = required_text.replace(",", " ").split()
     if required:
         command.extend(["--required", *(code.upper() for code in required)])
 
@@ -555,6 +558,7 @@ def _plan_generator_menu_command(
     )
     for flag, label in optional_numbers:
         value = input(f"{label} (Enter for none): ").strip()
+        _exit_if_requested(value)
         if value:
             command.extend([flag, value])
 
@@ -564,6 +568,7 @@ def _plan_generator_menu_command(
     )
     for flag, label in optional_times:
         value = input(f"{label} (Enter for any): ").strip()
+        _exit_if_requested(value)
         if value:
             command.extend([flag, value])
 
