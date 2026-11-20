@@ -188,23 +188,38 @@ def _ge_course_matches_clause(
     course: dict,
     clause: str,
 ) -> bool:
-    if clause == "without exam":
+    compact_clause = "".join(clause.split())
+    if compact_clause == "withoutexam":
         return course.get("with_exam") is False
-    if clause == "with exam":
+    if compact_clause == "withexam":
         return course.get("with_exam") is True
-    if clause == "cross":
+    if compact_clause == "cross":
         return course.get("cross_institutional") is True
-    if clause == "not cross":
+    if compact_clause == "notcross":
         return course.get("cross_institutional") is False
-    if clause in {"area 1", "area 2", "area 3"}:
+    available_term = {
+        "2627a": "2026-27 Sem A",
+        "2627b": "2026-27 Sem B",
+        "2627s": "2026-27 Summer",
+    }.get(compact_clause)
+    if available_term is not None:
+        terms = course.get("terms")
+        return isinstance(terms, list) and any(
+            isinstance(term, str)
+            and term.casefold() == available_term.casefold()
+            for term in terms
+        )
+    if compact_clause in {"area1", "area2", "area3"}:
         try:
-            return _normalize_ge_area(course.get("area")) == clause.title()
+            return _normalize_ge_area(course.get("area")) == (
+                f"Area {compact_clause[-1]}"
+            )
         except (TypeError, ValueError):
             return False
-    if clause.startswith("level "):
+    if compact_clause.startswith("level"):
         return course in filter_ge_courses_by_level(
             [course],
-            clause.removeprefix("level ").strip(),
+            compact_clause.removeprefix("level"),
         )
 
     searchable_text = " ".join(
@@ -245,13 +260,13 @@ def filter_ge_courses_by_level(
     level_query: str,
 ) -> list[dict]:
     """Filter courses by a level, level family, or inclusive level range."""
-    normalized_query = " ".join(level_query.casefold().split()).upper()
+    normalized_query = "".join(level_query.casefold().split()).upper()
     if normalized_query in {"A", "B"}:
         requested_levels = {
             level for level in _GE_LEVEL_ORDER if level.startswith(normalized_query)
         }
-    elif " TO " in normalized_query:
-        start, end = normalized_query.split(" TO ", maxsplit=1)
+    elif "TO" in normalized_query:
+        start, end = normalized_query.split("TO", maxsplit=1)
         try:
             start_index = _GE_LEVEL_ORDER.index(start)
             end_index = _GE_LEVEL_ORDER.index(end)

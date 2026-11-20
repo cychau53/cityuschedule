@@ -59,7 +59,10 @@ an exact level, or a range such as `Level A1 to B1` (inclusive). Other text
 searches course codes, titles, areas, and offering units. Combine any filters
 and keywords with `+`; every part must match, and their order does not matter.
 For example, `introduction + level B + with exam` finds courses matching all
-three conditions. Search terms are case-insensitive.
+three conditions. Search terms are case-insensitive, and spaces inside filter
+labels are optional: `levelB` is equivalent to `level B`, and `area1` to
+`area 1`. Filter by 2026-27 semester availability with `2627A` (Sem A),
+`2627B` (Sem B), or `2627S` (Summer); spaces and capitalization do not matter.
 
 \## Check a timetable
 
