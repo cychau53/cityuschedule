@@ -920,10 +920,66 @@ def _parse_required_sections(values: Sequence[str] | None) -> dict[str, tuple[st
     return {code: tuple(sections) for code, sections in result.items()}
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        prog="python -m cityuschedule.plan_generator",
-        description="Generate ranked, clash-free course plans.",
+DEFAULT_SEMESTER_START = "2026-08-31"
+DEFAULT_SEMESTER_END = "2026-11-28"
+
+
+def export_plan(
+    plan: CoursePlan,
+    output: str | Path,
+    semester_start: str,
+    semester_end: str,
+    exclusions_path: str | None = None,
+) -> Path:
+    """Write ``plan`` (including any fixed AIMS classes) to an .ics file."""
+    from .calendar_export import export_ics
+
+    output = Path(output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    export_ics(
+        plan.to_sessions(),
+        str(output),
+        semester_start,
+        semester_end,
+        exclusions_path=exclusions_path,
+    )
+    return output
+
+
+def _ask(prompt: str) -> str:
+    try:
+        return input(prompt).strip()
+    except EOFError:
+        return ""
+
+
+def _ask_to_export(plans: Sequence[CoursePlan], args: argparse.Namespace) -> None:
+    choice = _ask(
+        f"Export a plan to .ics? Enter 1-{len(plans)}, or press Enter to skip: "
+    )
+    if not choice:
+        return
+    if not choice.isdigit() or not 1 <= int(choice) <= len(plans):
+        print(f"Skipped export: {choice!r} is not a plan number.")
+        return
+    output = _ask(f"Output .ics path [{args.output}]: ") or args.output
+    start = _ask(f"Semester start [{args.semester_start}]: ") or args.semester_start
+    end = _ask(f"Semester end [{args.semester_end}]: ") or args.semester_end
+    path = export_plan(plans[int(choice) - 1], output, start, end, args.exclusions)
+    print(f"Exported plan {choice} to {path}")
+
+
+def main(
+    argv: Sequence[str] | None = None,
+    prog: str = "python -m cityuschedule.plan_generator",
+    parser_class: type[argparse.ArgumentParser] = argparse.ArgumentParser,
+) -> int:
+    parser = parser_class(
+        prog=prog,
+        description=(
+            "Generate ranked, clash-free course plans from a timetable "
+            "catalogue, optionally around a saved AIMS timetable."
+        ),
     )
     parser.add_argument("catalog", nargs="+", help="Timetable catalogue JSON file(s)")
     parser.add_argument("--aims-html", help="Saved AIMS weekly timetable to plan around")
@@ -945,10 +1001,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--no-travel-check", action="store_true")
     parser.add_argument("--max-results", type=int, default=5)
     parser.add_argument("--export", type=int, metavar="N", help="Export plan N as .ics")
-    parser.add_argument("--output", default="plan.ics")
-    parser.add_argument("--semester-start", help="First teaching day, YYYY-MM-DD")
-    parser.add_argument("--semester-end", help="Last teaching day, YYYY-MM-DD")
-    parser.add_argument("--exclusions")
+    parser.add_argument(
+        "--ask-export", action="store_true",
+        help="After listing plans, ask which one to export",
+    )
+    parser.add_argument("--output", default="cityu_plan.ics")
+    parser.add_argument(
+        "--semester-start", default=DEFAULT_SEMESTER_START,
+        help="First teaching day, YYYY-MM-DD",
+    )
+    parser.add_argument(
+        "--semester-end", default=DEFAULT_SEMESTER_END,
+        help="Last teaching day, YYYY-MM-DD",
+    )
+    parser.add_argument("--exclusions", help="Holidays and breaks JSON file")
     args = parser.parse_args(argv)
 
     try:
@@ -1000,23 +1066,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(format_plan(plan, number))
         print()
 
-    if args.export:
-        if not 1 <= args.export <= len(report.plans):
-            parser.error(f"--export must be between 1 and {len(report.plans)}")
-        if not (args.semester_start and args.semester_end):
-            parser.error("--export needs --semester-start and --semester-end")
-        from .calendar_export import export_ics
-
-        output = Path(args.output)
-        output.parent.mkdir(parents=True, exist_ok=True)
-        export_ics(
-            report.plans[args.export - 1].to_sessions(),
-            str(output),
-            args.semester_start,
-            args.semester_end,
-            exclusions_path=args.exclusions,
-        )
-        print(f"Exported plan {args.export} to {output}")
+    try:
+        if args.export:
+            if not 1 <= args.export <= len(report.plans):
+                parser.error(f"--export must be between 1 and {len(report.plans)}")
+            path = export_plan(
+                report.plans[args.export - 1],
+                args.output,
+                args.semester_start,
+                args.semester_end,
+                args.exclusions,
+            )
+            print(f"Exported plan {args.export} to {path}")
+        elif args.ask_export:
+            _ask_to_export(report.plans, args)
+    except (OSError, ValueError) as error:
+        parser.error(f"Could not export plan: {error}")
     return 0
 
 

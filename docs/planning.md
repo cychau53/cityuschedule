@@ -1,6 +1,6 @@
 # Course plan generator
 
-`cityuschedule.plan_generator` builds every complete, clash-free combination of the courses you are considering and lists the best ones first, with a short reason for each ranking.
+The plan generator (`cityuschedule plan`, menu option 11) builds every complete, clash-free combination of the courses you are considering and lists the best ones first, with a short reason for each ranking.
 
 ## What it does
 
@@ -28,10 +28,21 @@ Plans are sorted by these criteria, in order:
 5. Fewest early (before 09:00) or late (after 19:00) classes
 6. Earliest finish
 
+## Menu
+
+Run `cityuschedule` with no arguments and choose **11. Smart plan generator**. You will be asked for:
+
+1. The course timetable catalogue JSON (default `course_catalog.json`)
+2. Whether to plan around your remembered AIMS timetable, or a path to one (Enter to skip)
+3. Courses that must be included
+4. Lunch break minutes, minimum gap, earliest start and latest end (Enter to skip each)
+
+Your **Basic settings** (option 1) are applied automatically: preferred days, avoided days, minimum and maximum credits. The top 5 plans are shown, and you can then export one to an `.ics` file. The AIMS path you use is remembered for next time.
+
 ## Command line
 
 ```bash
-python -m cityuschedule.plan_generator course_catalog.json \
+cityuschedule plan course_catalog.json \
   --required TEST101 \
   --avoid-days Thu \
   --lunch 45 \
@@ -42,7 +53,7 @@ python -m cityuschedule.plan_generator course_catalog.json \
 Plan around a saved AIMS timetable and export plan 1:
 
 ```bash
-python -m cityuschedule.plan_generator my_catalogue.json \
+cityuschedule plan my_catalogue.json \
   --aims-html aims_schedule.html \
   --max-credits 18 --prefer-days Mon Tue Wed \
   --export 1 --output exports/plan.ics \
@@ -50,7 +61,7 @@ python -m cityuschedule.plan_generator my_catalogue.json \
   --exclusions exclusions.json
 ```
 
-Replace the semester dates with the official CityU teaching dates.
+The semester dates default to the project's current values (2026-08-31 to 2026-11-28). Replace them with the official CityU teaching dates for the semester you are planning. `python -m cityuschedule.plan_generator` works the same way as `cityuschedule plan`.
 
 Days accept `Mon`, `M`, `Thu`, `Th`, `R`, `Thursday` and so on.
 
@@ -67,7 +78,9 @@ Days accept `Mon`, `M`, `Thu`, `Th`, `R`, `Thursday` and so on.
 | `--lunch 45` | Free minutes needed between 11:30 and 14:30 on class days |
 | `--max-daily-hours 6` | Maximum class hours per day |
 | `--no-travel-check` | Skip walking-time checks |
-| `--export N` | Export plan N as `.ics` (needs semester dates) |
+| `--export N` | Export plan N as `.ics` |
+| `--ask-export` | After listing plans, ask which one to export |
+| `--output`, `--semester-start`, `--semester-end`, `--exclusions` | Export settings |
 
 ## Python
 

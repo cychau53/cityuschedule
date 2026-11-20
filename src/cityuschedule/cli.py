@@ -511,7 +511,65 @@ def _menu_command(
             command.extend(["--ge-output", output_path])
         return command, None
 
+    if choice == "11":
+        return _plan_generator_menu_command(saved_aims_path, settings)
+
     return None, None
+
+
+def _plan_generator_menu_command(
+    saved_aims_path: str | None,
+    settings: BasicSettings,
+) -> tuple[list[str] | None, str | None]:
+    """Ask for plan generator inputs and build a ``plan`` command."""
+    catalogue_path = _prompt_path(
+        "Course timetable catalogue JSON path", "course_catalog.json"
+    )
+    if not catalogue_path:
+        return None, None
+    command = ["plan", catalogue_path]
+
+    aims_path = None
+    if saved_aims_path:
+        answer = input(
+            f"Plan around saved AIMS timetable {saved_aims_path}? [Y/n]: "
+        ).strip().casefold()
+        if answer in {"", "y", "yes"}:
+            aims_path = saved_aims_path
+    if aims_path is None:
+        aims_path = _prompt_path(
+            "AIMS timetable HTML path to plan around (Enter to skip)"
+        )
+    if aims_path:
+        command.extend(["--aims-html", aims_path])
+
+    required = input(
+        "Courses that must be included (e.g. CS2311 GE1401, Enter for none): "
+    ).replace(",", " ").split()
+    if required:
+        command.extend(["--required", *(code.upper() for code in required)])
+
+    optional_numbers = (
+        ("--lunch", "Lunch break minutes between 11:30 and 14:30"),
+        ("--min-gap", "Minimum minutes between classes"),
+    )
+    for flag, label in optional_numbers:
+        value = input(f"{label} (Enter for none): ").strip()
+        if value:
+            command.extend([flag, value])
+
+    optional_times = (
+        ("--earliest", "Earliest class start, e.g. 09:00"),
+        ("--latest", "Latest class end, e.g. 18:00"),
+    )
+    for flag, label in optional_times:
+        value = input(f"{label} (Enter for any): ").strip()
+        if value:
+            command.extend([flag, value])
+
+    command.extend(_basic_settings_arguments(settings))
+    command.extend(["--max-results", "5", "--ask-export"])
+    return command, aims_path
 
 
 def interactive_menu() -> None:
@@ -532,6 +590,7 @@ def interactive_menu() -> None:
             "8. Generate course plans\n"
             "9. Import GE courses from HTML\n"
             "10. Bundles saved\n"
+            "11. Smart plan generator\n"
             "0. Exit\n"
             "Type q to return to the menu, or 0 to quit the package.\n"
             "Type delete all or delete names joined by 'and' to clear data."
@@ -659,9 +718,9 @@ def interactive_menu() -> None:
 
         if command is None:
             if choice not in {
-                "2", "3", "4", "5", "6", "7", "8", "9", "10"
+                "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"
             }:
-                _print_red("Choose an option from 0 to 10.")
+                _print_red("Choose an option from 0 to 11.")
             else:
                 _print_red("Required input was not provided.")
             continue
@@ -693,9 +752,25 @@ def main(argv: list[str] | None = None) -> None:
         interactive_menu()
         return
 
+    if command_line[0] == "plan":
+        from .plan_generator import main as plan_main
+
+        exit_code = plan_main(
+            command_line[1:],
+            prog="cityuschedule plan",
+            parser_class=_CityUScheduleArgumentParser,
+        )
+        if exit_code:
+            raise SystemExit(exit_code)
+        return
+
     parser = _CityUScheduleArgumentParser(
         prog="cityuschedule",
         description="Check CityU course timetables for clashes and export them as calendar events.",
+        epilog=(
+            "Smart plan generator: run 'cityuschedule plan --help' "
+            "or choose option 11 in the menu."
+        ),
     )
     parser.add_argument(
         "csv_file",
