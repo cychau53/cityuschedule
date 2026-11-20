@@ -13,20 +13,6 @@ DATA_PATH = DATA_DIRECTORY / "ge_courses.json"
 SECTION_DATA_PATH = DATA_DIRECTORY / "ge_course_information.json"
 
 
-@contextmanager
-def use_ge_session_sources(
-    basic_path: str | Path,
-    section_path: str | Path,
-):
-    """Use session JSON files for GE loading within this context."""
-    token = _GE_SESSION_SOURCES.set(
-        (Path(basic_path), Path(section_path))
-    )
-
-    try:
-        yield
-    finally:
-        _GE_SESSION_SOURCES.reset(token)
 
 def _read_json_records(
     path: Path,
@@ -92,19 +78,11 @@ def load_ge_courses() -> list[dict]:
     Returns one flat dictionary per section meeting.
     Courses without section records are retained with empty section fields.
     """
-    sources = _GE_SESSION_SOURCES.get()
-
-    if sources is None:
-        basic_path = DATA_PATH
-        section_path = SECTION_DATA_PATH
-    else:
-        basic_path, section_path = sources
-
-    courses = _read_json_records(basic_path)
+    courses = _read_json_records(DATA_PATH)
 
     sections = _read_json_records(
-        section_path,
-        allow_missing_or_blank=sources is None,
+        SECTION_DATA_PATH,
+        allow_missing_or_blank=True,
     )
 
     section_fields = (
@@ -125,7 +103,7 @@ def load_ge_courses() -> list[dict]:
     for index, section in enumerate(sections):
         course_code = _record_course_code(
             section,
-            path=section_path,
+            path=SECTION_DATA_PATH,
             index=index,
         )
 
@@ -136,7 +114,7 @@ def load_ge_courses() -> list[dict]:
     for index, course in enumerate(courses):
         course_code = _record_course_code(
             course,
-            path=basic_path,
+            path=DATA_PATH,
             index=index,
         )
 
