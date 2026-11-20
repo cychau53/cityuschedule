@@ -87,7 +87,20 @@ def _load_saved_bundles() -> list[dict]:
         return data if isinstance(data, list) else []
     except (OSError, json.JSONDecodeError):
         return []
+        
+def _show_saved_bundles() -> None:
+    bundles = _load_saved_bundles()
 
+    if not bundles:
+        print("No saved GE bundles were found.")
+        return
+
+    print(f"Found {len(bundles)} saved GE bundle(s).\n")
+
+    for number, bundle in enumerate(bundles, start=1):
+        print(f"Bundle {number}")
+        print(bundle)
+        print()
 
 def _save_bundles_to_disk(bundles: list[dict]) -> None:
     path = _saved_bundles_file()
