@@ -51,6 +51,16 @@ successful task.
 
 For advanced options, use `cityuschedule --help` or run a command directly.
 
+In menu option 5, GE search is case-insensitive. Enter `without exam` or
+`with exam` to filter by exam status, `cross` or `not cross` to filter
+cross-institutional courses, or `Area 1`, `Area 2`, or `Area 3` to show courses
+from one area. Enter `Level B` to include all B-level courses, `Level B1` for
+an exact level, or a range such as `Level A1 to B1` (inclusive). Other text
+searches course codes, titles, areas, and offering units. Combine any filters
+and keywords with `+`; every part must match, and their order does not matter.
+For example, `introduction + level B + with exam` finds courses matching all
+three conditions. Search terms are case-insensitive.
+
 \## Check a timetable
 
 
