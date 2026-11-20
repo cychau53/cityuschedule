@@ -164,28 +164,116 @@ def get_ge_course_info(course_code: str) -> dict | None:
     return None
 
 def search_ge_courses(keyword: str) -> list[dict]:
-    keyword = keyword.strip().lower()
+    clauses = [
+        " ".join(clause.casefold().split())
+        for clause in keyword.split("+")
+    ]
 
-    if not keyword:
+    if not clauses or any(not clause for clause in clauses):
         return []
 
     results = []
 
     for course in load_ge_courses():
-        searchable_text = " ".join(
-            [
-                course.get("course_code", ""),
-                course.get("course_title", ""),
-                course.get("area", ""),
-                course.get("area_name", ""),
-                course.get("offering_unit", ""),
-            ]
-        ).lower()
-
-        if keyword in searchable_text:
+        if all(
+            _ge_course_matches_clause(course, clause)
+            for clause in clauses
+        ):
             results.append(course)
 
     return results
+
+
+def _ge_course_matches_clause(
+    course: dict,
+    clause: str,
+) -> bool:
+    if clause == "without exam":
+        return course.get("with_exam") is False
+    if clause == "with exam":
+        return course.get("with_exam") is True
+    if clause == "cross":
+        return course.get("cross_institutional") is True
+    if clause == "not cross":
+        return course.get("cross_institutional") is False
+    if clause in {"area 1", "area 2", "area 3"}:
+        try:
+            return _normalize_ge_area(course.get("area")) == clause.title()
+        except (TypeError, ValueError):
+            return False
+    if clause.startswith("level "):
+        return course in filter_ge_courses_by_level(
+            [course],
+            clause.removeprefix("level ").strip(),
+        )
+
+    searchable_text = " ".join(
+        str(course.get(field) or "")
+        for field in (
+            "course_code",
+            "course_title",
+            "area",
+            "area_name",
+            "offering_unit",
+            "level",
+        )
+    ).casefold()
+    return clause in searchable_text
+
+
+def filter_ge_courses_by_cross_institutional(
+    courses: list[dict],
+    *,
+    cross_institutional: bool,
+) -> list[dict]:
+    """Filter courses by their explicit cross-institutional status."""
+    if not isinstance(cross_institutional, bool):
+        raise TypeError("cross_institutional must be True or False.")
+
+    return [
+        course
+        for course in courses
+        if course.get("cross_institutional") is cross_institutional
+    ]
+
+
+_GE_LEVEL_ORDER = ("A1", "A2", "B1", "B2", "B3", "B4")
+
+
+def filter_ge_courses_by_level(
+    courses: list[dict],
+    level_query: str,
+) -> list[dict]:
+    """Filter courses by a level, level family, or inclusive level range."""
+    normalized_query = " ".join(level_query.casefold().split()).upper()
+    if normalized_query in {"A", "B"}:
+        requested_levels = {
+            level for level in _GE_LEVEL_ORDER if level.startswith(normalized_query)
+        }
+    elif " TO " in normalized_query:
+        start, end = normalized_query.split(" TO ", maxsplit=1)
+        try:
+            start_index = _GE_LEVEL_ORDER.index(start)
+            end_index = _GE_LEVEL_ORDER.index(end)
+        except ValueError:
+            return []
+        if start_index > end_index:
+            return []
+        requested_levels = set(_GE_LEVEL_ORDER[start_index : end_index + 1])
+    elif normalized_query in _GE_LEVEL_ORDER:
+        requested_levels = {normalized_query}
+    else:
+        return []
+
+    return [
+        course
+        for course in courses
+        if requested_levels.intersection(
+            level.strip().upper()
+            for level in str(course.get("level") or "").split(",")
+        )
+    ]
+
 
 def filter_ge_courses_by_exam(
     courses: list[dict],
