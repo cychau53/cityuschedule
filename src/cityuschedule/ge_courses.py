@@ -3,8 +3,15 @@ from pathlib import Path
 from contextlib import contextmanager
 from contextvars import ContextVar
 
-DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "ge_courses.json"
-SECTION_DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "ge_course_information.json"
+PACKAGE_DATA_DIRECTORY = Path(__file__).resolve().parent / "data"
+SOURCE_DATA_DIRECTORY = Path(__file__).resolve().parents[2] / "data"
+DATA_DIRECTORY = (
+    PACKAGE_DATA_DIRECTORY
+    if (PACKAGE_DATA_DIRECTORY / "ge_courses.json").is_file()
+    else SOURCE_DATA_DIRECTORY
+)
+DATA_PATH = DATA_DIRECTORY / "ge_courses.json"
+SECTION_DATA_PATH = DATA_DIRECTORY / "ge_course_information.json"
 
 _GE_SESSION_SOURCES: ContextVar[
     tuple[Path, Path] | None

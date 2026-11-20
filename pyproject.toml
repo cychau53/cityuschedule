@@ -37,6 +37,8 @@ packages = ["src/cityuschedule"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "data/travel_time.json" = "cityuschedule/data/travel_time.json"
+"data/ge_courses.json" = "cityuschedule/data/ge_courses.json"
+"data/ge_course_information.json" = "cityuschedule/data/ge_course_information.json"
 "data/catalogue/cs_course_requirements.json" = "cityuschedule/data/catalogue/cs_course_requirements.json"
 "data/catalogue/ge_course_requirements.json" = "cityuschedule/data/catalogue/ge_course_requirements.json"
 "data/catalogue/other_course_requirements.json" = "cityuschedule/data/catalogue/other_course_requirements.json"
