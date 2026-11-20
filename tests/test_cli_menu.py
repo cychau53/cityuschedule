@@ -230,6 +230,8 @@ def test_basic_settings_persist_and_apply_to_paste_and_planning(
             "0",
             "8",
             "courses.json",
+            "",
+            "",
             "0",
         ]
     )
@@ -277,6 +279,7 @@ def test_basic_settings_persist_and_apply_to_paste_and_planning(
             "--timetable-catalog",
             "courses.json",
             *settings_args,
+            "--ask",
         ],
     ]
 
@@ -426,7 +429,7 @@ def test_menu_reports_unknown_delete_command(monkeypatch, capsys):
 
 def test_export_and_plan_menu_options_reuse_saved_aims_path(monkeypatch):
     saved_path = r"C:\Schedules\current AIMS.html"
-    inputs = iter(["AIMS", "", "", "", "courses.json"])
+    inputs = iter(["AIMS", "", "", "", "courses.json", "", ""])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
 
     export_command, export_path = cli._menu_command("7", saved_path)
@@ -462,5 +465,6 @@ def test_export_and_plan_menu_options_reuse_saved_aims_path(monkeypatch):
         "15",
         "--max-credits",
         "21",
+        "--ask",
     ]
     assert plan_path == saved_path

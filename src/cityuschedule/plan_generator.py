@@ -1,141 +1,277 @@
-"""Generate ranked, clash-free course plans.
+"""Generate ranked, clash-free course plans that follow CityU registration rules.
 
-This module builds complete registration bundles for each course (for
-example one lecture ``C01`` plus one tutorial ``T03``), searches every
-combination that fits around an optional fixed timetable, and returns the
-best plans first.
+This is the only plan search in the package. Menu option 8 and the
+``--timetable-catalog`` / ``--add-ge`` command use it. It reuses the
+project's existing building blocks instead of repeating them:
 
-Typical use::
+==============================  =============================================
+Job                             Existing code reused
+==============================  =============================================
+Read the course catalogue       ``course_catalog.load_course_catalog``
+Read GE section data            ``course_catalog.load_ge_section_catalog``
+Course credits                  ``course_catalog.load_credit_catalogs``,
+                                ``planner.calculate_course_credits``
+Catalogue rows -> sections      ``course_planner.catalogue_to_planned_sections``
+Hand-made bundles               ``course_planner.build_course_bundle``
+Lecture + tutorial bundles      ``aims_table_parser.ParsedAimsTable
+                                .registration_bundles``
+Time parsing and clash check    ``schedule_conflicts.time_to_minutes``,
+                                ``slots_overlap``
+Walking time between buildings  ``travel_time.load_travel_times``,
+                                ``walking_minutes``
+GE areas and terms              ``ge_courses.load_ge_courses``
+Calendar export                 ``planner.planned_sections_to_sessions``,
+                                ``calendar_export.export_ics``
+==============================  =============================================
 
-    from cityuschedule.course_catalog import load_course_catalog
-    from cityuschedule.plan_generator import PlanOptions, generate_course_plans
+What this module adds is the search itself and the CityU course
+registration rules (Academic Regulations and Records Office,
+https://www.cityu.edu.hk/arro/creg/creg_main.htm):
 
-    courses = load_course_catalog("course_catalog.json")
-    report = generate_course_plans(
-        courses,
-        PlanOptions(
-            required_courses=("CS2311",),
-            max_credits=18,
-            avoid_days=("Fri",),
-            lunch_minutes=45,
-        ),
-    )
-    for number, plan in enumerate(report.plans, start=1):
-        print(format_plan(plan, number))
+* Study load: full-time 12-18 credit units, part-time at most 11, Summer
+  Term at most 7. The maximum is a hard limit unless an overload is allowed;
+  plans under the minimum are flagged as needing approval. LC2018, LC2031
+  and PED courses do not count towards the study load.
+* Pre-registered courses (from AIMS) stay fixed, or with
+  ``allow_section_changes`` they may move to other sections. A change is
+  one drop + add request, and fewer changes rank higher.
+* Section status from the Master Class Schedule: full sections are only
+  used through the waitlist (3rd time-ticket, not guaranteed); sections
+  that are not web-enabled or are restricted need the AIMS e-form in the
+  last time-ticket. Plans that need fewer of these rank higher.
+* Prerequisites, precursors, exclusive and equivalent courses are checked
+  against the courses you have completed, and courses not offered in the
+  chosen term are left out.
+* Each plan lists its add/drop steps with CRNs and notes the GE quota
+  control in the 2nd time-ticket.
 
-Rules applied while searching:
-
-* Every chosen course uses one complete bundle: one section of each
-  activity type (lecture, tutorial, lab, ...) from the same section family.
-  All weekly meetings of a section are kept together.
-* Optional courses may be left out; required courses never are.
-* Plans never clash with each other or with the fixed timetable.
-* Day filters (``avoid_days``), time windows, minimum gaps, a lunch break,
-  a daily-hours limit and walking time between buildings are only checked
-  for the new classes, so a fixed timetable that already breaks a rule does
-  not reject every plan.
+The generator only plans. It never logs in to AIMS, registers, holds seats
+or watches seat numbers, which CityU does not allow programs to do.
 """
 
 from __future__ import annotations
 
-import argparse
 import bisect
 import json
 import re
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
-from itertools import pairwise, product
+from dataclasses import dataclass, field, replace
+from functools import cached_property
+from itertools import pairwise
 from pathlib import Path
 
-from .course_catalog import CatalogCourse, load_course_catalog
-from .course_planner import PlannedSection, catalogue_to_planned_sections
+from .aims_fit import DAY_NAMES
+from .aims_table_parser import AimsSession, ParsedAimsTable
+from .calendar_export import export_ics
+from .course_catalog import DEFAULT_CREDIT_CATALOGS, CatalogCourse, catalogue_dir
+from .course_planner import (
+    PlannedSection,
+    build_course_bundle,
+    catalogue_to_planned_sections,
+)
+from .planner import calculate_course_credits, planned_sections_to_sessions
+from .schedule_conflicts import TimeSlot, slots_overlap, time_to_minutes
+from .timetable import WEEKDAYS
+from .travel_time import load_travel_times, walking_minutes
 
-# ---------------------------------------------------------------------------
-# Days, times and buildings
-# ---------------------------------------------------------------------------
-
-WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-
-_DAY_ALIASES = {
-    "M": "Mon", "MO": "Mon", "MON": "Mon", "MONDAY": "Mon",
-    "T": "Tue", "TU": "Tue", "TUE": "Tue", "TUES": "Tue", "TUESDAY": "Tue",
-    "W": "Wed", "WE": "Wed", "WED": "Wed", "WEDNESDAY": "Wed",
-    "R": "Thu", "TH": "Thu", "THU": "Thu", "THUR": "Thu", "THURS": "Thu",
-    "THURSDAY": "Thu",
-    "F": "Fri", "FR": "Fri", "FRI": "Fri", "FRIDAY": "Fri",
-    "S": "Sat", "SA": "Sat", "SAT": "Sat", "SATURDAY": "Sat",
-    "U": "Sun", "SU": "Sun", "SUN": "Sun", "SUNDAY": "Sun",
-}
-
-# Old academic-building codes that still appear in course data.
-BUILDING_ALIASES = {
-    "AC1": "YEUNG",
-    "AC2": "LI",
-    "AC3": "LAU",
-}
+_DAY_LETTERS = {name: letter for letter, name in DAY_NAMES.items()}
 
 
-def normalize_day(value: str) -> str:
-    """Return ``Mon`` .. ``Sun`` for any common spelling (``R`` = Thursday)."""
-    key = (value or "").strip().upper().rstrip(".")
-    try:
-        return _DAY_ALIASES[key]
-    except KeyError:
-        raise ValueError(f"Unknown day: {value!r}") from None
+def to_day(value: str) -> str:
+    """``Mon``/``monday``/``M`` -> ``Mon`` (``R`` is Thursday, as in AIMS)."""
+    text = str(value or "").strip()
+    day = DAY_NAMES.get(text.upper()) if len(text) == 1 else text[:3].capitalize()
+    if day not in WEEKDAYS:
+        raise ValueError(f"Unknown day: {value!r}")
+    return day
 
 
-def normalize_days(values: Iterable[str] | None) -> frozenset[str]:
-    """Normalize a list of days; comma-separated items are also accepted."""
-    days = set()
-    for value in values or ():
-        for part in str(value).replace(",", " ").split():
-            days.add(normalize_day(part))
-    return frozenset(days)
+def to_days(values: Iterable[str] | None) -> frozenset[str]:
+    return frozenset(
+        to_day(part)
+        for value in values or ()
+        for part in str(value).replace(",", " ").split()
+    )
 
 
-def parse_time(value: str) -> int:
-    """Convert ``9:00``, ``09:00`` or ``09:00:00`` to minutes after midnight."""
-    match = re.fullmatch(r"\s*(\d{1,2}):(\d{2})(?::\d{2})?\s*", value or "")
-    if not match:
-        raise ValueError(f"Invalid time: {value!r}")
-    hours, minutes = int(match.group(1)), int(match.group(2))
-    if hours > 23 or minutes > 59:
-        raise ValueError(f"Invalid time: {value!r}")
-    return hours * 60 + minutes
-
-
-def format_minutes(minutes: int) -> str:
+def _clock(minutes: int) -> str:
     return f"{minutes // 60:02d}:{minutes % 60:02d}"
 
 
-def building_code(location: str, known_buildings: Iterable[str] = ()) -> str:
-    """Guess the building code from a location such as ``LI 3508``."""
-    first = (location or "").strip().split(" ", 1)[0].upper()
-    if not first:
-        return ""
-    first = BUILDING_ALIASES.get(first, first)
-    known = {code.upper() for code in known_buildings}
-    if known and first not in known:
-        return ""
-    return first
+# ---------------------------------------------------------------------------
+# CityU course registration rules
+# ---------------------------------------------------------------------------
+
+# Study load per semester/term: (minimum, maximum) credit units.
+# https://www.cityu.edu.hk/arro/creg/creg_sdfu.htm
+STUDY_LOADS: dict[str, tuple[int, int]] = {
+    "full-time": (12, 18),
+    "part-time": (0, 11),
+    "summer": (0, 7),
+}
+
+# Non-credit-bearing courses that do not count towards the study load.
+# https://www.cityu.edu.hk/arro/creg/creg_main.htm
+NON_CREDIT_COURSES = frozenset({"LC2018", "LC2031"})
+NON_CREDIT_PREFIXES = ("PED",)
+
+# Warn when a section has this many seats or fewer left.
+FEW_SEATS_LEFT = 3
+
+_COURSE_CODE_RE = re.compile(r"\b[A-Z]{2,4}\s?\d{4}[A-Z]?\b")
 
 
-def load_travel_times(path: str | Path | None = None) -> dict[str, dict[str, int]]:
-    """Load the walking-time matrix shipped with the package."""
-    if path is None:
-        here = Path(__file__).resolve()
-        candidates = (
-            here.parents[2] / "data" / "travel_time.json",
-            here.parent / "data" / "travel_time.json",
+def counts_toward_study_load(course_code: str) -> bool:
+    code = course_code.upper()
+    return code not in NON_CREDIT_COURSES and not code.startswith(NON_CREDIT_PREFIXES)
+
+
+def resolve_study_load(name: str | None) -> tuple[int, int] | None:
+    """``full-time``/``part-time``/``summer`` -> ``(min, max)``; ``None`` = no rule."""
+    key = str(name or "").strip().casefold().replace("_", "-").replace(" ", "-")
+    if key in {"", "none", "off"}:
+        return None
+    key = {"fulltime": "full-time", "parttime": "part-time"}.get(key, key)
+    if key not in STUDY_LOADS:
+        raise ValueError(f"Unknown study load {name!r}; use full-time, part-time or summer")
+    return STUDY_LOADS[key]
+
+
+def term_key(text: str) -> tuple[str, str] | None:
+    """Read a term in any of the formats used by CityU and this project.
+
+    ``2627A``, ``Semester A 2026/27``, ``2026-27 Sem A`` -> ``("26", "A")``;
+    ``2026-27 Summer`` or ``2627S`` -> ``("26", "S")``.
+    """
+    upper = str(text or "").upper()
+    compact = re.fullmatch(r"\s*(\d\d)(\d\d)\s*([ABS])\s*", upper)
+    if compact:
+        return compact.group(1), compact.group(3)
+    year = re.search(r"20(\d\d)\s*[-/]\s*\d\d", upper)
+    if not year:
+        return None
+    if "SUMMER" in upper:
+        return year.group(1), "S"
+    part = re.search(r"\bSEM(?:ESTER)?\.?\s*([AB])\b", upper)
+    return (year.group(1), part.group(1)) if part else None
+
+
+def _term_keys(value) -> tuple[tuple[str, str], ...]:
+    items = value if isinstance(value, (list, tuple)) else str(value or "").split(",")
+    return tuple(dict.fromkeys(k for k in (term_key(str(i)) for i in items) if k))
+
+
+def _course_codes(value) -> tuple[str, ...]:
+    """Course codes from a list or free text such as ``"CS1102 or CS1302"``."""
+    items = [value] if isinstance(value, str) else [str(item) for item in value or ()]
+    codes = [
+        code.replace(" ", "")
+        for item in items
+        for code in _COURSE_CODE_RE.findall(item.upper())
+    ]
+    return tuple(dict.fromkeys(codes))
+
+
+@dataclass(frozen=True)
+class CourseRequirements:
+    """Catalogue rules for one course (any one listed code is enough)."""
+
+    prerequisites: tuple[str, ...] = ()
+    precursors: tuple[str, ...] = ()
+    exclusive: tuple[str, ...] = ()
+    equivalent: tuple[str, ...] = ()
+    terms: tuple[tuple[str, str], ...] = ()
+
+
+def course_requirements_from_records(
+    records: Iterable[Mapping],
+) -> dict[str, CourseRequirements]:
+    result: dict[str, CourseRequirements] = {}
+    for record in records:
+        if not isinstance(record, Mapping):
+            continue
+        code = str(record.get("course_code", record.get("code", ""))).strip().upper()
+        if not code:
+            continue
+        need = CourseRequirements(
+            prerequisites=_course_codes(record.get("prerequisites")),
+            precursors=_course_codes(record.get("precursors")),
+            exclusive=_course_codes(record.get("exclusive_courses")),
+            equivalent=_course_codes(record.get("equivalent_courses")),
+            terms=_term_keys(record.get("offering_terms", record.get("terms"))),
         )
-        path = next((p for p in candidates if p.is_file()), candidates[0])
-    with open(path, encoding="utf-8-sig") as file:
-        data = json.load(file)
-    return {
-        start.upper(): {end.upper(): int(m) for end, m in row.items()}
-        for start, row in data.items()
-    }
+        old = result.get(code)
+        if old and not need.terms:
+            need = replace(need, terms=old.terms)
+        if need != CourseRequirements():
+            result[code] = need
+    return result
+
+
+def load_course_requirements(
+    extra_paths: Iterable[str | Path] = (),
+) -> dict[str, CourseRequirements]:
+    """Requirements and offering terms from ``data/catalogue/*_course_requirements.json``,
+    GE terms from ``data/ge_courses.json``, then any extra catalogue files."""
+    from .ge_courses import load_ge_courses
+
+    records: list = []
+    for path in (*(catalogue_dir() / name for name in DEFAULT_CREDIT_CATALOGS), *extra_paths):
+        if not Path(path).is_file():
+            continue
+        with open(path, encoding="utf-8-sig") as file:
+            data = json.load(file)
+        if isinstance(data, Mapping):
+            data = data.get("courses", [])
+        records.extend(data if isinstance(data, list) else [])
+    try:
+        ge_records = [r for r in load_ge_courses() if r.get("terms")]
+    except (OSError, ValueError):
+        ge_records = []
+    requirements = course_requirements_from_records(records)
+    for code, need in course_requirements_from_records(ge_records).items():
+        requirements[code] = replace(requirements.get(code, CourseRequirements()), terms=need.terms)
+    return requirements
+
+
+def load_ge_areas() -> dict[str, str]:
+    """GE course code -> ``Area 1``/``Area 2``/``Area 3``/``University Req.``."""
+    from .ge_courses import load_ge_courses
+
+    try:
+        return {str(r["course_code"]).upper(): str(r.get("area") or "") for r in load_ge_courses()}
+    except (OSError, ValueError):
+        return {}
+
+
+@dataclass(frozen=True)
+class SectionStatus:
+    """Registration status of one section from Master Class Schedule fields."""
+
+    full: bool = False
+    seats: int | None = None
+    waitlist: str = ""  # "Y", "N" or "" when unknown
+    web_enabled: bool = True
+    restrictions: str = ""
+
+
+def section_status(section: PlannedSection) -> SectionStatus:
+    availability = str(section.availability or "").strip().upper()
+    seats = int(availability) if availability.isdigit() else None
+    waitlist = str(section.waitlist or "").strip().upper()
+    waitlist = {"YES": "Y", "NO": "N", "TRUE": "Y", "FALSE": "N"}.get(waitlist, waitlist)
+    restrictions = str(section.restrictions or "").strip() or "; ".join(
+        note for note in section.notes
+        if re.search(r"\b(only for|not for|restrict)", str(note), re.IGNORECASE)
+    )
+    return SectionStatus(
+        full=availability in {"FULL", "CLOSED"} or seats == 0,
+        seats=seats,
+        waitlist=waitlist,
+        web_enabled=str(section.web or "").strip().upper() not in {"N", "NO", "FALSE"},
+        restrictions=restrictions,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -145,25 +281,49 @@ def load_travel_times(path: str | Path | None = None) -> dict[str, dict[str, int
 
 @dataclass(frozen=True)
 class Meeting:
-    """One weekly class meeting, either fixed or from a candidate bundle."""
+    """One weekly class meeting. ``slot`` is the shared ``TimeSlot`` type."""
 
     course_code: str
     section: str
-    day: str
-    start: int
-    end: int
+    slot: TimeSlot
     location: str = ""
     building: str = ""
     fixed: bool = False
 
     @property
+    def day(self) -> str:
+        return self.slot.day
+
+    @cached_property
+    def start(self) -> int:
+        return time_to_minutes(self.slot.start)
+
+    @cached_property
+    def end(self) -> int:
+        return time_to_minutes(self.slot.end)
+
+    @property
     def label(self) -> str:
-        return f"{self.course_code} {self.section}"
+        return self.slot.label
+
+
+def _meeting(course_code, section, day, start, end, location="", building="", fixed=False):
+    day = to_day(day)
+    if time_to_minutes(end) <= time_to_minutes(start):
+        raise ValueError(f"{course_code} {section} on {day} ends before it starts ({start}-{end})")
+    return Meeting(
+        course_code=course_code.upper(),
+        section=section,
+        slot=TimeSlot(day=day, start=start, end=end, label=f"{course_code.upper()} {section}"),
+        location=location,
+        building=(building or location.split(" ", 1)[0]).upper(),
+        fixed=fixed,
+    )
 
 
 @dataclass(frozen=True)
 class CourseOption:
-    """A complete registration bundle for one course."""
+    """One complete registration bundle of a course, e.g. ``C01`` + ``T03``."""
 
     course_code: str
     title: str
@@ -171,24 +331,43 @@ class CourseOption:
     section_codes: tuple[str, ...]
     sections: tuple[PlannedSection, ...]
     meetings: tuple[Meeting, ...]
-    unscheduled_sections: tuple[str, ...] = ()
+    # "web" (Web Add/Drop), "waitlist" (full, has a waitlist),
+    # "e-form" (not web-enabled) or "closed" (full, no waitlist).
+    route: str = "web"
+    restricted: bool = False
+    notes: tuple[str, ...] = ()
+    preregistered: bool = False
+    # Pre-registered sections this bundle replaces (empty = keeps them).
+    replaces_sections: tuple[str, ...] = ()
 
     @property
     def days(self) -> frozenset[str]:
-        return frozenset(meeting.day for meeting in self.meetings)
+        return frozenset(m.day for m in self.meetings)
 
     @property
     def label(self) -> str:
         return f"{self.course_code} " + "+".join(self.section_codes)
+
+    @property
+    def registration_risk(self) -> int:
+        """1 if the bundle needs a waitlist, e-form, restriction check or swap."""
+        return int(self.route != "web" or self.restricted or bool(self.replaces_sections))
+
+    @property
+    def crn_text(self) -> str:
+        crns = {s.section.upper(): s.crn for s in self.sections if s.crn}
+        return ", ".join(
+            f"{code} CRN {crns[code]}" if code in crns else code for code in self.section_codes
+        )
 
 
 @dataclass(frozen=True)
 class PlanOptions:
     """Settings for :func:`generate_course_plans`.
 
-    ``required_sections`` maps a course code to section codes that must be in
-    its bundle, e.g. ``{"CS2311": ("C01",)}``. ``bundle_definitions`` lets you
-    list complete bundles yourself, e.g. ``{"GE1102": [["C01", "T01"]]}``.
+    ``required_sections`` maps a course to sections it must use, e.g.
+    ``{"CS2311": ("C01",)}``. ``bundle_definitions`` lists complete bundles
+    by hand, e.g. ``{"GE1102": [["C01", "T01"]]}``.
     """
 
     required_courses: tuple[str, ...] = ()
@@ -196,9 +375,9 @@ class PlanOptions:
     exclude_courses: tuple[str, ...] = ()
     min_courses: int = 1
     max_courses: int | None = None
+    ge_courses: int | None = None  # exact number of new GE courses
     min_credits: int | None = None
     max_credits: int | None = None
-    target_credits: int | None = None
     preferred_days: tuple[str, ...] = ()
     avoid_days: tuple[str, ...] = ()
     earliest_start: str | None = None
@@ -208,35 +387,41 @@ class PlanOptions:
     lunch_window: tuple[str, str] = ("11:30", "14:30")
     max_daily_hours: float | None = None
     check_travel: bool = True
-    early_class_before: str = "09:00"
-    late_class_after: str = "19:00"
-    max_results: int = 10
+    max_results: int = 5
     search_limit: int = 200_000
-    bundle_definitions: Mapping[str, Sequence[Sequence[str]]] = field(
-        default_factory=dict
-    )
+    bundle_definitions: Mapping[str, Sequence[Sequence[str]]] = field(default_factory=dict)
+    # CityU registration rules
+    study_load: str | None = "full-time"
+    allow_overload: bool = False
+    allow_section_changes: bool = False
+    completed_courses: tuple[str, ...] = ()
+    seat_policy: str = "waitlist"  # "open", "waitlist" or "any"
+    web_only: bool = False
+    term: str | None = None  # e.g. "2627A" or "Semester A 2026/27"
 
 
 @dataclass(frozen=True)
 class PlanScore:
-    """Numbers used to rank plans. Lower ``rank_key`` is better."""
-
     total_credits: int
-    days_on_campus: int
+    registration_risk: int
+    section_changes: int
     non_preferred_meetings: int
+    days_on_campus: int
     idle_minutes: int
-    early_classes: int
-    late_classes: int
+    early_or_late: int
     latest_finish: int
 
 
 @dataclass(frozen=True)
 class CoursePlan:
     chosen: tuple[CourseOption, ...]
+    fixed_sessions: tuple[Mapping[str, str], ...]
     fixed_meetings: tuple[Meeting, ...]
-    fixed_credits: int
+    fixed_courses: tuple[str, ...]
     skipped_courses: tuple[str, ...]
     score: PlanScore
+    study_load: tuple[int, int] | None = None
+    ge_quota_courses: tuple[str, ...] = ()
 
     @property
     def total_credits(self) -> int:
@@ -244,7 +429,8 @@ class CoursePlan:
 
     @property
     def new_credits(self) -> int:
-        return sum(option.credits for option in self.chosen)
+        """Credits of the courses this plan adds (fixed classes excluded)."""
+        return sum(option.credits for option in self.chosen if not option.preregistered)
 
     @property
     def course_codes(self) -> tuple[str, ...]:
@@ -262,6 +448,17 @@ class CoursePlan:
             key=lambda m: (WEEKDAYS.index(m.day), m.start, m.label),
         ))
 
+    @property
+    def study_load_status(self) -> str:
+        if not self.study_load:
+            return ""
+        low, high = self.study_load
+        if self.total_credits < low:
+            return f"below the {low}-credit minimum study load"
+        if self.total_credits > high:
+            return f"over the {high}-credit maximum study load"
+        return ""
+
     def explain(self) -> str:
         s = self.score
         parts = [
@@ -271,46 +468,135 @@ class CoursePlan:
         ]
         if s.non_preferred_meetings:
             parts.append(f"{s.non_preferred_meetings} class(es) on non-preferred days")
-        if s.early_classes:
-            parts.append(f"{s.early_classes} early class(es)")
-        if s.late_classes:
-            parts.append(f"{s.late_classes} late class(es)")
+        if s.early_or_late:
+            parts.append(f"{s.early_or_late} class(es) before 09:00 or after 19:00")
+        if s.section_changes:
+            parts.append(f"{s.section_changes} pre-registered course(s) change section")
+        if s.registration_risk - s.section_changes > 0:
+            parts.append(
+                f"{s.registration_risk - s.section_changes} course(s) need a waitlist, "
+                "e-form or restriction check"
+            )
+        if self.study_load_status:
+            parts.append(self.study_load_status)
         if self.skipped_courses:
             parts.append("leaves out " + ", ".join(self.skipped_courses))
         return "; ".join(parts)
 
-    def to_sessions(self, include_fixed: bool = True) -> list[dict[str, str]]:
-        """Convert to the session dictionaries used by ``timetable`` and
-        ``calendar_export``."""
-        titles = {o.course_code: o.title for o in self.chosen}
-        sessions = []
-        for meeting in self.meetings:
-            if meeting.fixed and not include_fixed:
-                continue
-            building, _, room = meeting.location.partition(" ")
-            title = titles.get(meeting.course_code, "")
-            sessions.append({
-                "course_code": meeting.course_code,
-                "course_title": title,
-                "crn": "",
-                "section": meeting.section,
-                "type": meeting.section,
-                "day": meeting.day,
-                "start_time": format_minutes(meeting.start),
-                "end_time": format_minutes(meeting.end),
-                "building": building,
-                "room": room,
-                "summary": (
-                    f"{meeting.course_code} {meeting.section}"
-                    + (f" - {title}" if title else "")
-                ),
-            })
-        return sessions
+    def registration_steps(self) -> list[str]:
+        """Add/drop checklist for this plan, following CityU's process."""
+        steps: list[str] = []
+        if self.study_load:
+            low, high = self.study_load
+            line = f"Study load: {self.total_credits} credits (allowed {f'{low}-{high}' if low else f'up to {high}'})"
+            if self.study_load_status:
+                kind = "reduced load" if self.total_credits < low else "overload"
+                line += (
+                    f"; a {kind} needs approval from your home academic unit "
+                    "(AIMS e-form: Study Load Adjustment)"
+                )
+            steps.append(line)
+        kept = [*self.fixed_courses] + [
+            option.label for option in self.chosen
+            if option.preregistered and not option.replaces_sections
+        ]
+        if kept:
+            steps.append("Keep pre-registered: " + ", ".join(kept))
+
+        actions = []
+        for option in self.chosen:
+            if option.replaces_sections:
+                actions.append(
+                    f"Web Add/Drop, in ONE request: drop {option.course_code} "
+                    f"{'+'.join(option.replaces_sections)} and add {option.crn_text} "
+                    "(check seats first; a dropped seat may be taken by others)"
+                )
+        for option in self.chosen:
+            if option.route == "web" and not option.preregistered:
+                together = ", all sections together" if len(option.section_codes) > 1 else ""
+                actions.append(f"Web Add/Drop: add {option.course_code} ({option.crn_text}){together}")
+        for option in self.chosen:
+            if option.route == "waitlist" and not option.preregistered:
+                actions.append(
+                    "Waitlist from 8:45 am on the first day of the 3rd time-ticket: "
+                    f"{option.course_code} ({option.crn_text}); a seat is not guaranteed"
+                )
+        for option in self.chosen:
+            if option.route in {"e-form", "closed"} and not option.preregistered:
+                reason = "not web-enabled" if option.route == "e-form" else "full with no waitlist"
+                actions.append(
+                    "AIMS e-form (Add/Drop of Non-Web-enabled Course) in the last "
+                    f"time-ticket: {option.course_code} ({option.crn_text}); {reason}, "
+                    "needs approval from the course-offering unit"
+                )
+        steps.extend(f"{number}. {action}" for number, action in enumerate(actions, start=1))
+        steps.extend(
+            f"Note: {option.course_code}: {note}" for option in self.chosen for note in option.notes
+        )
+        if len(self.ge_quota_courses) > 1:
+            steps.append(
+                "Note: GE quota control: the 2nd time-ticket allows only a limited "
+                "number of GE Area 1-3 courses (see the ARRO time-ticket page for "
+                "your cohort); add the rest of " + ", ".join(self.ge_quota_courses)
+                + " in the 3rd time-ticket if seats remain"
+            )
+        return steps
+
+    def to_sessions(self) -> list[dict[str, str]]:
+        """Kept AIMS classes plus the new sections, as session dictionaries."""
+        fixed = [
+            dict(s) for s in self.fixed_sessions
+            if s.get("day") and s.get("start_time") and s.get("end_time")
+        ]
+        return fixed + planned_sections_to_sessions(
+            tuple(s for s in self.sections if s.day and s.start and s.end)
+        )
+
+    def to_dict(self) -> dict:
+        """Plain data for saving the plan (menu option 10 shows saved plans)."""
+        return {
+            "total_credits": self.total_credits,
+            "summary": self.explain(),
+            "courses": [option.label for option in self.chosen],
+            "sections": [
+                {
+                    "course_code": s.course_code,
+                    "section": s.section,
+                    "crn": s.crn,
+                    "day": s.day,
+                    "start": s.start,
+                    "end": s.end,
+                    "location": s.location,
+                }
+                for s in self.sections
+            ],
+            "registration_steps": self.registration_steps(),
+        }
+
+
+_REJECTION_TEXT = {
+    "clash": "classes clash",
+    "avoid_day": "uses an avoided day",
+    "time_window": "outside the allowed start/end time",
+    "min_gap": "gap between classes too short",
+    "travel": "not enough time to walk between buildings",
+    "lunch": "no lunch break",
+    "daily_hours": "too many hours in one day",
+    "max_credits": "over the credit limit",
+    "max_courses": "over the course limit",
+    "ge_courses": "wrong number of GE courses",
+    "min_credits": "not enough credits",
+    "min_courses": "too few courses",
+    "required_section": "does not include a required section",
+    "full_section": "section is full (no seats or no waitlist)",
+    "not_web": "not web-enabled or has registration restrictions",
+    "exclusive": "exclusive with another course in the plan",
+}
 
 
 @dataclass
 class PlanReport:
-    """Result of a search: the best plans plus diagnostics."""
+    """The best plans plus the reasons other combinations were rejected."""
 
     plans: list[CoursePlan]
     explored: int = 0
@@ -328,24 +614,11 @@ class PlanReport:
         if self.plans:
             return ""
         lines = ["No plan satisfies all settings."]
-        reasons = {
-            "clash": "classes clash",
-            "avoid_day": "uses an avoided day",
-            "time_window": "outside the allowed start/end time",
-            "min_gap": "gap between classes too short",
-            "travel": "not enough time to walk between buildings",
-            "lunch": "no lunch break",
-            "daily_hours": "too many hours in one day",
-            "max_credits": "over the credit limit",
-            "max_courses": "over the course limit",
-            "min_credits": "not enough credits",
-            "min_courses": "too few courses",
-            "required_section": "does not include a required section",
-        }
         for key, count in self.rejections.most_common():
-            lines.append(f"  {count:>6} option(s) rejected: {reasons.get(key, key)}")
+            if key != "bound":
+                lines.append(f"  {count:>6} option(s) rejected: {_REJECTION_TEXT.get(key, key)}")
         if self.truncated:
-            lines.append("  Search stopped early; raise search_limit or narrow the course list.")
+            lines.append("  Search stopped early; narrow the course list.")
         return "\n".join(lines)
 
 
@@ -353,123 +626,97 @@ class PlanReport:
 # Building bundles
 # ---------------------------------------------------------------------------
 
-_SECTION_RE = re.compile(r"([A-Z])([A-Z]*)(\d+)")
-
-
-def _activity_and_family(section_code: str) -> tuple[str, str]:
-    """``C01`` -> (``C``, ``""``); ``LA1`` -> (``L``, ``A``)."""
-    match = _SECTION_RE.fullmatch(section_code.upper())
-    if not match:
-        return section_code.upper(), ""
-    return match.group(1), match.group(2)
-
 
 def build_course_options(
     course: CatalogCourse,
     bundle_definitions: Sequence[Sequence[str]] | None = None,
-    known_buildings: Iterable[str] = (),
 ) -> list[CourseOption]:
-    """Return every complete registration bundle for ``course``.
+    """Every complete registration bundle of ``course``.
 
-    Without ``bundle_definitions`` a bundle contains one section of each
-    activity type found in the course (for example C, T and L), all taken
-    from the same section family. This matches the rule in
-    ``ParsedAimsTable.registration_bundles``.
+    Bundles come from ``ParsedAimsTable.registration_bundles`` (one section
+    of each activity type from the same section family, the same rule as
+    menu option 4), or from ``bundle_definitions`` checked with
+    ``build_course_bundle``.
     """
-    known_buildings = tuple(known_buildings)
+    code = course.code.upper()
     planned = catalogue_to_planned_sections([course])
-    by_section: dict[str, list[PlannedSection]] = {}
-    for section in planned:
-        by_section.setdefault(section.section.upper(), []).append(section)
-
     if bundle_definitions:
-        combos = []
-        for definition in bundle_definitions:
-            codes = tuple(dict.fromkeys(c.strip().upper() for c in definition if c.strip()))
-            missing = [c for c in codes if c not in by_section]
-            if missing:
-                raise ValueError(
-                    f"Unknown sections for {course.code}: {', '.join(missing)}"
-                )
-            if codes:
-                combos.append(codes)
+        bundles = [
+            tuple(dict.fromkeys(s.section.upper() for s in build_course_bundle(course, list(d))))
+            for d in bundle_definitions
+        ]
     else:
-        activities = sorted({_activity_and_family(code)[0] for code in by_section})
-        families: dict[str, dict[str, list[str]]] = {}
-        for code in sorted(by_section):
-            activity, family = _activity_and_family(code)
-            families.setdefault(family, {}).setdefault(activity, []).append(code)
-        combos = []
-        for family_sections in families.values():
-            choices = [family_sections.get(activity, []) for activity in activities]
-            if all(choices):
-                combos.extend(product(*choices))
-
-    options = []
-    for codes in dict.fromkeys(tuple(c) for c in combos):
-        sections = tuple(s for code in codes for s in by_section[code])
-        meetings = []
-        unscheduled = []
-        for section in sections:
-            if not (section.day and section.start and section.end):
-                unscheduled.append(section.section)
-                continue
-            if parse_time(section.end) <= parse_time(section.start):
-                raise ValueError(
-                    f"{course.code} {section.section} on {section.day} "
-                    f"ends before it starts ({section.start}-{section.end})"
+        table = ParsedAimsTable(
+            course_code=code,
+            sessions=tuple(
+                AimsSession(
+                    course_code=code,
+                    crn=s.crn,
+                    section=s.section.upper(),
+                    credit=course.credits or 0,
+                    day=_DAY_LETTERS[to_day(s.day)] if s.day else None,
+                    start_time=s.start or None,
+                    end_time=s.end or None,
                 )
-            meetings.append(Meeting(
-                course_code=course.code.upper(),
-                section=section.section,
-                day=normalize_day(section.day),
-                start=parse_time(section.start),
-                end=parse_time(section.end),
-                location=section.location,
-                building=building_code(section.location, known_buildings),
-            ))
+                for s in planned
+            ),
+        )
+        try:
+            bundles = table.registration_bundles()
+        except ValueError as error:
+            raise ValueError(
+                f"{code}: {error}; list its complete bundles in a bundle file"
+            ) from None
+
+    credits = int(course.credits or 0) if counts_toward_study_load(code) else 0
+    options = []
+    for codes in dict.fromkeys(bundles):
+        sections = tuple(s for s in planned if s.section.upper() in codes)
+        meetings = tuple(
+            _meeting(code, s.section, s.day, s.start, s.end, s.location)
+            for s in sections if s.day and s.start and s.end
+        )
+        route, restricted, notes = _bundle_registration(codes, sections)
         options.append(CourseOption(
-            course_code=course.code.upper(),
+            course_code=code,
             title=course.title,
-            credits=int(course.credits),
+            credits=credits,
             section_codes=codes,
             sections=sections,
-            meetings=tuple(meetings),
-            unscheduled_sections=tuple(unscheduled),
+            meetings=meetings,
+            route=route,
+            restricted=restricted,
+            notes=notes,
         ))
     return options
 
 
-def fixed_meetings_from_sessions(
-    sessions: Iterable[Mapping[str, str]],
-    known_buildings: Iterable[str] = (),
-) -> tuple[list[Meeting], list[str]]:
-    """Convert AIMS/CSV session dictionaries to fixed meetings.
-
-    Returns the meetings plus labels of sessions without a fixed time.
-    """
-    known_buildings = tuple(known_buildings)
-    meetings, unscheduled = [], []
-    for session in sessions:
-        code = str(session.get("course_code", "")).upper()
-        section = str(session.get("section", ""))
-        if not (session.get("day") and session.get("start_time") and session.get("end_time")):
-            unscheduled.append(f"{code} {section}".strip())
-            continue
-        location = " ".join(
-            part for part in (session.get("building", ""), session.get("room", "")) if part
-        )
-        meetings.append(Meeting(
-            course_code=code,
-            section=section,
-            day=normalize_day(session["day"]),
-            start=parse_time(session["start_time"]),
-            end=parse_time(session["end_time"]),
-            location=location,
-            building=building_code(location, known_buildings),
-            fixed=True,
-        ))
-    return meetings, unscheduled
+def _bundle_registration(
+    codes: Sequence[str],
+    sections: Sequence[PlannedSection],
+) -> tuple[str, bool, tuple[str, ...]]:
+    """How a bundle is registered, from Master Class Schedule fields."""
+    route, restricted, notes = "web", False, []
+    for code in codes:
+        status = section_status(next(s for s in sections if s.section.upper() == code))
+        if not status.web_enabled:
+            route = "e-form"
+        if status.restrictions:
+            restricted = True
+            notes.append(
+                f"{code} has registration restrictions ({status.restrictions}); if you "
+                "are not eligible, apply with the AIMS e-form in the last time-ticket"
+            )
+        if status.full:
+            if status.waitlist != "N":
+                route = "waitlist" if route == "web" else route
+                if not status.waitlist:
+                    notes.append(f"{code} is full; check Waitlist Avail in the Master Class Schedule")
+            elif route != "e-form":
+                route = "closed"
+        elif status.seats is not None and status.seats <= FEW_SEATS_LEFT:
+            notes.append(f"{code} has only {status.seats} seat(s) left; have a backup plan")
+    return route, restricted, tuple(dict.fromkeys(notes))
 
 
 # ---------------------------------------------------------------------------
@@ -478,72 +725,61 @@ def fixed_meetings_from_sessions(
 
 
 class _Rules:
+    """Checks one bundle against the classes already placed."""
+
     def __init__(self, options: PlanOptions, travel: Mapping[str, Mapping[str, int]]):
-        self.avoid = normalize_days(options.avoid_days)
-        self.prefer = normalize_days(options.preferred_days)
-        self.earliest = parse_time(options.earliest_start) if options.earliest_start else None
-        self.latest = parse_time(options.latest_end) if options.latest_end else None
+        self.avoid = to_days(options.avoid_days)
+        self.prefer = to_days(options.preferred_days)
+        self.earliest = time_to_minutes(options.earliest_start) if options.earliest_start else None
+        self.latest = time_to_minutes(options.latest_end) if options.latest_end else None
         self.min_gap = max(0, options.min_gap)
         self.lunch = max(0, options.lunch_minutes)
-        self.lunch_start = parse_time(options.lunch_window[0])
-        self.lunch_end = parse_time(options.lunch_window[1])
-        self.max_daily = (
-            int(options.max_daily_hours * 60) if options.max_daily_hours else None
-        )
-        self.travel = travel if options.check_travel else {}
-        self.unknown_travel: set[str] = set()
+        self.lunch_start, self.lunch_end = map(time_to_minutes, options.lunch_window)
+        self.max_daily = int(options.max_daily_hours * 60) if options.max_daily_hours else None
+        self.travel = travel
+        self.unknown_buildings: set[str] = set()
 
-    def walk_minutes(self, first: Meeting, second: Meeting) -> int | None:
+    def walk(self, first: Meeting, second: Meeting) -> int | None:
         if not self.travel:
             return 0
-        a, b = first.building, second.building
-        if not a or not b:
-            missing = first if not a else second
-            if missing.location:
-                self.unknown_travel.add(missing.location.split(" ", 1)[0])
-            return None
-        if a == b:
-            return 0
-        return self.travel.get(a, {}).get(b)
+        minutes = walking_minutes(first.building, second.building, self.travel)
+        if minutes is None:
+            self.unknown_buildings.update(
+                b for b in (first.building, second.building) if b and b not in self.travel
+            )
+        return minutes
 
-    def add(
-        self,
-        state: dict[str, tuple[Meeting, ...]],
-        option: CourseOption,
-    ) -> tuple[dict[str, tuple[Meeting, ...]] | None, str | None]:
+    def add(self, state: dict[str, tuple[Meeting, ...]], option: CourseOption):
+        """Return ``(new_state, None)`` or ``(None, reason)``."""
         if option.days & self.avoid:
             return None, "avoid_day"
         new_state = dict(state)
         for meeting in option.meetings:
-            if self.earliest is not None and meeting.start < self.earliest:
-                return None, "time_window"
-            if self.latest is not None and meeting.end > self.latest:
+            if (self.earliest is not None and meeting.start < self.earliest) or (
+                self.latest is not None and meeting.end > self.latest
+            ):
                 return None, "time_window"
             day = new_state.get(meeting.day, ())
-            if any(m.start < meeting.end and meeting.start < m.end for m in day):
+            if any(slots_overlap(m.slot, meeting.slot) for m in day):
                 return None, "clash"
             day = tuple(sorted((*day, meeting), key=lambda m: (m.start, m.end)))
-            position = day.index(meeting)
+            here = day.index(meeting)
             neighbours = []
-            if position > 0:
-                neighbours.append((day[position - 1], meeting))
-            if position + 1 < len(day):
-                neighbours.append((meeting, day[position + 1]))
+            if here > 0:
+                neighbours.append((day[here - 1], meeting))
+            if here + 1 < len(day):
+                neighbours.append((meeting, day[here + 1]))
             for first, second in neighbours:
                 gap = second.start - first.end
                 if gap < self.min_gap:
                     return None, "min_gap"
-                walk = self.walk_minutes(first, second)
+                walk = self.walk(first, second)
                 if walk is not None and walk > gap:
                     return None, "travel"
             new_state[meeting.day] = day
-
-        for day_name in option.days:
-            day = new_state[day_name]
-            if (
-                self.max_daily is not None
-                and sum(m.end - m.start for m in day) > self.max_daily
-            ):
+        for name in option.days:
+            day = new_state[name]
+            if self.max_daily is not None and sum(m.end - m.start for m in day) > self.max_daily:
                 return None, "daily_hours"
             if self.lunch and not self._has_lunch(day):
                 return None, "lunch"
@@ -556,52 +792,23 @@ class _Rules:
                 continue
             if meeting.start >= self.lunch_end:
                 break
-            if min(meeting.start, self.lunch_end) - cursor >= self.lunch:
+            if meeting.start - cursor >= self.lunch:
                 return True
             cursor = max(cursor, meeting.end)
         return self.lunch_end - cursor >= self.lunch
 
 
-def _score(
-    chosen: Sequence[CourseOption],
-    state: Mapping[str, tuple[Meeting, ...]],
-    total_credits: int,
-    rules: _Rules,
-    early_before: int,
-    late_after: int,
-) -> PlanScore:
-    idle = 0
-    latest = 0
-    for day in state.values():
-        for first, second in pairwise(day):
-            idle += max(0, second.start - first.end)
-        if day:
-            latest = max(latest, day[-1].end)
-    new_meetings = [m for option in chosen for m in option.meetings]
-    non_preferred = (
-        sum(1 for m in new_meetings if m.day not in rules.prefer)
-        if rules.prefer else 0
-    )
-    return PlanScore(
-        total_credits=total_credits,
-        days_on_campus=sum(1 for day in state.values() if day),
-        non_preferred_meetings=non_preferred,
-        idle_minutes=idle,
-        early_classes=sum(1 for m in new_meetings if m.start < early_before),
-        late_classes=sum(1 for m in new_meetings if m.end > late_after),
-        latest_finish=latest,
-    )
-
-
-def _rank_key(plan: CoursePlan, target: int | None) -> tuple:
+def _rank_key(plan: CoursePlan) -> tuple:
+    """Lower is better. The first four parts never improve as classes are
+    added, which lets the search skip branches (see ``lower_bound``)."""
     s = plan.score
-    credit_key = abs(s.total_credits - target) if target is not None else -s.total_credits
     return (
-        credit_key,
+        -s.total_credits,
+        s.registration_risk,
         s.non_preferred_meetings,
         s.days_on_campus,
         s.idle_minutes,
-        s.early_classes + s.late_classes,
+        s.early_or_late,
         s.latest_finish,
         tuple(option.label for option in plan.chosen),
     )
@@ -614,34 +821,42 @@ def generate_course_plans(
     fixed_sessions: Iterable[Mapping[str, str]] = (),
     credit_courses: Sequence[CatalogCourse] = (),
     travel_times: Mapping[str, Mapping[str, int]] | None = None,
+    requirements: Mapping[str, CourseRequirements] | None = None,
+    ge_areas: Mapping[str, str] | None = None,
 ) -> PlanReport:
     """Search for the best clash-free plans.
 
-    Parameters
-    ----------
-    courses:
-        Candidate courses with their sections (from ``load_course_catalog``).
-        Every course not listed in ``required_courses`` is optional.
-    options:
-        Search and ranking settings, see :class:`PlanOptions`.
-    fixed_sessions:
-        Sessions already in the student's timetable, e.g. from
-        ``load_aims_html``. New classes must fit around them.
-    credit_courses:
-        Credit catalogue used to count the fixed timetable's credits,
-        e.g. ``load_credit_catalogs()``.
-    travel_times:
-        Walking-time matrix. Loaded from ``data/travel_time.json`` when
-        omitted and ``options.check_travel`` is true.
+    ``courses`` are the candidate courses (from ``load_course_catalog``);
+    any course not in ``required_courses`` is optional. ``fixed_sessions``
+    are classes already in the timetable, e.g. the pre-registered courses
+    from ``load_aims_html``. ``credit_courses`` (``load_credit_catalogs()``)
+    supplies missing credits. ``travel_times`` defaults to
+    ``data/travel_time.json``. ``requirements`` (``load_course_requirements()``)
+    and ``ge_areas`` (``load_ge_areas()``) switch on the catalogue checks
+    and the GE quota note.
     """
     options = options or PlanOptions()
+    requirements = {k.upper(): v for k, v in (requirements or {}).items()}
+    ge_areas = {k.upper(): v for k, v in (ge_areas or {}).items()}
     if options.max_results < 1:
         raise ValueError("max_results must be at least 1")
-    if (
-        options.min_credits is not None
-        and options.max_credits is not None
-        and options.min_credits > options.max_credits
-    ):
+    if options.seat_policy not in {"open", "waitlist", "any"}:
+        raise ValueError("seat_policy must be 'open', 'waitlist' or 'any'")
+    study_load = resolve_study_load(options.study_load)
+    report = PlanReport(plans=[])
+    warn = report.warnings.append
+
+    max_credits = options.max_credits
+    if study_load and not options.allow_overload:
+        if max_credits is not None and max_credits > study_load[1]:
+            warn(
+                f"Maximum credits lowered from {max_credits} to {study_load[1]}, the CityU "
+                "study-load limit; an overload needs approval from your home academic unit"
+            )
+        if max_credits is None or max_credits > study_load[1]:
+            max_credits = study_load[1]
+    min_credits = options.min_credits
+    if min_credits is not None and max_credits is not None and min_credits > max_credits:
         raise ValueError("min_credits cannot be greater than max_credits")
 
     if travel_times is None and options.check_travel:
@@ -649,279 +864,323 @@ def generate_course_plans(
             travel_times = load_travel_times()
         except OSError:
             travel_times = {}
-    travel_times = travel_times or {}
-    known_buildings = set(travel_times)
-    for row in travel_times.values():
-        known_buildings.update(row)
+    rules = _Rules(options, travel_times if options.check_travel else {})
 
-    report = PlanReport(plans=[])
-    rules = _Rules(options, travel_times)
+    term = None
+    if options.term:
+        term = term_key(options.term)
+        if term is None:
+            raise ValueError(f"Unknown term {options.term!r}; use e.g. 2627A or 'Semester A 2026/27'")
 
-    # Fixed timetable ----------------------------------------------------
-    fixed, unscheduled = fixed_meetings_from_sessions(fixed_sessions, known_buildings)
-    if unscheduled:
-        report.warnings.append(
-            "No fixed time (not checked for clashes): " + ", ".join(sorted(set(unscheduled)))
-        )
-    state: dict[str, tuple[Meeting, ...]] = {}
-    for meeting in fixed:
-        state[meeting.day] = tuple(sorted(
-            (*state.get(meeting.day, ()), meeting), key=lambda m: (m.start, m.end)
-        ))
-    fixed_codes = {m.course_code for m in fixed} | {
-        u.split(" ", 1)[0] for u in unscheduled if u
-    }
-    credit_lookup = {c.code.upper(): int(c.credits) for c in (*credit_courses, *courses)}
-    fixed_credits = 0
-    unknown_fixed = []
-    for code in sorted(fixed_codes):
-        if code in credit_lookup:
-            fixed_credits += credit_lookup[code]
-        else:
-            unknown_fixed.append(code)
-    if unknown_fixed:
-        report.warnings.append(
-            "Credits unknown for fixed courses (counted as 0): " + ", ".join(unknown_fixed)
-        )
-
-    # Candidate courses -------------------------------------------------
     excluded = {c.upper() for c in options.exclude_courses}
-    required = {c.upper() for c in options.required_courses}
     required_sections = {
         code.upper(): {s.upper() for s in sections}
         for code, sections in options.required_sections.items()
     }
-    required |= set(required_sections)
+    required = {c.upper() for c in options.required_courses} | set(required_sections)
     bundle_definitions = {k.upper(): v for k, v in options.bundle_definitions.items()}
+    catalogue_codes = {c.code.upper() for c in courses}
+    known_credits = [c for c in (*courses, *credit_courses) if c.credits is not None]
 
-    catalogue = {}
+    def credits_of(code: str) -> int | None:
+        total, unknown = calculate_course_credits({code}, known_credits)
+        return None if unknown else total
+
+    # Pre-registered (fixed) timetable -------------------------------------
+    fixed_sessions = tuple(fixed_sessions)
+    preregistered: dict[str, set[str]] = {}
+    for session in fixed_sessions:
+        code = str(session.get("course_code", "")).upper()
+        if code:
+            preregistered.setdefault(code, set()).add(str(session.get("section", "")).upper())
+    movable: set[str] = set()
+    if options.allow_section_changes:
+        movable = {c for c in preregistered if c in catalogue_codes and c not in excluded}
+        stuck = sorted(set(preregistered) - movable)
+        if stuck:
+            warn("Pre-registered but not in your course list, so they stay as they are: " + ", ".join(stuck))
+        required |= movable
+    kept_sessions = tuple(
+        s for s in fixed_sessions if str(s.get("course_code", "")).upper() not in movable
+    )
+    fixed, unscheduled = [], []
+    for s in kept_sessions:
+        code, section = str(s.get("course_code", "")).upper(), str(s.get("section", ""))
+        if s.get("day") and s.get("start_time") and s.get("end_time"):
+            fixed.append(_meeting(
+                code, section, s["day"], s["start_time"], s["end_time"],
+                " ".join(p for p in (s.get("building", ""), s.get("room", "")) if p),
+                s.get("building", ""), fixed=True,
+            ))
+        else:
+            unscheduled.append(f"{code} {section}".strip())
+    if unscheduled:
+        warn("No fixed time (not checked for clashes): " + ", ".join(sorted(set(unscheduled))))
+    state: dict[str, tuple[Meeting, ...]] = {}
+    for meeting in sorted(fixed, key=lambda m: (m.start, m.end)):
+        state[meeting.day] = (*state.get(meeting.day, ()), meeting)
+    fixed_codes = set(preregistered) - movable
+    fixed_credits, unknown_fixed = calculate_course_credits(
+        {c for c in fixed_codes if counts_toward_study_load(c)}, known_credits
+    )
+    if unknown_fixed:
+        warn("Credits unknown for pre-registered courses (counted as 0): " + ", ".join(unknown_fixed))
+
+    # Candidate courses ----------------------------------------------------
+    completed = {c.upper() for c in options.completed_courses}
+    taken = completed | fixed_codes
+    catalogue: dict[str, CatalogCourse] = {}
+    unknown_credits, unchecked = [], []
     for course in courses:
         code = course.code.upper()
-        if code in excluded:
+        if code in excluded or code in catalogue:
             continue
         if code in fixed_codes:
-            report.warnings.append(f"{code} is already in your timetable; skipped")
+            warn(f"{code} is already in your timetable; skipped (allow section changes to move it)")
             continue
-        catalogue.setdefault(code, course)
-
-    missing_required = sorted(required - set(catalogue))
-    if missing_required:
-        raise ValueError(
-            "Required course(s) not available in the catalogue: "
-            + ", ".join(missing_required)
+        if code in completed:
+            warn(f"{code} is already completed; skipped")
+            continue
+        need = requirements.get(code, CourseRequirements())
+        problem = ""
+        if term and need.terms and term not in need.terms:
+            problem = "not offered in the chosen term"
+        elif set(need.equivalent) & completed:
+            problem = "equivalent course " + ", ".join(sorted(set(need.equivalent) & completed)) + " completed"
+        elif set(need.exclusive) & taken:
+            problem = "exclusive with " + ", ".join(sorted(set(need.exclusive) & taken))
+        elif completed and need.prerequisites and not set(need.prerequisites) & completed:
+            problem = "missing prerequisite (one of " + ", ".join(need.prerequisites) + ")"
+        if problem:
+            if code not in required:
+                warn(f"{code} skipped: {problem}")
+                continue
+            warn(f"{code}: {problem}; kept because it is required")
+        if not completed and (need.prerequisites or need.precursors):
+            unchecked.append(code)
+        if course.credits is None:
+            credits = credits_of(code)
+            if credits is None:
+                unknown_credits.append(code)
+            course = replace(course, credits=credits)
+        catalogue[code] = course
+    if unknown_credits:
+        warn("Credits unknown (counted as 0): " + ", ".join(sorted(unknown_credits)))
+    if unchecked:
+        warn(
+            "Check prerequisites/precursors in DegreeWorks or the course catalogue "
+            "(or enter your completed courses): " + ", ".join(sorted(unchecked))
         )
+    missing = sorted(required - set(catalogue))
+    if missing:
+        raise ValueError("Required course(s) not available in the catalogue: " + ", ".join(missing))
+
+    exclusive_pairs: dict[str, set[str]] = {}
+    for code, need in requirements.items():
+        for other in need.exclusive:
+            exclusive_pairs.setdefault(code, set()).add(other)
+            exclusive_pairs.setdefault(other, set()).add(code)
 
     options_by_course: dict[str, list[CourseOption]] = {}
     for code, course in catalogue.items():
-        course_options = build_course_options(
-            course, bundle_definitions.get(code), known_buildings
-        )
+        course_options = build_course_options(course, bundle_definitions.get(code))
         wanted = required_sections.get(code)
         if wanted:
             unknown = wanted - {s.section.upper() for s in course.sections}
             if unknown:
-                raise ValueError(
-                    f"Unknown required section(s) for {code}: {', '.join(sorted(unknown))}"
-                )
+                raise ValueError(f"Unknown required section(s) for {code}: {', '.join(sorted(unknown))}")
             kept = [o for o in course_options if wanted <= set(o.section_codes)]
             report.rejections["required_section"] += len(course_options) - len(kept)
             course_options = kept
+        need = requirements.get(code, CourseRequirements())
+        if completed and need.precursors and not set(need.precursors) & completed:
+            note = "recommended precursor (one of " + ", ".join(need.precursors) + ") not completed"
+            course_options = [replace(o, notes=(*o.notes, note)) for o in course_options]
+
+        allowed = []
         for option in course_options:
-            if option.unscheduled_sections:
-                report.warnings.append(
-                    f"{option.course_code} {', '.join(option.unscheduled_sections)} "
-                    "has no fixed time and is not checked for clashes"
+            if code in movable:
+                keeps = set(option.section_codes) == preregistered[code]
+                if not keeps and option.route != "web":
+                    report.rejections["full_section"] += 1  # never swap a seat for a full section
+                    continue
+                option = replace(
+                    option, preregistered=True,
+                    replaces_sections=() if keeps else tuple(sorted(preregistered[code])),
                 )
-        if not course_options and code in required:
-            report.warnings.append(f"{code} has no complete section bundle")
-        options_by_course[code] = course_options
-    report.warnings = list(dict.fromkeys(report.warnings))
+            elif options.web_only and (option.route == "e-form" or option.restricted):
+                report.rejections["not_web"] += 1
+                continue
+            elif (option.route == "closed" and options.seat_policy != "any") or (
+                option.route == "waitlist" and options.seat_policy == "open"
+            ):
+                report.rejections["full_section"] += 1
+                continue
+            allowed.append(option)
+            if len(option.meetings) < len(option.sections):
+                warn(f"{option.label} has a section with no fixed time; it is not checked for clashes")
+        if not allowed and code in required:
+            warn(f"{code} has no complete section bundle that can be registered")
+        options_by_course[code] = allowed
+    report.warnings[:] = list(dict.fromkeys(report.warnings))
 
-    # Required courses first, then the most constrained courses first.
-    order = sorted(
-        options_by_course,
-        key=lambda c: (c not in required, len(options_by_course[c]), c),
-    )
-    max_credit_by_course = {
-        c: max((o.credits for o in options_by_course[c]), default=0) for c in order
-    }
+    # Branch-and-bound search ---------------------------------------------
+    order = sorted(options_by_course, key=lambda c: (c not in required, len(options_by_course[c]), c))
+    is_ge = {c: c.startswith("GE") for c in order}
     remaining_credits = [0] * (len(order) + 1)
+    remaining_ge = [0] * (len(order) + 1)
     for index in range(len(order) - 1, -1, -1):
-        remaining_credits[index] = (
-            remaining_credits[index + 1] + max_credit_by_course[order[index]]
+        code = order[index]
+        remaining_credits[index] = remaining_credits[index + 1] + max(
+            (o.credits for o in options_by_course[code]), default=0
         )
-
-    early_before = parse_time(options.early_class_before)
-    late_after = parse_time(options.late_class_after)
-    keep = max(options.max_results * 4, 50)
+        remaining_ge[index] = remaining_ge[index + 1] + int(is_ge[code] and bool(options_by_course[code]))
+    credit_cap = max_credits if max_credits is not None else 10**9
+    early, late = time_to_minutes("09:00"), time_to_minutes("19:00")
     plans: list[CoursePlan] = []
-    # Sorted rank keys of the best ``max_results`` plans so far. The first
-    # three parts of a key (credits, non-preferred classes, days on campus)
-    # can only get worse as classes are added, so a branch whose best
-    # possible start is already worse than the last kept plan is skipped.
-    top_keys: list[tuple] = []
-    credit_cap = options.max_credits if options.max_credits is not None else 10**9
-    target = options.target_credits
+    top_keys: list[tuple] = []  # rank keys of the best plans so far
+    keep = max(options.max_results * 4, 50)
 
     def record(chosen: list[CourseOption], current: dict, credits: int) -> None:
         total = fixed_credits + credits
-        if options.min_credits is not None and total < options.min_credits:
+        if min_credits is not None and total < min_credits:
             report.rejections["min_credits"] += 1
             return
         if len(chosen) < options.min_courses:
             report.rejections["min_courses"] += 1
             return
+        new_meetings = [m for o in chosen for m in o.meetings]
+        score = PlanScore(
+            total_credits=total,
+            registration_risk=sum(o.registration_risk for o in chosen),
+            section_changes=sum(1 for o in chosen if o.replaces_sections),
+            non_preferred_meetings=sum(1 for m in new_meetings if m.day not in rules.prefer) if rules.prefer else 0,
+            days_on_campus=sum(1 for day in current.values() if day),
+            idle_minutes=sum(
+                max(0, b.start - a.end) for day in current.values() for a, b in pairwise(day)
+            ),
+            early_or_late=sum(1 for m in new_meetings if m.start < early or m.end > late),
+            latest_finish=max((day[-1].end for day in current.values() if day), default=0),
+        )
         chosen_codes = {o.course_code for o in chosen}
         plan = CoursePlan(
             chosen=tuple(chosen),
+            fixed_sessions=kept_sessions,
             fixed_meetings=tuple(fixed),
-            fixed_credits=fixed_credits,
+            fixed_courses=tuple(sorted(fixed_codes)),
             skipped_courses=tuple(c for c in order if c not in chosen_codes),
-            score=_score(chosen, current, total, rules, early_before, late_after),
+            score=score,
+            study_load=study_load,
+            ge_quota_courses=tuple(
+                o.course_code for o in chosen if ge_areas.get(o.course_code, "").startswith("Area")
+            ),
         )
         plans.append(plan)
-        key = _rank_key(plan, target)
+        key = _rank_key(plan)
         if len(top_keys) < options.max_results or key < top_keys[-1]:
             bisect.insort(top_keys, key)
             del top_keys[options.max_results:]
         if len(plans) > keep * 2:
-            plans.sort(key=lambda p: _rank_key(p, target))
+            plans.sort(key=_rank_key)
             del plans[keep:]
 
-    def lower_bound(index: int, credits: int, non_preferred: int, current: dict) -> tuple:
-        low = fixed_credits + credits
-        high = min(credit_cap, low + remaining_credits[index])
-        if target is None:
-            credit_key = -high
-        elif low <= target <= high:
-            credit_key = 0
-        else:
-            credit_key = min(abs(low - target), abs(high - target))
-        days = sum(1 for day in current.values() if day)
-        return (credit_key, non_preferred, days)
-
-    def search(
-        index: int,
-        chosen: list[CourseOption],
-        current: dict,
-        credits: int,
-        non_preferred: int,
-    ) -> None:
+    def search(index, chosen, current, credits, ge_count, non_preferred, risk) -> None:
         if report.explored >= options.search_limit:
             report.truncated = True
             return
         report.explored += 1
-
+        if options.ge_courses is not None and ge_count + remaining_ge[index] < options.ge_courses:
+            report.rejections["ge_courses"] += 1
+            return
         if index == len(order):
             record(chosen, current, credits)
             return
-
-        if (
-            options.min_credits is not None
-            and fixed_credits + credits + remaining_credits[index] < options.min_credits
-        ):
+        if min_credits is not None and fixed_credits + credits + remaining_credits[index] < min_credits:
             report.rejections["min_credits"] += 1
             return
-
-        if (
-            len(top_keys) >= options.max_results
-            and lower_bound(index, credits, non_preferred, current) > top_keys[-1][:3]
-        ):
+        best_credits = min(credit_cap, fixed_credits + credits + remaining_credits[index])
+        days = sum(1 for day in current.values() if day)
+        if len(top_keys) >= options.max_results and (-best_credits, risk, non_preferred, days) > top_keys[-1][:4]:
             report.rejections["bound"] += 1
             return
 
         code = order[index]
-        is_required = code in required
-        at_course_limit = (
-            options.max_courses is not None and len(chosen) >= options.max_courses
-        )
-
-        if at_course_limit:
-            if is_required:
-                report.rejections["max_courses"] += 1
+        at_limit = options.max_courses is not None and len(chosen) >= options.max_courses
+        ge_full = is_ge[code] and options.ge_courses is not None and ge_count >= options.ge_courses
+        exclusive = bool(exclusive_pairs.get(code, set()) & {o.course_code for o in chosen})
+        if at_limit or ge_full or exclusive:
+            reason = "exclusive" if exclusive else "ge_courses" if ge_full else "max_courses"
+            report.rejections[reason] += 1
+            if code in required:
                 return
         else:
             for option in options_by_course[code]:
-                if (
-                    options.max_credits is not None
-                    and fixed_credits + credits + option.credits > options.max_credits
-                ):
+                if max_credits is not None and fixed_credits + credits + option.credits > max_credits:
                     report.rejections["max_credits"] += 1
                     continue
                 new_state, reason = rules.add(current, option)
                 if reason:
                     report.rejections[reason] += 1
                     continue
-                extra = (
-                    sum(1 for m in option.meetings if m.day not in rules.prefer)
-                    if rules.prefer else 0
-                )
+                extra = sum(1 for m in option.meetings if m.day not in rules.prefer) if rules.prefer else 0
                 search(
-                    index + 1,
-                    [*chosen, option],
-                    new_state,
-                    credits + option.credits,
-                    non_preferred + extra,
+                    index + 1, [*chosen, option], new_state, credits + option.credits,
+                    ge_count + int(is_ge[code]), non_preferred + extra, risk + option.registration_risk,
                 )
+        if code not in required:
+            search(index + 1, chosen, current, credits, ge_count, non_preferred, risk)
 
-        if not is_required:
-            search(index + 1, chosen, current, credits, non_preferred)
-
-    search(0, [], state, 0, 0)
-
-    plans.sort(key=lambda p: _rank_key(p, target))
+    search(0, [], state, 0, 0, 0, 0)
+    plans.sort(key=_rank_key)
     report.plans = plans[: options.max_results]
-    if rules.unknown_travel:
-        report.warnings.append(
-            "Walking time unknown for building(s) "
-            + ", ".join(sorted(rules.unknown_travel))
+    if rules.unknown_buildings:
+        warn(
+            "Walking time unknown for building(s) " + ", ".join(sorted(rules.unknown_buildings))
             + "; those transfers were not checked"
         )
     return report
 
 
 # ---------------------------------------------------------------------------
-# Display and command line
+# Display and export
 # ---------------------------------------------------------------------------
 
+PLANNING_ONLY_NOTICE = (
+    "These plans are for planning only. Register yourself in AIMS during your "
+    "time-ticket; seats change in real time, so keep a backup plan."
+)
 
-def format_plan(plan: CoursePlan, number: int | None = None) -> str:
-    title = f"Plan {number}" if number is not None else "Plan"
-    lines = [f"{title}: {plan.explain()}"]
+
+def format_plan(plan: CoursePlan, number: int | None = None, steps: bool = True) -> str:
+    lines = [f"{'Plan' if number is None else f'Plan {number}'}: {plan.explain()}"]
+    tags = {"waitlist": "waitlist", "e-form": "e-form", "closed": "full, no waitlist"}
     for option in plan.chosen:
+        labels = []
+        if option.replaces_sections:
+            labels.append("change from " + "+".join(option.replaces_sections))
+        elif option.preregistered:
+            labels.append("pre-registered")
+        if option.route in tags:
+            labels.append(tags[option.route])
+        if option.restricted:
+            labels.append("restricted")
         lines.append(
-            f"  {option.course_code} {'+'.join(option.section_codes)}"
-            f"  ({option.credits} cr)  {option.title}"
+            f"  {option.label}  ({option.credits} cr)  {option.title}"
+            + (f"  [{', '.join(labels)}]" if labels else "")
         )
     current_day = None
     for meeting in plan.meetings:
         if meeting.day != current_day:
             current_day = meeting.day
             lines.append(f"  {meeting.day}")
-        marker = "  (fixed)" if meeting.fixed else ""
         lines.append(
-            f"    {format_minutes(meeting.start)}-{format_minutes(meeting.end)}  "
-            f"{meeting.label:<14} {meeting.location}{marker}"
+            f"    {_clock(meeting.start)}-{_clock(meeting.end)}  {meeting.label:<14} "
+            f"{meeting.location}{'  (fixed)' if meeting.fixed else ''}"
         )
+    if steps and plan.registration_steps():
+        lines.append("  Registration steps:")
+        lines.extend(f"    {step}" for step in plan.registration_steps())
     return "\n".join(lines)
-
-
-def _parse_required_sections(values: Sequence[str] | None) -> dict[str, tuple[str, ...]]:
-    result: dict[str, list[str]] = {}
-    for value in values or ():
-        code, _, sections = value.partition(":")
-        if not code or not sections:
-            raise argparse.ArgumentTypeError(
-                f"Use COURSE:SECTION[,SECTION], e.g. CS2311:C01 (got {value!r})"
-            )
-        result.setdefault(code.upper(), []).extend(
-            s.strip().upper() for s in sections.split(",") if s.strip()
-        )
-    return {code: tuple(sections) for code, sections in result.items()}
-
-
-DEFAULT_SEMESTER_START = "2026-08-31"
-DEFAULT_SEMESTER_END = "2026-11-28"
 
 
 def export_plan(
@@ -930,160 +1189,10 @@ def export_plan(
     semester_start: str,
     semester_end: str,
     exclusions_path: str | None = None,
-) -> Path:
-    """Write ``plan`` (including any fixed AIMS classes) to an .ics file."""
-    from .calendar_export import export_ics
-
-    output = Path(output)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    export_ics(
-        plan.to_sessions(),
-        str(output),
-        semester_start,
-        semester_end,
+) -> str:
+    """Write the plan, including kept AIMS classes, to an .ics calendar."""
+    Path(output).parent.mkdir(parents=True, exist_ok=True)
+    return export_ics(
+        plan.to_sessions(), str(output), semester_start, semester_end,
         exclusions_path=exclusions_path,
     )
-    return output
-
-
-def _ask(prompt: str) -> str:
-    try:
-        return input(prompt).strip()
-    except EOFError:
-        return ""
-
-
-def _ask_to_export(plans: Sequence[CoursePlan], args: argparse.Namespace) -> None:
-    choice = _ask(
-        f"Export a plan to .ics? Enter 1-{len(plans)}, or press Enter to skip: "
-    )
-    if not choice:
-        return
-    if not choice.isdigit() or not 1 <= int(choice) <= len(plans):
-        print(f"Skipped export: {choice!r} is not a plan number.")
-        return
-    output = _ask(f"Output .ics path [{args.output}]: ") or args.output
-    start = _ask(f"Semester start [{args.semester_start}]: ") or args.semester_start
-    end = _ask(f"Semester end [{args.semester_end}]: ") or args.semester_end
-    path = export_plan(plans[int(choice) - 1], output, start, end, args.exclusions)
-    print(f"Exported plan {choice} to {path}")
-
-
-def main(
-    argv: Sequence[str] | None = None,
-    prog: str = "python -m cityuschedule.plan_generator",
-    parser_class: type[argparse.ArgumentParser] = argparse.ArgumentParser,
-) -> int:
-    parser = parser_class(
-        prog=prog,
-        description=(
-            "Generate ranked, clash-free course plans from a timetable "
-            "catalogue, optionally around a saved AIMS timetable."
-        ),
-    )
-    parser.add_argument("catalog", nargs="+", help="Timetable catalogue JSON file(s)")
-    parser.add_argument("--aims-html", help="Saved AIMS weekly timetable to plan around")
-    parser.add_argument("--required", nargs="+", default=[], metavar="CODE")
-    parser.add_argument("--require-section", nargs="+", default=[], metavar="CODE:SEC")
-    parser.add_argument("--exclude", nargs="+", default=[], metavar="CODE")
-    parser.add_argument("--min-courses", type=int, default=1)
-    parser.add_argument("--max-courses", type=int)
-    parser.add_argument("--min-credits", type=int)
-    parser.add_argument("--max-credits", type=int)
-    parser.add_argument("--target-credits", type=int)
-    parser.add_argument("--prefer-days", nargs="+", default=[])
-    parser.add_argument("--avoid-days", nargs="+", default=[])
-    parser.add_argument("--earliest", help="Earliest class start, e.g. 09:00")
-    parser.add_argument("--latest", help="Latest class end, e.g. 18:00")
-    parser.add_argument("--min-gap", type=int, default=0, help="Minutes between classes")
-    parser.add_argument("--lunch", type=int, default=0, help="Lunch break minutes (11:30-14:30)")
-    parser.add_argument("--max-daily-hours", type=float)
-    parser.add_argument("--no-travel-check", action="store_true")
-    parser.add_argument("--max-results", type=int, default=5)
-    parser.add_argument("--export", type=int, metavar="N", help="Export plan N as .ics")
-    parser.add_argument(
-        "--ask-export", action="store_true",
-        help="After listing plans, ask which one to export",
-    )
-    parser.add_argument("--output", default="cityu_plan.ics")
-    parser.add_argument(
-        "--semester-start", default=DEFAULT_SEMESTER_START,
-        help="First teaching day, YYYY-MM-DD",
-    )
-    parser.add_argument(
-        "--semester-end", default=DEFAULT_SEMESTER_END,
-        help="Last teaching day, YYYY-MM-DD",
-    )
-    parser.add_argument("--exclusions", help="Holidays and breaks JSON file")
-    args = parser.parse_args(argv)
-
-    try:
-        courses = [c for path in args.catalog for c in load_course_catalog(path)]
-        fixed_sessions = []
-        credit_courses = []
-        if args.aims_html:
-            from .aims import load_aims_html
-            from .course_catalog import load_credit_catalogs
-
-            fixed_sessions = load_aims_html(args.aims_html)
-            credit_courses = load_credit_catalogs()
-        options = PlanOptions(
-            required_courses=tuple(args.required),
-            required_sections=_parse_required_sections(args.require_section),
-            exclude_courses=tuple(args.exclude),
-            min_courses=args.min_courses,
-            max_courses=args.max_courses,
-            min_credits=args.min_credits,
-            max_credits=args.max_credits,
-            target_credits=args.target_credits,
-            preferred_days=tuple(args.prefer_days),
-            avoid_days=tuple(args.avoid_days),
-            earliest_start=args.earliest,
-            latest_end=args.latest,
-            min_gap=args.min_gap,
-            lunch_minutes=args.lunch,
-            max_daily_hours=args.max_daily_hours,
-            check_travel=not args.no_travel_check,
-            max_results=args.max_results,
-        )
-        report = generate_course_plans(
-            courses,
-            options,
-            fixed_sessions=fixed_sessions,
-            credit_courses=credit_courses,
-        )
-    except (OSError, ValueError, argparse.ArgumentTypeError) as error:
-        parser.error(str(error))
-
-    for warning in report.warnings:
-        print(f"Note: {warning}")
-    if not report.plans:
-        print(report.explain_no_plans())
-        return 1
-
-    print(f"Found {len(report.plans)} plan(s) (checked {report.explored} combinations):\n")
-    for number, plan in enumerate(report.plans, start=1):
-        print(format_plan(plan, number))
-        print()
-
-    try:
-        if args.export:
-            if not 1 <= args.export <= len(report.plans):
-                parser.error(f"--export must be between 1 and {len(report.plans)}")
-            path = export_plan(
-                report.plans[args.export - 1],
-                args.output,
-                args.semester_start,
-                args.semester_end,
-                args.exclusions,
-            )
-            print(f"Exported plan {args.export} to {path}")
-        elif args.ask_export:
-            _ask_to_export(report.plans, args)
-    except (OSError, ValueError) as error:
-        parser.error(f"Could not export plan: {error}")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

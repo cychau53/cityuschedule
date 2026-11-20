@@ -1,30 +1,53 @@
 import json
-from datetime import datetime
+from itertools import pairwise
 from pathlib import Path
+
+from .schedule_conflicts import time_to_minutes
+
+
+def _default_time_file() -> Path:
+    path = (
+        Path(__file__).resolve().parents[2]
+        / "data"
+        / "travel_time.json"
+    )
+    if not path.is_file():
+        path = (
+            Path(__file__).resolve().parent
+            / "data"
+            / "travel_time.json"
+        )
+    return path
+
+
+def load_travel_times(time_file=None) -> dict[str, dict[str, int]]:
+    """Read the walking-time matrix (minutes between campus buildings)."""
+    path = Path(time_file) if time_file is not None else _default_time_file()
+
+    with path.open(encoding="utf-8") as f:
+        return json.load(f)
+
+
+def walking_minutes(
+    start_building: str,
+    end_building: str,
+    travel_times: dict[str, dict[str, int]],
+) -> int | None:
+    """Minutes needed to walk between two buildings, or None if unknown."""
+    if start_building not in travel_times or end_building not in travel_times:
+        return None
+
+    if start_building == end_building:
+        return 0
+
+    return travel_times[start_building].get(end_building)
 
 
 def time(sessions: list[dict[str, str]], time_file=None) -> None:
     if len(sessions) < 2:
         return
 
-    path = (
-        Path(time_file)
-        if time_file is not None
-        else (
-            Path(__file__).resolve().parents[2]
-            / "data"
-            / "travel_time.json"
-        )
-    )
-    if time_file is None and not path.is_file():
-        path = (
-            Path(__file__).resolve().parent
-            / "data"
-            / "travel_time.json"
-        )
-
-    with path.open(encoding="utf-8") as f:
-        travel_times = json.load(f)
+    travel_times = load_travel_times(time_file)
 
     sessions_by_day = {}
 
@@ -32,11 +55,14 @@ def time(sessions: list[dict[str, str]], time_file=None) -> None:
         sessions_by_day.setdefault(session["day"], []).append(session)
 
     for day, day_sessions in sessions_by_day.items():
-        ordered_sessions = sorted(day_sessions, key=lambda session: datetime.strptime(session["start_time"], "%H:%M"),)
+        ordered_sessions = sorted(
+            day_sessions,
+            key=lambda session: time_to_minutes(session["start_time"]),
+        )
 
-        for first, second in zip(ordered_sessions, ordered_sessions[1:]):
+        for first, second in pairwise(ordered_sessions):
 
-            if second['start_time'] < first['end_time']:
+            if time_to_minutes(second["start_time"]) < time_to_minutes(first["end_time"]):
                 raise ValueError(
                     f"{day}: sessions overlap. "
                     f"{first['course_code']} ends at "
@@ -45,13 +71,9 @@ def time(sessions: list[dict[str, str]], time_file=None) -> None:
                     f"{second['start_time']}."
                 )
 
-            first_end = datetime.strptime(first["end_time"], "%H:%M")
-            second_start = datetime.strptime(
-                second["start_time"],
-                "%H:%M",
-            )
-            minutes = int(
-                (second_start - first_end).total_seconds() / 60
+            minutes = (
+                time_to_minutes(second["start_time"])
+                - time_to_minutes(first["end_time"])
             )
 
             start_building = first["building"]
@@ -64,16 +86,16 @@ def time(sessions: list[dict[str, str]], time_file=None) -> None:
                         "not found in time.json"
                     )
 
-            if start_building == end_building:
-                required = 0
-            else:
-                try:
-                    required = travel_times[start_building][end_building]
-                except KeyError as exc:
-                    raise ValueError(
-                        f"No travel time from {start_building} "
-                        f"to {end_building}"
-                    ) from exc
+            required = walking_minutes(
+                start_building,
+                end_building,
+                travel_times,
+            )
+            if required is None:
+                raise ValueError(
+                    f"No travel time from {start_building} "
+                    f"to {end_building}"
+                )
 
             if required > minutes:
                 raise ValueError(

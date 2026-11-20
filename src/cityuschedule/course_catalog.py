@@ -17,6 +17,8 @@ class CatalogSection:
     availability: str = ""
     web: str = ""
     notes: tuple[str, ...] = ()
+    waitlist: str = ""
+    restrictions: str = ""
 
 
 @dataclass(frozen=True)
@@ -66,6 +68,8 @@ def load_course_catalog(path: str | Path) -> list[CatalogCourse]:
                 availability=section.get("availability", ""),
                 web=section.get("web", ""),
                 notes=tuple(section.get("notes", [])),
+                waitlist=str(section.get("waitlist", "")),
+                restrictions=str(section.get("restrictions", "")),
             )
             for section in item.get("sections", [])
         )
@@ -102,26 +106,86 @@ def load_course_catalog(path: str | Path) -> list[CatalogCourse]:
     return courses
 
 
-def load_credit_catalogs(
-    extra_paths: list[str] | None = None,
-) -> list[CatalogCourse]:
+def catalogue_dir() -> Path:
+    """Folder holding the bundled ``*_course_requirements.json`` files."""
     source_catalogue_dir = (
         Path(__file__).resolve().parents[2]
         / "data"
         / "catalogue"
     )
     if source_catalogue_dir.is_dir():
-        catalogue_dir = source_catalogue_dir
-    else:
-        catalogue_dir = (
-            Path(__file__).resolve().parent
-            / "data"
-            / "catalogue"
+        return source_catalogue_dir
+    return (
+        Path(__file__).resolve().parent
+        / "data"
+        / "catalogue"
+    )
+
+
+def load_ge_section_catalog(
+    path: str | Path | None = None,
+    term: str | None = None,
+) -> list[CatalogCourse]:
+    """Turn GE section records (``data/ge_course_information.json``) into
+    catalogue courses, optionally keeping one term such as ``2026-27 Sem B``.
+
+    Section codes such as ``15453C01`` start with the CRN; it is removed so
+    the section is ``C01``. Credits are left empty and come from the credit
+    catalogue.
+    """
+    if path is None:
+        from .ge_courses import SECTION_DATA_PATH
+
+        path = SECTION_DATA_PATH
+
+    with open(path, "r", encoding="utf-8-sig") as file:
+        records = json.load(file)
+
+    sections_by_course: dict[str, list[CatalogSection]] = {}
+
+    for record in records:
+        if term and str(record.get("term", "")).casefold() != term.casefold():
+            continue
+
+        course_code = str(record.get("course_code", "")).strip().upper()
+        crn = str(record.get("crn", "")).strip()
+        section = str(record.get("section", "")).strip().upper()
+        if crn and section.startswith(crn):
+            section = section[len(crn):]
+        start, _, end = str(record.get("time") or "").partition("-")
+
+        sections_by_course.setdefault(course_code, []).append(
+            CatalogSection(
+                course_code=course_code,
+                section=section,
+                day=str(record.get("day") or ""),
+                start=start.strip()[:5],
+                end=end.strip()[:5],
+                location=" ".join(
+                    str(record.get(key) or "").strip()
+                    for key in ("building", "room")
+                ).strip(),
+                crn=crn,
+            )
         )
 
+    return [
+        CatalogCourse(
+            code=code,
+            title="",
+            credits=None,
+            sections=tuple(sections),
+        )
+        for code, sections in sorted(sections_by_course.items())
+    ]
+
+
+def load_credit_catalogs(
+    extra_paths: list[str] | None = None,
+) -> list[CatalogCourse]:
     courses = []
     for filename in DEFAULT_CREDIT_CATALOGS:
-        courses.extend(load_course_catalog(catalogue_dir / filename))
+        courses.extend(load_course_catalog(catalogue_dir() / filename))
 
     for path in extra_paths or []:
         courses.extend(load_course_catalog(path))

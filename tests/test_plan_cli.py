@@ -38,20 +38,22 @@ def feed(monkeypatch, *answers):
     monkeypatch.setattr("builtins.input", lambda *args: next(lines))
 
 
+def plan(*args):
+    cli.main(["--timetable-catalog", str(EXAMPLE), *args])
+
+
 def test_plan_command_lists_ranked_plans(capsys):
-    cli.main(["plan", str(EXAMPLE), "--required", "TEST101", "--no-travel-check"])
+    plan("--required", "TEST101", "--no-travel-check")
     output = capsys.readouterr().out
     assert "Plan 1: 5 credits; 1 day(s) on campus" in output
     assert "TEST101 C02" in output
+    assert "planning only" in output
 
 
 def test_plan_command_plans_around_aims_timetable(tmp_path, capsys):
     aims = tmp_path / "aims.html"
     aims.write_text(AIMS_HTML, encoding="utf-8")
-    cli.main([
-        "plan", str(EXAMPLE), "--aims-html", str(aims),
-        "--required", "TEST101", "--no-travel-check",
-    ])
+    plan("--aims-html", str(aims), "--required", "TEST101", "--no-travel-check")
     output = capsys.readouterr().out
     first_plan = output.split("Plan 1", 1)[1].split("\n\n", 1)[0]
     assert "CS2311 C01" in first_plan and "(fixed)" in first_plan
@@ -61,74 +63,96 @@ def test_plan_command_plans_around_aims_timetable(tmp_path, capsys):
 
 def test_plan_command_exports_selected_plan(tmp_path):
     output = tmp_path / "nested" / "plan.ics"
-    cli.main([
-        "plan", str(EXAMPLE), "--export", "1", "--output", str(output),
-        "--no-travel-check",
-    ])
+    plan("--export-plan", "1", "--output", str(output), "--no-travel-check")
     assert "BEGIN:VEVENT" in output.read_text(encoding="utf-8")
 
 
 def test_plan_command_reports_when_nothing_fits(capsys):
-    with pytest.raises(SystemExit) as error:
-        cli.main([
-            "plan", str(EXAMPLE), "--required", "TEST101",
-            "--avoid-days", "Thu", "Fri",
-        ])
-    assert error.value.code == 1
+    plan("--required", "TEST101", "--avoid-days", "Thu", "Fri")
     assert "uses an avoided day" in capsys.readouterr().out
 
 
 def test_plan_command_rejects_unknown_required_course(capsys):
     with pytest.raises(SystemExit) as error:
-        cli.main(["plan", str(EXAMPLE), "--required", "ZZZ9999"])
+        plan("--required", "ZZZ9999")
     assert error.value.code == 2
     assert "ZZZ9999" in capsys.readouterr().err
 
 
-def test_plan_command_asks_before_exporting(monkeypatch, tmp_path):
+def test_plan_command_rejects_odd_require_section(capsys):
+    with pytest.raises(SystemExit):
+        plan("--require-section", "TEST101")
+    assert "course code and section pairs" in capsys.readouterr().err
+
+
+def test_require_section_pairs():
+    assert cli._required_section_pairs(["test101", "c02", "TEST201", "C01"]) == {
+        "TEST101": ["C02"], "TEST201": ["C01"],
+    }
+
+
+def test_ask_saves_and_exports(monkeypatch, tmp_path):
     output = tmp_path / "chosen.ics"
-    feed(monkeypatch, "2", str(output), "", "")
-    cli.main(["plan", str(EXAMPLE), "--ask-export", "--no-travel-check"])
+    saved = []
+    monkeypatch.setattr(cli, "_load_saved_bundles", list)
+    monkeypatch.setattr(cli, "_save_bundles_to_disk", saved.extend)
+    feed(monkeypatch, "1", "2", str(output), "", "")
+    plan("--ask", "--no-travel-check")
     assert output.is_file()
+    assert saved and saved[0]["plan"]["sections"]
+    assert saved[0]["plan"]["registration_steps"]
 
 
-def test_menu_option_11_builds_plan_command(monkeypatch):
-    feed(monkeypatch, "my_catalogue.json", "", "cs2311, ge1401", "45", "", "09:00", "")
+def test_add_ge_uses_ge_section_data(capsys):
+    cli.main(["--add-ge", "1", "--no-travel-check", "--study-load", "none"])
+    output = capsys.readouterr().out
+    assert "GE1102 C01+T0" in output
+    assert "CRN 15453" in output
+
+
+def test_menu_option_8_builds_plan_command(monkeypatch):
+    feed(
+        monkeypatch, "my_catalogue.json", "1", "y",
+        "cs2311, ge1401", "2627A", "", "cs1102", "45", "", "09:00", "", "y",
+    )
     settings = cli.BasicSettings(prefer_days=("Mon",), avoid_days=("Fri",), max_credits=18)
-    command, aims_path = cli._menu_command("11", "saved.html", settings)
+    command, aims_path = cli._menu_command("8", "saved.html", settings)
     assert command == [
-        "plan", "my_catalogue.json",
         "--aims-html", "saved.html",
+        "--timetable-catalog", "my_catalogue.json",
+        "--add-ge", "1",
         "--required", "CS2311", "GE1401",
+        "--term", "2627A",
+        "--completed", "CS1102",
         "--lunch", "45",
         "--earliest", "09:00",
+        "--allow-section-change",
         "--prefer-days", "Mon",
         "--avoid-days", "Fri",
         "--max-credits", "18",
-        "--max-results", "5",
-        "--ask-export",
+        "--ask",
     ]
     assert aims_path == "saved.html"
 
 
-def test_menu_option_11_can_skip_saved_aims(monkeypatch):
-    feed(monkeypatch, "", "n", "", "", "", "", "", "")
-    command, aims_path = cli._menu_command("11", "saved.html", cli.BasicSettings())
-    assert command[:2] == ["plan", "course_catalog.json"]
-    assert "--aims-html" not in command
-    assert aims_path is None
+def test_menu_option_8_without_aims_or_courses(monkeypatch):
+    feed(monkeypatch, "", "", "")
+    assert cli._menu_command("8", None, cli.BasicSettings()) == (None, None)
+    feed(monkeypatch, "", "", "two")
+    assert cli._menu_command("8", None, cli.BasicSettings()) == (None, None)
 
 
 def test_menu_runs_plan_generator(monkeypatch, capsys):
-    feed(monkeypatch, "11", str(EXAMPLE), "", "TEST101", "", "", "", "", "", "0")
+    feed(monkeypatch, "8", "", str(EXAMPLE), "", "", "", "", "0")
     monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: None)
     cli.interactive_menu()
     output = capsys.readouterr().out
-    assert "11. Smart plan generator" in output
+    assert "8. Generate course plans" in output
+    assert "11." not in output
     assert "Plan 1:" in output
 
 
-def test_menu_option_11_q_returns_to_menu(monkeypatch):
-    feed(monkeypatch, "my_catalogue.json", "", "q")
+def test_menu_option_8_q_returns_to_menu(monkeypatch):
+    feed(monkeypatch, "", "my_catalogue.json", "q")
     with pytest.raises(cli._ReturnToMenu):
-        cli._menu_command("11", None, cli.BasicSettings())
+        cli._menu_command("8", None, cli.BasicSettings())

@@ -19,6 +19,8 @@ class PlannedSection:
     availability: str = ""
     web: str = ""
     notes: tuple[str, ...] = ()
+    waitlist: str = ""
+    restrictions: str = ""
 
 
 def catalogue_to_planned_sections(
@@ -44,6 +46,8 @@ def catalogue_to_planned_sections(
                     availability=section.availability,
                     web=section.web,
                     notes=section.notes,
+                    waitlist=section.waitlist,
+                    restrictions=section.restrictions,
                 )
             )
 

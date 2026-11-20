@@ -18,7 +18,11 @@ from .aims_fit import (
 from .aims_table_parser import parse_aims_table
 from .calendar_export import export_ics
 from .conflicts import find_conflicts
-from .course_catalog import load_course_catalog, load_credit_catalogs
+from .course_catalog import (
+    load_course_catalog,
+    load_credit_catalogs,
+    load_ge_section_catalog,
+)
 from .ge_courses import (
     get_ge_course_info,
     load_ge_courses,
@@ -26,12 +30,7 @@ from .ge_courses import (
     SECTION_DATA_PATH,
 )
 from .ge_importer import update_ge_courses_from_html
-from .planner import (
-    calculate_course_credits,
-    export_plan_ics,
-    generate_aims_ge_plans,
-    generate_plans,
-)
+from .planner import calculate_course_credits
 from .timetable import format_timetable
 
 
@@ -490,22 +489,7 @@ def _menu_command(
         return command, path if source_type == "AIMS" else None
 
     if choice == "8":
-        aims_path = saved_aims_path or _prompt_path(
-            "Saved AIMS timetable HTML path"
-        )
-        catalogue_path = _prompt_path(
-            "Course timetable catalogue JSON path"
-        )
-        if not aims_path or not catalogue_path:
-            return None, None
-        command = [
-            "--aims-html",
-            aims_path,
-            "--timetable-catalog",
-            catalogue_path,
-        ]
-        command.extend(_basic_settings_arguments(settings))
-        return command, aims_path
+        return _plan_menu_command(saved_aims_path, settings)
 
     if choice == "9":
         html_path = _prompt_path("Saved GE course HTML path")
@@ -520,69 +504,75 @@ def _menu_command(
             command.extend(["--ge-output", output_path])
         return command, None
 
-    if choice == "11":
-        return _plan_generator_menu_command(saved_aims_path, settings)
-
     return None, None
 
 
-def _plan_generator_menu_command(
+def _ask_menu(label: str) -> str:
+    value = input(f"{label}: ").strip()
+    _exit_if_requested(value)
+    return value
+
+
+def _plan_menu_command(
     saved_aims_path: str | None,
     settings: BasicSettings,
 ) -> tuple[list[str] | None, str | None]:
-    """Ask for plan generator inputs and build a ``plan`` command."""
+    """Ask for course plan generator inputs (menu option 8)."""
+    aims_path = saved_aims_path or _prompt_path(
+        "AIMS timetable HTML path to plan around (Enter to skip)"
+    )
     catalogue_path = _prompt_path(
-        "Course timetable catalogue JSON path", "course_catalog.json"
+        "Course timetable catalogue JSON path (Enter to skip)"
     )
-    if not catalogue_path:
+    ge_count = _ask_menu(
+        "Number of GE courses to add from the GE data (Enter for 0)"
+    )
+    if ge_count and not ge_count.isdigit():
+        _print_red("Enter a whole number of GE courses.")
         return None, None
-    command = ["plan", catalogue_path]
+    if not catalogue_path and not int(ge_count or 0):
+        return None, None
 
-    aims_path = None
-    if saved_aims_path:
-        answer = input(
-            f"Plan around saved AIMS timetable {saved_aims_path}? [Y/n]: "
-        ).strip().casefold()
-        _exit_if_requested(answer)
-        if answer in {"", "y", "yes"}:
-            aims_path = saved_aims_path
-    if aims_path is None:
-        aims_path = _prompt_path(
-            "AIMS timetable HTML path to plan around (Enter to skip)"
-        )
-    if aims_path:
-        command.extend(["--aims-html", aims_path])
+    command = ["--aims-html", aims_path] if aims_path else []
+    if catalogue_path:
+        command.extend(["--timetable-catalog", catalogue_path])
+    if int(ge_count or 0):
+        command.extend(["--add-ge", ge_count])
 
-    required_text = input(
-        "Courses that must be included (e.g. CS2311 GE1401, Enter for none): "
-    )
-    _exit_if_requested(required_text)
-    required = required_text.replace(",", " ").split()
-    if required:
-        command.extend(["--required", *(code.upper() for code in required)])
-
-    optional_numbers = (
-        ("--lunch", "Lunch break minutes between 11:30 and 14:30"),
-        ("--min-gap", "Minimum minutes between classes"),
-    )
-    for flag, label in optional_numbers:
-        value = input(f"{label} (Enter for none): ").strip()
-        _exit_if_requested(value)
-        if value:
-            command.extend([flag, value])
-
-    optional_times = (
-        ("--earliest", "Earliest class start, e.g. 09:00"),
-        ("--latest", "Latest class end, e.g. 18:00"),
-    )
-    for flag, label in optional_times:
-        value = input(f"{label} (Enter for any): ").strip()
-        _exit_if_requested(value)
-        if value:
-            command.extend([flag, value])
+    advanced = _ask_menu(
+        "Set CityU registration and timetable options? [y/N]"
+    ).casefold()
+    if advanced in {"y", "yes"}:
+        questions = [
+            ("--required", "Courses that must be included, e.g. CS2311 GE1401"),
+            ("--term", "Term, e.g. 2627A for Semester A 2026/27"),
+            ("--study-load", "Study load: full-time, part-time or summer"),
+            ("--completed", "Courses you have completed, e.g. CS1102 MA1200"),
+            ("--lunch", "Lunch break minutes between 11:30 and 14:30"),
+            ("--min-gap", "Minimum minutes between classes"),
+            ("--earliest", "Earliest class start, e.g. 09:00"),
+            ("--latest", "Latest class end, e.g. 18:00"),
+        ]
+        for flag, label in questions:
+            value = _ask_menu(f"{label} (Enter to skip)")
+            if not value:
+                continue
+            if flag in {"--required", "--completed"}:
+                command.extend(
+                    [flag, *value.replace(",", " ").upper().split()]
+                )
+            else:
+                command.extend([flag, value])
+        if aims_path:
+            answer = _ask_menu(
+                "Let the planner change sections of pre-registered "
+                "courses? [y/N]"
+            ).casefold()
+            if answer in {"y", "yes"}:
+                command.append("--allow-section-change")
 
     command.extend(_basic_settings_arguments(settings))
-    command.extend(["--max-results", "5", "--ask-export"])
+    command.append("--ask")
     return command, aims_path
 
 
@@ -601,10 +591,9 @@ def interactive_menu() -> None:
             "5. Search GE courses\n"
             "6. Show GE course details\n"
             "7. Export a timetable calendar\n"
-            "8. Generate course plans\n"
+            "8. Generate course plans (CityU registration rules)\n"
             "9. Import GE courses from HTML\n"
             "10. Bundles saved\n"
-            "11. Smart plan generator\n"
             "0. Exit\n"
             "Type q to return to the menu, or 0 to exit the package.\n"
             "Type delete all or delete names joined by 'and' to clear data."
@@ -760,9 +749,9 @@ def interactive_menu() -> None:
 
         if command is None:
             if choice not in {
-                "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"
+                "2", "3", "4", "5", "6", "7", "8", "9", "10"
             }:
-                _print_red("Choose an option from 0 to 11.")
+                _print_red("Choose an option from 0 to 10.")
             else:
                 _print_red("Required input was not provided.")
             continue
@@ -787,6 +776,173 @@ def interactive_menu() -> None:
                 _print_red(f"Could not save AIMS path: {error}")
 
 
+def _required_section_pairs(values: list[str] | None) -> dict[str, list[str]]:
+    values = list(values or [])
+    if len(values) % 2:
+        raise ValueError(
+            "Invalid --require-section arguments. Provide course code and "
+            "section pairs, such as: --require-section TEST101 C01"
+        )
+    pairs: dict[str, list[str]] = {}
+    for code, section in zip(values[::2], values[1::2]):
+        pairs.setdefault(code.upper(), []).append(section.upper())
+    return pairs
+
+
+def _run_course_planner(args: argparse.Namespace, parser) -> None:
+    """List course plans from the plan generator, then save or export."""
+    from .plan_generator import (
+        PLANNING_ONLY_NOTICE,
+        PlanOptions,
+        export_plan,
+        format_plan,
+        generate_course_plans,
+        load_course_requirements,
+        load_ge_areas,
+    )
+
+    try:
+        courses = [
+            course
+            for path in args.timetable_catalog or []
+            for course in load_course_catalog(path)
+        ]
+        if args.add_ge < 0:
+            raise ValueError("--add-ge cannot be negative")
+        if args.add_ge:
+            ge_term = None
+            if args.term:
+                from .plan_generator import term_key
+
+                key = term_key(args.term)
+                if key:
+                    year, part = key
+                    ge_term = f"20{year}-{int(year) + 1:02d} " + (
+                        "Summer" if part == "S" else f"Sem {part}"
+                    )
+            known = {course.code.upper() for course in courses}
+            courses.extend(
+                course
+                for course in load_ge_section_catalog(term=ge_term)
+                if course.code.upper() not in known
+            )
+        bundles = {}
+        if args.ge_bundles:
+            with open(args.ge_bundles, "r", encoding="utf-8-sig") as file:
+                bundles = json.load(file)
+        fixed_sessions = []
+        if args.aims_html:
+            fixed_sessions = load_aims_html(args.aims_html)
+        elif args.csv_file:
+            fixed_sessions = load_sessions(args.csv_file)
+        options = PlanOptions(
+            required_courses=tuple(code.upper() for code in args.required or []),
+            required_sections=_required_section_pairs(args.require_section),
+            exclude_courses=tuple(args.exclude),
+            max_courses=args.max_courses,
+            ge_courses=args.add_ge or None,
+            min_credits=args.min_credits,
+            max_credits=args.max_credits,
+            preferred_days=tuple(args.prefer_days or []),
+            avoid_days=tuple(args.avoid_days or []),
+            earliest_start=args.earliest,
+            latest_end=args.latest,
+            min_gap=args.min_gap,
+            lunch_minutes=args.lunch,
+            max_daily_hours=args.max_daily_hours,
+            check_travel=not args.no_travel_check,
+            max_results=args.max_results,
+            bundle_definitions=bundles,
+            study_load=None if args.study_load == "none" else args.study_load,
+            allow_overload=args.allow_overload,
+            allow_section_changes=args.allow_section_change,
+            completed_courses=tuple(code.upper() for code in args.completed),
+            seat_policy=args.seats,
+            web_only=args.web_only,
+            term=args.term,
+        )
+        report = generate_course_plans(
+            courses,
+            options,
+            fixed_sessions=fixed_sessions,
+            credit_courses=load_credit_catalogs(args.credit_catalog),
+            requirements=load_course_requirements(args.timetable_catalog or []),
+            ge_areas=load_ge_areas(),
+        )
+    except (OSError, ValueError) as error:
+        parser.error(str(error))
+
+    for warning in report.warnings:
+        _print_yellow(f"Note: {warning}")
+    if not report.plans:
+        _print_red(report.explain_no_plans())
+        return
+
+    plans = report.plans
+    print(
+        f"Found {len(plans)} course plan(s) "
+        f"(checked {report.explored} combinations):\n"
+    )
+    for number, plan in enumerate(plans, start=1):
+        print(format_plan(plan, number, steps=not args.no_steps))
+        print()
+    _print_blue(PLANNING_ONLY_NOTICE)
+
+    def export(number: int, output: str, start: str, end: str) -> None:
+        if not 1 <= number <= len(plans):
+            parser.error(
+                f"Plan {number} does not exist. "
+                f"Choose a plan from 1 to {len(plans)}."
+            )
+        try:
+            export_plan(plans[number - 1], output, start, end, args.exclusions)
+        except (OSError, ValueError) as error:
+            parser.error(f"Could not export plan: {error}")
+        _print_green(f"Exported plan {number} to {output}")
+
+    if args.export_plan is not None:
+        export(
+            args.export_plan, args.output, args.semester_start, args.semester_end
+        )
+    if not args.ask:
+        return
+
+    try:
+        save_choice = input(
+            "Save plans (e.g. 1 or 1,2, or Enter to skip): "
+        ).strip()
+        _exit_if_requested(save_choice)
+        chosen = sorted({
+            int(item) - 1
+            for item in save_choice.split(",")
+            if item.strip().isdigit() and 1 <= int(item) <= len(plans)
+        })
+        if chosen:
+            saved_bundles = _load_saved_bundles()
+            saved_bundles.extend({"plan": plans[i].to_dict()} for i in chosen)
+            try:
+                _save_bundles_to_disk(saved_bundles)
+                _print_green(f"Saved {len(chosen)} plan(s).")
+            except OSError as error:
+                _print_red(f"Could not save plans: {error}")
+
+        number = input(
+            f"Export a plan to .ics? Enter 1-{len(plans)}, or Enter to skip: "
+        ).strip()
+        _exit_if_requested(number)
+        if not number:
+            return
+        if not number.isdigit():
+            _print_red(f"Skipped export: {number!r} is not a plan number.")
+            return
+        output = _prompt_path("Output .ics path", args.output)
+        start = _prompt_path("Semester start", args.semester_start)
+        end = _prompt_path("Semester end", args.semester_end)
+        export(int(number), output, start, end)
+    except (EOFError, _ReturnToMenu):
+        return
+
+
 def main(argv: list[str] | None = None) -> None:
     command_line = sys.argv[1:] if argv is None else argv
 
@@ -794,24 +950,12 @@ def main(argv: list[str] | None = None) -> None:
         interactive_menu()
         return
 
-    if command_line[0] == "plan":
-        from .plan_generator import main as plan_main
-
-        exit_code = plan_main(
-            command_line[1:],
-            prog="cityuschedule plan",
-            parser_class=_CityUScheduleArgumentParser,
-        )
-        if exit_code:
-            raise SystemExit(exit_code)
-        return
-
     parser = _CityUScheduleArgumentParser(
         prog="cityuschedule",
         description="Check CityU course timetables for clashes and export them as calendar events.",
         epilog=(
-            "Smart plan generator: run 'cityuschedule plan --help' "
-            "or choose option 11 in the menu."
+            "Course plans: give --timetable-catalog and/or --add-ge, "
+            "optionally with --aims-html, or choose option 8 in the menu."
         ),
     )
     parser.add_argument(
@@ -848,8 +992,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--max-results",
         type=int,
-        default=20,
-        help="Maximum number of course plans to display",
+        default=5,
+        help="Maximum number of course plans to display (default 5)",
     )
     parser.add_argument(
         "--min-credits",
@@ -861,12 +1005,18 @@ def main(argv: list[str] | None = None) -> None:
         "--add-ge",
         type=int,
         default=0,
-        help="Number of GE courses to add to the fixed AIMS timetable",
+        help=(
+            "Number of GE courses to add; GE sections come from the "
+            "catalogue and data/ge_course_information.json"
+        ),
     )
 
     parser.add_argument(
         "--ge-bundles",
-        help="JSON file containing complete GE section combinations",
+        help=(
+            "JSON file listing complete section bundles by hand, "
+            'e.g. {"GE1102": [["C01", "T01"]]}'
+        ),
     )
 
     parser.add_argument(
@@ -905,6 +1055,76 @@ def main(argv: list[str] | None = None) -> None:
         "--export-plan",
         type=int,
         help="Export the selected plan number as an ICS calendar, starting from 1",
+    )
+    planning = parser.add_argument_group(
+        "course plan generator (with --timetable-catalog or --add-ge)"
+    )
+    planning.add_argument(
+        "--exclude", nargs="+", default=[], metavar="CODE",
+        help="Courses to leave out",
+    )
+    planning.add_argument(
+        "--max-courses", type=int, help="Most new courses in a plan",
+    )
+    planning.add_argument("--earliest", help="Earliest class start, e.g. 09:00")
+    planning.add_argument("--latest", help="Latest class end, e.g. 18:00")
+    planning.add_argument(
+        "--min-gap", type=int, default=0,
+        help="Minimum minutes between classes",
+    )
+    planning.add_argument(
+        "--lunch", type=int, default=0,
+        help="Minutes of lunch break needed between 11:30 and 14:30",
+    )
+    planning.add_argument(
+        "--max-daily-hours", type=float, help="Most class hours in one day",
+    )
+    planning.add_argument(
+        "--no-travel-check", action="store_true",
+        help="Do not check walking time between buildings",
+    )
+    planning.add_argument(
+        "--study-load", default="full-time",
+        choices=("full-time", "part-time", "summer", "none"),
+        help=(
+            "CityU study load: full-time 12-18 credits, part-time max 11, "
+            "summer max 7 (default full-time)"
+        ),
+    )
+    planning.add_argument(
+        "--allow-overload", action="store_true",
+        help="Allow more credits than the study-load maximum (needs approval)",
+    )
+    planning.add_argument(
+        "--allow-section-change", action="store_true",
+        help="Let the planner move pre-registered courses to other sections",
+    )
+    planning.add_argument(
+        "--completed", nargs="+", default=[], metavar="CODE",
+        help="Courses you have passed, for prerequisite and exclusive checks",
+    )
+    planning.add_argument(
+        "--seats", default="waitlist", choices=("open", "waitlist", "any"),
+        help=(
+            "Full sections: open = never use, waitlist = only with a "
+            "waitlist (default), any = always"
+        ),
+    )
+    planning.add_argument(
+        "--web-only", action="store_true",
+        help="Leave out sections that are not web-enabled or are restricted",
+    )
+    planning.add_argument(
+        "--term",
+        help="Only courses offered in this term, e.g. 2627A or 'Semester A 2026/27'",
+    )
+    planning.add_argument(
+        "--no-steps", action="store_true",
+        help="Do not print the registration steps of each plan",
+    )
+    planning.add_argument(
+        "--ask", action="store_true",
+        help="After listing plans, ask which to save and export",
     )
     parser.add_argument(
         "--output",
@@ -1473,175 +1693,13 @@ def main(argv: list[str] | None = None) -> None:
     if args.csv_file and args.aims_html:
         parser.error("Choose either a CSV file or --aims-html, not both.")
 
+    if args.timetable_catalog or args.add_ge:
+        _run_course_planner(args, parser)
+        return
+
     if not args.csv_file and not args.aims_html:
         parser.print_help()
         return
-    if args.aims_html and (args.timetable_catalog or args.credit_catalog):
-        try:
-            timetable_courses = []
-            credit_courses = []
-
-            for catalog_path in args.timetable_catalog or []:
-                timetable_courses.extend(load_course_catalog(catalog_path))
-
-            for catalog_path in args.credit_catalog or []:
-                credit_courses.extend(load_course_catalog(catalog_path))
-
-            if args.add_ge > 0:
-                if not args.ge_bundles:
-                    raise ValueError(
-                        "--ge-bundles is required when using --add-ge"
-                    )
-
-                with open(
-                    args.ge_bundles,
-                    "r",
-                    encoding="utf-8-sig",
-                ) as file:
-                    course_bundles = json.load(file)
-
-                ge_courses = [
-                    course
-                    for course in timetable_courses
-                    if course.code.upper().startswith("GE")
-                ]
-
-                plans = generate_aims_ge_plans(
-                    args.aims_html,
-                    ge_courses,
-                    credit_courses,
-                    args.add_ge,
-                    max_results=args.max_results,
-                    min_credits=args.min_credits,
-                    max_credits=args.max_credits,
-                    preferred_days=args.prefer_days,
-                    avoid_days=args.avoid_days,
-                    course_bundles=course_bundles,
-                )
-            else:
-
-                plans = generate_plans(
-                    args.aims_html,
-                    timetable_courses,
-                    credit_courses=credit_courses,
-                    max_results=args.max_results,
-                    min_credits=args.min_credits,
-                    max_credits=args.max_credits,
-                    required_courses=args.required,
-                    preferred_days=args.prefer_days,
-                    required_sections=args.require_section,
-                    avoid_days=args.avoid_days,
-                    min_gap=args.min_gap,                
-                )
-        except (OSError, ValueError) as error:
-            parser.error(str(error))
-
-        if not plans:
-            print("No clash-free course plans were found.")
-            return
-
-        print(f"Found {len(plans)} valid course plan(s):\n")
-
-        for number, plan in enumerate(plans, start=1):
-            preferred_label = (
-                f", {plan.preferred_day_count} preferred day(s)"
-                if plan.preferred_day_count
-                else ""
-            )
-
-            print(
-                f"Plan {number} — {plan.total_credits} credits"
-                f"{preferred_label}"
-            )
-            for section in plan.sections:
-                print(
-                    f"  {section.course_code} {section.section} "
-                    f"{section.day} {section.start}-{section.end} "
-                    f"{section.location}"
-                )
-
-            print()
-        save_choice = input(
-            "Save plans (e.g. 1 or 1,2, or Enter to skip): "
-        ).strip()
-        try:
-            _exit_if_requested(save_choice)
-        except _ReturnToMenu:
-            return
-    if save_choice:
-        selected_indexes: list[int] = []
-        for raw_item in save_choice.split(","):
-            item = raw_item.strip()
-            if not item.isdigit():
-                continue
-            idx = int(item) - 1
-            if 0 <= idx < len(plans) and idx not in selected_indexes:
-                selected_indexes.append(idx)
-
-        if selected_indexes:
-            from dataclasses import asdict, is_dataclass
-
-            saved_bundles = _load_saved_bundles()
-            for idx in selected_indexes:
-                chosen_plan = plans[idx]
-                plan_data = (
-                    asdict(chosen_plan)
-                    if is_dataclass(chosen_plan)
-                    else {
-                        "total_credits": getattr(chosen_plan, "total_credits", None),
-                        "preferred_day_count": getattr(
-                            chosen_plan, "preferred_day_count", None
-                        ),
-                        "sections": [
-                            {
-                                "course_code": getattr(s, "course_code", None),
-                                "section": getattr(s, "section", None),
-                                "day": getattr(s, "day", None),
-                                "start": getattr(s, "start", None),
-                                "end": getattr(s, "end", None),
-                                "location": getattr(s, "location", None),
-                            }
-                            for s in getattr(chosen_plan, "sections", [])
-                        ],
-                    }
-                )
-                saved_bundles.append({
-                    "plan": plan_data,
-                    # 預留位置：日後爬蟲資料可直接加落呢度，例如 "scraped_info": None
-                })
-            try:
-                _save_bundles_to_disk(saved_bundles)
-                _print_green(f"Saved {len(selected_indexes)} bundle(s).")
-            except OSError as error:
-                _print_red(f"Could not save bundles: {error}")
-        if args.export_plan is not None:
-            if not (args.semester_start and args.semester_end):
-                parser.error(
-                    "--semester-start and --semester-end are required "
-                    "when using --export-plan"
-                )
-
-            plan_index = args.export_plan - 1
-
-            if plan_index < 0 or plan_index >= len(plans):
-                parser.error(
-                    f"Plan {args.export_plan} does not exist. "
-                    f"Choose a plan from 1 to {len(plans)}."
-                )
-
-            export_plan_ics(
-                args.aims_html,
-                plans[plan_index],
-                args.output,
-                args.semester_start,
-                args.semester_end,
-                exclusions_path=args.exclusions,
-            )
-
-            print(f"Exported plan {args.export_plan} to {args.output}")
-
-        return
-    
     try:
         if args.aims_html:
             sessions = load_aims_html(args.aims_html)
