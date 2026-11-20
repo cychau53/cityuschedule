@@ -1224,7 +1224,7 @@ def main(argv: list[str] | None = None) -> None:
         )
         return
 
-        if args.ge_search is not None:
+    if args.ge_search is not None:
         results = search_ge_courses(args.ge_search)
 
         if not results:
@@ -1300,6 +1300,7 @@ def main(argv: list[str] | None = None) -> None:
             seen_meetings = set()
 
             for record in records:
+                # Ignore placeholder records without section information.
                 if not any(
                     record.get(field) is not None
                     and str(record.get(field)).strip() != ""
@@ -1307,6 +1308,8 @@ def main(argv: list[str] | None = None) -> None:
                 ):
                     continue
 
+                # Remove exact duplicate meetings, not different meetings
+                # belonging to the same CRN or section.
                 meeting_key = json.dumps(
                     {
                         field: record.get(field)
