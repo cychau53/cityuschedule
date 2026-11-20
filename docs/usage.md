@@ -52,7 +52,7 @@ successful task.
 For advanced options, use `cityuschedule --help` or run a command directly.
 
 In menu option 5, GE search repeats until you enter `q` to return to the main
-menu or `0` to quit the package. Search is case-insensitive. Enter
+menu or `0` to exit the package. Search is case-insensitive. Enter
 `without exam` or `with exam` to filter by exam status, `cross` or `not cross`
 to filter cross-institutional courses, or `Area 1`, `Area 2`, or `Area 3` to
 show courses from one area. Enter `Level B` to include all B-level courses,
@@ -229,9 +229,9 @@ blank, the package asks for the code again.
 If the pasted text is not a complete course offering table, the package tells
 you what table is needed and reopens the paste prompt before asking for a code.
 At a retry prompt, enter `q` to leave the current input and return to the main
-menu. Enter `0` only to quit the package.
+menu. Enter `0` only to exit the package.
 In interactive prompts for other menu functions, `q` also returns to the main
-menu. Enter `0` only to quit the package.
+menu. Enter `0` only to exit the package.
 In an interactive terminal, menus and instructions are yellow, errors and
 rejected bundles are red, suggested bundles are green, and complete credit
 totals are blue. Colors are suppressed when output is redirected or

@@ -102,7 +102,7 @@ def test_menu_and_choice_prompt_are_yellow(monkeypatch):
     cli.interactive_menu()
 
     assert "\033[33m\nCityU Schedule\n1. Basic settings" in output.text
-    assert "Type q to return to the menu, or 0 to quit the package." in output.text
+    assert "Type q to return to the menu, or 0 to exit the package." in output.text
     assert prompts == ["\033[33mChoose an option: \033[0m"]
 
 

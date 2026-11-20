@@ -593,7 +593,7 @@ def interactive_menu() -> None:
             "10. Bundles saved\n"
             "11. Smart plan generator\n"
             "0. Exit\n"
-            "Type q to return to the menu, or 0 to quit the package.\n"
+            "Type q to return to the menu, or 0 to exit the package.\n"
             "Type delete all or delete names joined by 'and' to clear data."
         )
         try:
@@ -608,7 +608,7 @@ def interactive_menu() -> None:
                     try:
                         keyword = input(
                             "GE search keyword or filter "
-                            "(q = menu, 0 = quit): "
+                            "(q = menu, 0 = exit): "
                         ).strip()
                     except EOFError:
                         return
@@ -627,7 +627,7 @@ def interactive_menu() -> None:
                         if error.code:
                             print(
                                 "\nSearch failed. Enter another query, "
-                                "q to return to the menu, or 0 to quit."
+                                "q to return to the menu, or 0 to exit."
                             )
                 continue
 
