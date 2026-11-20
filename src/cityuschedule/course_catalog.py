@@ -127,15 +127,25 @@ def load_credit_catalogs(
         courses.extend(load_course_catalog(path))
 
     courses_by_code: dict[str, CatalogCourse] = {}
+    
     for course in courses:
-        code = course.code.upper()
-        existing = courses_by_code.get(code)
-        if existing is not None and existing.credits != course.credits:
+    code = course.code.upper()
+    existing = courses_by_code.get(code)
+
+    if existing is not None:
+        if (
+            existing.credits is not None
+            and course.credits is not None
+            and existing.credits != course.credits
+        ):
             raise ValueError(
                 f"Conflicting credits for {code}: "
                 f"{existing.credits} and {course.credits}"
             )
-        courses_by_code.setdefault(code, course)
 
+        if existing.credits is None:
+            courses_by_code[code] = course
 
+    courses_by_code.setdefault(code, course)
+    
     return list(courses_by_code.values())
