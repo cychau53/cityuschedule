@@ -122,6 +122,10 @@ def catalogue_dir() -> Path:
     )
 
 
+GE_DEFAULT_CREDITS = 3
+GE_CREDIT_EXCEPTIONS = {"GE1601": 1}
+
+
 def load_ge_section_catalog(
     path: str | Path | None = None,
     term: str | None = None,
@@ -130,8 +134,9 @@ def load_ge_section_catalog(
     catalogue courses, optionally keeping one term such as ``2026-27 Sem B``.
 
     Section codes such as ``15453C01`` start with the CRN; it is removed so
-    the section is ``C01``. Titles come from ``data/ge_courses.json``;
-    credits are left empty and come from the credit catalogue when known.
+    the section is ``C01``. Titles come from ``data/ge_courses.json``.
+    CityU GE courses carry 3 credit units, except GE1601 Whole-Person
+    Development (1 credit unit).
     """
     if path is None:
         from .ge_courses import SECTION_DATA_PATH
@@ -185,7 +190,7 @@ def load_ge_section_catalog(
         CatalogCourse(
             code=code,
             title=titles.get(code, ""),
-            credits=None,
+            credits=GE_CREDIT_EXCEPTIONS.get(code, GE_DEFAULT_CREDITS),
             sections=tuple(sections),
         )
         for code, sections in sorted(sections_by_course.items())

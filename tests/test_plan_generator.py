@@ -868,7 +868,7 @@ def test_term_filter_leaves_out_courses_not_offered():
 def test_ge_section_catalog_from_project_data():
     courses = load_ge_section_catalog(term="2026-27 Sem B")
     ge = next(c for c in courses if c.code == "GE1102")
-    assert ge.credits is None
+    assert ge.credits == 3
     first = ge.sections[0]
     assert first.section.startswith(("C", "T")) and len(first.section) == 3
     assert ":" in first.start and ":" in first.end

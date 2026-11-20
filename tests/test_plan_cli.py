@@ -114,7 +114,7 @@ def test_add_ge_uses_ge_section_data(capsys):
 
 def test_menu_option_8_builds_plan_command(monkeypatch):
     feed(
-        monkeypatch, "ge1102, ge1401", "1", "y", "my_catalogue.json",
+        monkeypatch, "ge1102, ge1401", "1", "y",
         "cs2311", "2627A", "", "cs1102", "45", "", "09:00", "", "y",
     )
     settings = cli.BasicSettings(prefer_days=("Mon",), avoid_days=("Fri",), max_credits=18)
@@ -123,7 +123,6 @@ def test_menu_option_8_builds_plan_command(monkeypatch):
         "--aims-html", "saved.html",
         "--courses", "GE1102", "GE1401",
         "--add-ge", "1",
-        "--timetable-catalog", "my_catalogue.json",
         "--required", "CS2311",
         "--term", "2627A",
         "--completed", "CS1102",
@@ -146,18 +145,47 @@ def test_menu_option_8_without_aims_or_courses(monkeypatch, capsys):
     assert cli._menu_command("8", None, cli.BasicSettings()) == (None, None)
 
 
-def test_menu_runs_plan_generator(monkeypatch, capsys):
-    feed(
-        monkeypatch, "8", "", "TEST101", "", "y", str(EXAMPLE),
-        "", "", "", "", "", "", "", "", "", "", "0",
-    )
-    monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: None)
+def test_menu_runs_plan_generator(monkeypatch, capsys, tmp_path):
+    """Option 8 needs only the saved AIMS timetable and course codes."""
+    html = tmp_path / "aims.html"
+    html.write_text(AIMS_HTML, encoding="utf-8")
+    feed(monkeypatch, "8", "GE1102", "", "", "", "", "0")
+    monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: str(html))
     cli.interactive_menu()
     output = capsys.readouterr().out
     assert "8. Generate course plans" in output
     assert "11." not in output
-    assert "TEST101 has 2 timeslots that fit your timetable" in output
-    assert "Plan 1:" in output and "TEST201" not in output.split("Plan 1:", 1)[1]
+    assert "JSON" not in output
+    assert "GE1102 has 2 timeslots that fit your timetable" in output
+    assert "Kept from your AIMS timetable: CS2311" in output
+    assert "GE1102 C01+T01  (3 cr)" in output
+
+
+CLASH_HTML = AIMS_HTML.replace(
+    "10:00-10:50</td>\n<td class=\"ctt-matrix-cell-blank\">&nbsp;</td>"
+    "<td class=\"ctt-matrix-cell-blank\">&nbsp;</td>\n"
+    "<td class=\"ctt-matrix-cell-blank\">&nbsp;</td>",
+    "13:00-13:50</td>\n<td class=\"ctt-matrix-cell-blank\">&nbsp;</td>"
+    "<td class=\"ctt-matrix-cell-blank\">&nbsp;</td>\n"
+    "<td class=\"ctt-matrix-cell-class\">10003<br>MA1200-C01<br>YEUNG 5503</td>",
+)
+
+
+def test_ge1102_against_saved_timetable(tmp_path, capsys):
+    """GE1102 (menu option 6 data) fits or clashes with the saved timetable."""
+    html = tmp_path / "aims.html"
+    html.write_text(AIMS_HTML, encoding="utf-8")
+    cli.main(["--aims-html", str(html), "--courses", "GE1102"])
+    output = capsys.readouterr().out
+    assert "GE1102 has 2 timeslots that fit your timetable" in output
+    assert "Plan 2:" in output
+
+    assert "MA1200-C01" in CLASH_HTML
+    html.write_text(CLASH_HTML, encoding="utf-8")
+    cli.main(["--aims-html", str(html), "--courses", "GE1102"])
+    output = capsys.readouterr().out
+    assert "classes clash" in output
+    assert "GE1102 has no timeslot that fits your timetable" in output
 
 
 def test_menu_option_8_q_returns_to_menu(monkeypatch):

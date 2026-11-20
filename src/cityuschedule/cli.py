@@ -538,14 +538,9 @@ def _plan_menu_command(
         command.extend(["--add-ge", ge_count])
 
     advanced = _ask_menu(
-        "Set more options (course list file, term, lunch, ...)? [y/N]"
+        "Set more options (required courses, term, lunch, ...)? [y/N]"
     ).casefold()
     if advanced in {"y", "yes"}:
-        catalogue_path = _prompt_path(
-            "Course list JSON with non-GE sections (Enter to skip)"
-        )
-        if catalogue_path:
-            command.extend(["--timetable-catalog", catalogue_path])
         questions = [
             ("--required", "Courses that must be included, e.g. CS2311 GE1401"),
             ("--term", "Term, e.g. 2627A for Semester A 2026/27"),
@@ -574,7 +569,7 @@ def _plan_menu_command(
             if answer in {"y", "yes"}:
                 command.append("--allow-section-change")
 
-    if not ({"--courses", "--add-ge", "--timetable-catalog"} & set(command)):
+    if not ({"--courses", "--add-ge"} & set(command)):
         _print_red("Enter at least one course code or a number of GE courses.")
         return None, None
     command.extend(_basic_settings_arguments(settings))
@@ -845,9 +840,9 @@ def _run_course_planner(args: argparse.Namespace, parser) -> None:
             if missing:
                 _print_yellow(
                     "Note: no section details for " + ", ".join(missing)
-                    + " (menu option 6 has none). Import them with the "
-                    "'Import GE course information' GitHub workflow, or "
-                    "give a course list with --timetable-catalog."
+                    + " (menu option 6 has none), so they cannot be "
+                    "planned yet. Import them with the 'Import GE course "
+                    "information' GitHub workflow."
                 )
             if not courses:
                 raise ValueError("None of the courses you entered have section details.")
@@ -985,8 +980,8 @@ def main(argv: list[str] | None = None) -> None:
         prog="cityuschedule",
         description="Check CityU course timetables for clashes and export them as calendar events.",
         epilog=(
-            "Course plans: give --courses, --timetable-catalog and/or --add-ge, "
-            "optionally with --aims-html, or choose option 8 in the menu."
+            "Course plans: give --courses and/or --add-ge with your saved "
+            "AIMS timetable (--aims-html), or choose option 8 in the menu."
         ),
     )
     parser.add_argument(
@@ -1088,13 +1083,12 @@ def main(argv: list[str] | None = None) -> None:
         help="Export the selected plan number as an ICS calendar, starting from 1",
     )
     planning = parser.add_argument_group(
-        "course plan generator (with --courses, --timetable-catalog or --add-ge)"
+        "course plan generator (with --courses or --add-ge)"
     )
     planning.add_argument(
         "--courses", nargs="+", metavar="CODE",
         help="Course codes you are interested in, e.g. GE1102 GE1401; "
-        "their sections come from the GE course details (menu option 6) "
-        "and any --timetable-catalog",
+        "their sections come from the GE course details (menu option 6)",
     )
     planning.add_argument(
         "--exclude", nargs="+", default=[], metavar="CODE",

@@ -1,7 +1,9 @@
 """Generate ranked, clash-free course plans that follow CityU registration rules.
 
 This is the only plan search in the package. Menu option 8 and the
-``--timetable-catalog`` / ``--add-ge`` command use it. It reuses the
+``--courses`` / ``--add-ge`` command use it: course sections come from the
+GE course details (menu option 6) and are fitted around the saved AIMS
+timetable (menu option 3), so the user never writes a JSON file. It reuses the
 project's existing building blocks instead of repeating them:
 
 ==============================  =============================================

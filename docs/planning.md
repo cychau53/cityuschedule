@@ -3,18 +3,17 @@
 The plan generator (menu option 8, or `cityuschedule --courses ...`) works like this:
 
 1. You type the course codes you are interested in, for example `GE1102 GE1401 GE2410`.
-2. It takes their sections from the GE course details (the data shown by menu option 6, `data/ge_course_information.json`), plus any course list you give with `--timetable-catalog`.
+2. It takes their sections from the GE course details (the data shown by menu option 6, `data/ge_course_information.json`). You never need to write a JSON file.
 3. It fits them around the AIMS timetable you saved in menu option 3, which stays fixed.
 4. It says how many timeslots of each course fit your timetable, for example "GE1111 has one timeslot that fits your timetable".
 5. It prints one weekly timetable per plan. If GE1234 can be taken on Tuesday 15:00-17:50 or Friday 09:00-11:50, plan 1 puts it on Tuesday and plan 2 on Friday (or the other way round, by ranking).
 
-You can choose how many of the GE courses to add (`--add-ge N`), days to avoid or prefer, and credit limits. Credit limits are optional: without them, no credit data is needed, so any CityU student can use the generator. The best plans come first, with the reason for each ranking and the AIMS registration steps.
+You can choose how many of the GE courses to add (`--add-ge N`), days to avoid or prefer, and credit limits. Credit limits are optional. GE courses count as 3 credit units (GE1601 as 1); the credits of your AIMS courses come from the project's credit catalogues. The best plans come first, with the reason for each ranking and the AIMS registration steps.
 
 It is built on the project's existing modules, so it gives the same answers as the rest of the program:
 
 | Job | Module reused |
 |---|---|
-| Read the course list JSON | `course_catalog.load_course_catalog` |
 | Read GE sections (`--add-ge`) | `course_catalog.load_ge_section_catalog` (from `data/ge_course_information.json`) |
 | Lecture/tutorial/lab bundles | `aims_table_parser.ParsedAimsTable.registration_bundles` (same rule as menu option 4) |
 | Clash test and time parsing | `schedule_conflicts.slots_overlap`, `time_to_minutes` |
@@ -60,7 +59,7 @@ Run `cityuschedule` with no arguments and choose **8. Generate course plans**. Y
 1. Your AIMS timetable HTML: the one saved in option 3 is used if you have one; otherwise type a path, or press Enter to plan without one
 2. The course codes you are interested in, e.g. `GE1102 GE1401 GE2410`
 3. How many GE courses the generator should add (Enter for as many as fit)
-4. Whether to set more options. If yes: a course list JSON for non-GE courses, required courses, term, study load (credit limit), completed courses, lunch minutes, minimum gap, earliest start, latest end, and (with AIMS) whether pre-registered courses may change section
+4. Whether to set more options. If yes: required courses, term, study load (credit limit), completed courses, lunch minutes, minimum gap, earliest start, latest end, and (with AIMS) whether pre-registered courses may change section
 
 Your **Basic settings** (option 1) are applied automatically: preferred days, avoided days, minimum and maximum credits, number of results. After the plans are listed you can save one to your saved bundles and export one to an `.ics` file. The AIMS path you use is remembered for next time.
 
@@ -92,36 +91,35 @@ Plan 1: 2 course(s) added; 3 day(s) on campus; ...
   ...
 ```
 
-`(? cr)` means the credits are not in the project data; this only matters if you set a credit limit. Course codes without section details are listed in a note: import them with the "Import GE course information" GitHub workflow, or give a course list with `--timetable-catalog`.
+`(? cr)` means the credits are not in the project data; this only matters if you set a credit limit. Course codes without section details (only GE1102 has them at the moment) are listed in a note; import more with the "Import GE course information" GitHub workflow.
 
-Plan from a course list file instead:
+If every timeslot of a course clashes with your timetable, it says so:
 
-```bash
-cityuschedule --timetable-catalog course_catalog.json \
-  --required TEST101 \
-  --avoid-days Thu \
-  --lunch 45 \
-  --max-results 5
+```
+Timeslots that fit your timetable:
+  GE1102 has no timeslot that fits your timetable
+
+No plan satisfies all settings.
+       2 option(s) rejected: classes clash
 ```
 
 Plan around a saved AIMS timetable, add one GE course for Semester B 2026/27, and export plan 1:
 
 ```bash
 cityuschedule --aims-html aims_schedule.html \
-  --timetable-catalog my_catalogue.json --add-ge 1 --term 2627B \
+  --courses GE1102 --add-ge 1 --term 2627B \
   --prefer-days Mon Tue Wed \
   --export-plan 1 --output exports/plan.ics \
   --semester-start 2027-01-11 --semester-end 2027-04-24
 ```
 
-The semester dates default to the project's current values (2026-08-31 to 2026-11-28). Replace them with the official CityU teaching dates for the semester you are planning. `--csv-file` can be used instead of `--aims-html` for the fixed timetable.
+The semester dates default to the project's current values (2026-08-31 to 2026-11-28). Replace them with the official CityU teaching dates for the semester you are planning. A CSV timetable such as `examples/sample_courses.csv` can be given instead of `--aims-html` for the fixed timetable: `cityuschedule examples/sample_courses.csv --courses GE1102`.
 
 Days accept `Mon`, `M`, `Thu`, `R`, `Thursday` and so on.
 
 | Option | Meaning |
 |---|---|
-| `--courses CODE ...` | Course codes you are interested in; sections come from the GE course details (option 6) and any `--timetable-catalog` |
-| `--timetable-catalog FILE` | Course list JSON to plan from |
+| `--courses CODE ...` | Course codes you are interested in; sections come from the GE course details (option 6) |
 | `--add-ge N` | Add exactly N GE courses: from your `--courses`, or from all GE section data if no codes are given |
 | `--ge-bundles FILE` | Valid section combinations listed by hand, e.g. `{"GE1102": [["C01", "T01"]]}` |
 | `--aims-html FILE` | Your current timetable; its classes are kept fixed |
@@ -195,12 +193,14 @@ A course can also list `prerequisites`, `precursors`, `exclusive_courses` and `e
 ## Python
 
 ```python
-from cityuschedule.course_catalog import load_course_catalog
+from cityuschedule.aims import load_aims_html
+from cityuschedule.course_catalog import load_ge_section_catalog
 from cityuschedule.plan_generator import PlanOptions, format_plan, generate_course_plans
 
 report = generate_course_plans(
-    load_course_catalog("course_catalog.json"),
-    PlanOptions(required_courses=("TEST101",), avoid_days=("Fri",), max_results=3),
+    [c for c in load_ge_section_catalog() if c.code == "GE1102"],
+    PlanOptions(avoid_days=("Fri",), max_results=3),
+    fixed_sessions=load_aims_html("aims_schedule.html"),
 )
 
 for warning in report.warnings:
