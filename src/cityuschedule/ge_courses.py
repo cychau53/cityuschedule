@@ -1,7 +1,6 @@
 import json
+from importlib.resources import files
 from pathlib import Path
-from contextlib import contextmanager
-from contextvars import ContextVar
 
 PACKAGE_DATA_DIRECTORY = Path(__file__).resolve().parent / "data"
 SOURCE_DATA_DIRECTORY = Path(__file__).resolve().parents[2] / "data"
@@ -12,13 +11,6 @@ DATA_DIRECTORY = (
 )
 DATA_PATH = DATA_DIRECTORY / "ge_courses.json"
 SECTION_DATA_PATH = DATA_DIRECTORY / "ge_course_information.json"
-
-_GE_SESSION_SOURCES: ContextVar[
-    tuple[Path, Path] | None
-] = ContextVar(
-    "ge_session_sources",
-    default=None,
-)
 
 
 @contextmanager
