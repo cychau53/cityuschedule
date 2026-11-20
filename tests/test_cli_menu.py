@@ -11,15 +11,40 @@ def test_running_without_arguments_opens_menu_and_searches_ge(
     capsys,
 ):
     monkeypatch.setattr(sys, "argv", ["cityuschedule"])
-    inputs = iter(["5", "environment", "0"])
+    inputs = iter(["5", "environment", "AREA1", "q", "0"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
-    monkeypatch.setattr(cli, "search_ge_courses", lambda keyword: [])
+    searches = []
+
+    def search_ge_courses(keyword):
+        searches.append(keyword)
+        return []
+
+    monkeypatch.setattr(cli, "search_ge_courses", search_ge_courses)
 
     cli.main()
 
     output = capsys.readouterr().out
+    assert searches == ["environment", "AREA1"]
     assert "CityU Schedule" in output
     assert "No Gateway Education courses found for 'environment'." in output
+    assert "No Gateway Education courses found for 'AREA1'." in output
+
+
+def test_ge_search_zero_exits_package(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["cityuschedule"])
+    inputs = iter(["5", "0"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+    searches = []
+    monkeypatch.setattr(
+        cli,
+        "search_ge_courses",
+        lambda keyword: searches.append(keyword) or [],
+    )
+
+    cli.main()
+
+    assert searches == []
+    assert capsys.readouterr().out.count("CityU Schedule") == 1
 
 
 def test_menu_typing_q_does_not_exit(monkeypatch):
@@ -132,7 +157,7 @@ def test_menu_saves_aims_path_and_reuses_it(monkeypatch, tmp_path):
 def test_menu_returns_after_task_error(monkeypatch, tmp_path, capsys):
     config_file = tmp_path / "aims_html_path.txt"
     inputs = iter(
-        ["3", r"C:\Schedules\missing.html", "5", "environment", "0"]
+        ["3", r"C:\Schedules\missing.html", "5", "environment", "q", "0"]
     )
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
     monkeypatch.setattr(

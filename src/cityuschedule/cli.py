@@ -427,15 +427,6 @@ def _menu_command(
         command.extend(_basic_settings_arguments(settings))
         return command, path
 
-    if choice == "5":
-        keyword = input("GE search keyword: ").strip()
-        _exit_if_requested(keyword)
-        return (
-            (["--ge-search", keyword], None)
-            if keyword
-            else (None, None)
-        )
-
     if choice == "6":
         course_code = input("GE course code: ").strip()
         _exit_if_requested(course_code)
@@ -611,6 +602,34 @@ def interactive_menu() -> None:
             ).strip()
             if choice.casefold() == "0":
                 return
+
+            if choice == "5":
+                while True:
+                    try:
+                        keyword = input(
+                            "GE search keyword or filter "
+                            "(q = menu, 0 = quit): "
+                        ).strip()
+                    except EOFError:
+                        return
+
+                    if keyword.casefold() == "q":
+                        break
+                    if keyword == "0":
+                        return
+                    if not keyword:
+                        _print_red("Enter a keyword or filter, q, or 0.")
+                        continue
+
+                    try:
+                        main(["--ge-search", keyword])
+                    except SystemExit as error:
+                        if error.code:
+                            print(
+                                "\nSearch failed. Enter another query, "
+                                "q to return to the menu, or 0 to quit."
+                            )
+                continue
 
             delete_command = choice.casefold()
             if delete_command.startswith("delete"):
