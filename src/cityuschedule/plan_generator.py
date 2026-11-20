@@ -72,7 +72,7 @@ from .course_planner import (
 )
 from .planner import calculate_course_credits, planned_sections_to_sessions
 from .schedule_conflicts import TimeSlot, slots_overlap, time_to_minutes
-from .timetable import WEEKDAYS
+from .timetable import WEEKDAYS, format_timetable
 from .travel_time import load_travel_times, walking_minutes
 
 _DAY_LETTERS = {name: letter for letter, name in DAY_NAMES.items()}
@@ -391,7 +391,7 @@ class PlanOptions:
     search_limit: int = 200_000
     bundle_definitions: Mapping[str, Sequence[Sequence[str]]] = field(default_factory=dict)
     # CityU registration rules
-    study_load: str | None = "full-time"
+    study_load: str | None = None
     allow_overload: bool = False
     allow_section_changes: bool = False
     completed_courses: tuple[str, ...] = ()
@@ -402,6 +402,7 @@ class PlanOptions:
 
 @dataclass(frozen=True)
 class PlanScore:
+    new_courses: int
     total_credits: int
     registration_risk: int
     section_changes: int
@@ -422,6 +423,7 @@ class CoursePlan:
     score: PlanScore
     study_load: tuple[int, int] | None = None
     ge_quota_courses: tuple[str, ...] = ()
+    unknown_credit_courses: tuple[str, ...] = ()
 
     @property
     def total_credits(self) -> int:
@@ -462,7 +464,12 @@ class CoursePlan:
     def explain(self) -> str:
         s = self.score
         parts = [
-            f"{s.total_credits} credits",
+            f"{s.new_courses} course(s) added",
+            *([f"{s.total_credits} credits"] if s.total_credits else []),
+            *(
+                ["credits unknown for " + ", ".join(self.unknown_credit_courses)]
+                if self.unknown_credit_courses else []
+            ),
             f"{s.days_on_campus} day(s) on campus",
             f"{s.idle_minutes} min waiting between classes",
         ]
@@ -603,6 +610,26 @@ class PlanReport:
     truncated: bool = False
     rejections: Counter = field(default_factory=Counter)
     warnings: list[str] = field(default_factory=list)
+    # course code -> section bundles that fit the fixed timetable on their own
+    fitting: dict[str, tuple[CourseOption, ...]] = field(default_factory=dict)
+
+    def fit_summary(self) -> list[str]:
+        """One line per course: how many timeslots fit your timetable."""
+        lines = []
+        for code, fits in sorted(self.fitting.items()):
+            if not fits:
+                lines.append(f"{code} has no timeslot that fits your timetable")
+                continue
+            slots = "; ".join(
+                "+".join(o.section_codes) + " " + ", ".join(
+                    f"{m.day} {_clock(m.start)}-{_clock(m.end)}" for m in o.meetings
+                )
+                for o in fits
+            )
+            count = "one timeslot" if len(fits) == 1 else f"{len(fits)} timeslots"
+            verb = "fits" if len(fits) == 1 else "fit"
+            lines.append(f"{code} has {count} that {verb} your timetable: {slots}")
+        return lines
 
     def __iter__(self):
         return iter(self.plans)
@@ -799,10 +826,11 @@ class _Rules:
 
 
 def _rank_key(plan: CoursePlan) -> tuple:
-    """Lower is better. The first four parts never improve as classes are
+    """Lower is better. The first five parts never improve as classes are
     added, which lets the search skip branches (see ``lower_bound``)."""
     s = plan.score
     return (
+        -s.new_courses,
         -s.total_credits,
         s.registration_risk,
         s.non_preferred_meetings,
@@ -923,7 +951,8 @@ def generate_course_plans(
     fixed_credits, unknown_fixed = calculate_course_credits(
         {c for c in fixed_codes if counts_toward_study_load(c)}, known_credits
     )
-    if unknown_fixed:
+    uses_credits = study_load is not None or min_credits is not None or max_credits is not None
+    if unknown_fixed and uses_credits:
         warn("Credits unknown for pre-registered courses (counted as 0): " + ", ".join(unknown_fixed))
 
     # Candidate courses ----------------------------------------------------
@@ -964,7 +993,7 @@ def generate_course_plans(
                 unknown_credits.append(code)
             course = replace(course, credits=credits)
         catalogue[code] = course
-    if unknown_credits:
+    if unknown_credits and uses_credits:
         warn("Credits unknown (counted as 0): " + ", ".join(sorted(unknown_credits)))
     if unchecked:
         warn(
@@ -1023,11 +1052,15 @@ def generate_course_plans(
             warn(f"{code} has no complete section bundle that can be registered")
         options_by_course[code] = allowed
     report.warnings[:] = list(dict.fromkeys(report.warnings))
+    for code, course_options in options_by_course.items():
+        if code not in movable:
+            report.fitting[code] = tuple(o for o in course_options if rules.add(state, o)[1] is None)
 
     # Branch-and-bound search ---------------------------------------------
     order = sorted(options_by_course, key=lambda c: (c not in required, len(options_by_course[c]), c))
     is_ge = {c: c.startswith("GE") for c in order}
     remaining_credits = [0] * (len(order) + 1)
+    remaining_courses = [0] * (len(order) + 1)
     remaining_ge = [0] * (len(order) + 1)
     for index in range(len(order) - 1, -1, -1):
         code = order[index]
@@ -1035,6 +1068,7 @@ def generate_course_plans(
             (o.credits for o in options_by_course[code]), default=0
         )
         remaining_ge[index] = remaining_ge[index + 1] + int(is_ge[code] and bool(options_by_course[code]))
+        remaining_courses[index] = remaining_courses[index + 1] + int(bool(options_by_course[code]))
     credit_cap = max_credits if max_credits is not None else 10**9
     early, late = time_to_minutes("09:00"), time_to_minutes("19:00")
     plans: list[CoursePlan] = []
@@ -1051,6 +1085,7 @@ def generate_course_plans(
             return
         new_meetings = [m for o in chosen for m in o.meetings]
         score = PlanScore(
+            new_courses=len(chosen),
             total_credits=total,
             registration_risk=sum(o.registration_risk for o in chosen),
             section_changes=sum(1 for o in chosen if o.replaces_sections),
@@ -1073,6 +1108,9 @@ def generate_course_plans(
             study_load=study_load,
             ge_quota_courses=tuple(
                 o.course_code for o in chosen if ge_areas.get(o.course_code, "").startswith("Area")
+            ),
+            unknown_credit_courses=tuple(
+                o.course_code for o in chosen if o.course_code in unknown_credits
             ),
         )
         plans.append(plan)
@@ -1100,7 +1138,17 @@ def generate_course_plans(
             return
         best_credits = min(credit_cap, fixed_credits + credits + remaining_credits[index])
         days = sum(1 for day in current.values() if day)
-        if len(top_keys) >= options.max_results and (-best_credits, risk, non_preferred, days) > top_keys[-1][:4]:
+        most_courses = len(chosen) + remaining_courses[index]
+        if options.max_courses is not None:
+            most_courses = min(most_courses, options.max_courses)
+        if options.ge_courses is not None:
+            most_courses = min(
+                most_courses,
+                len(chosen) - ge_count + options.ge_courses
+                + sum(1 for c in order[index:] if not is_ge[c] and options_by_course[c]),
+            )
+        bound = (-most_courses, -best_credits, risk, non_preferred, days)
+        if len(top_keys) >= options.max_results and bound > top_keys[-1][:5]:
             report.rejections["bound"] += 1
             return
 
@@ -1164,19 +1212,16 @@ def format_plan(plan: CoursePlan, number: int | None = None, steps: bool = True)
             labels.append(tags[option.route])
         if option.restricted:
             labels.append("restricted")
+        credits = "?" if option.course_code in plan.unknown_credit_courses else option.credits
         lines.append(
-            f"  {option.label}  ({option.credits} cr)  {option.title}"
+            f"  {option.label}  ({credits} cr)  {option.title}".rstrip()
             + (f"  [{', '.join(labels)}]" if labels else "")
         )
-    current_day = None
-    for meeting in plan.meetings:
-        if meeting.day != current_day:
-            current_day = meeting.day
-            lines.append(f"  {meeting.day}")
-        lines.append(
-            f"    {_clock(meeting.start)}-{_clock(meeting.end)}  {meeting.label:<14} "
-            f"{meeting.location}{'  (fixed)' if meeting.fixed else ''}"
-        )
+    if plan.fixed_courses:
+        lines.append("  Kept from your AIMS timetable: " + ", ".join(plan.fixed_courses))
+    lines.extend(
+        f"  {line}" for line in format_timetable(plan.to_sessions()).splitlines() if line
+    )
     if steps and plan.registration_steps():
         lines.append("  Registration steps:")
         lines.extend(f"    {step}" for step in plan.registration_steps())

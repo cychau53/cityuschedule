@@ -130,8 +130,8 @@ def load_ge_section_catalog(
     catalogue courses, optionally keeping one term such as ``2026-27 Sem B``.
 
     Section codes such as ``15453C01`` start with the CRN; it is removed so
-    the section is ``C01``. Credits are left empty and come from the credit
-    catalogue.
+    the section is ``C01``. Titles come from ``data/ge_courses.json``;
+    credits are left empty and come from the credit catalogue when known.
     """
     if path is None:
         from .ge_courses import SECTION_DATA_PATH
@@ -169,10 +169,22 @@ def load_ge_section_catalog(
             )
         )
 
+    titles: dict[str, str] = {}
+    try:
+        from .ge_courses import DATA_PATH as GE_LIST_PATH
+
+        with open(GE_LIST_PATH, "r", encoding="utf-8-sig") as file:
+            for item in json.load(file):
+                if isinstance(item, dict):
+                    code = str(item.get("course_code", "")).strip().upper()
+                    titles[code] = str(item.get("course_title") or "")
+    except (OSError, ValueError):
+        pass
+
     return [
         CatalogCourse(
             code=code,
-            title="",
+            title=titles.get(code, ""),
             credits=None,
             sections=tuple(sections),
         )

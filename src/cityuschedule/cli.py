@@ -521,32 +521,35 @@ def _plan_menu_command(
     aims_path = saved_aims_path or _prompt_path(
         "AIMS timetable HTML path to plan around (Enter to skip)"
     )
-    catalogue_path = _prompt_path(
-        "Course timetable catalogue JSON path (Enter to skip)"
-    )
+    codes = _ask_menu(
+        "Course codes you are interested in, e.g. GE1102 GE1401 GE2410"
+    ).replace(",", " ").upper().split()
     ge_count = _ask_menu(
-        "Number of GE courses to add from the GE data (Enter for 0)"
+        "How many GE courses should the generator add? (Enter for as many as fit)"
     )
     if ge_count and not ge_count.isdigit():
         _print_red("Enter a whole number of GE courses.")
         return None, None
-    if not catalogue_path and not int(ge_count or 0):
-        return None, None
 
     command = ["--aims-html", aims_path] if aims_path else []
-    if catalogue_path:
-        command.extend(["--timetable-catalog", catalogue_path])
+    if codes:
+        command.extend(["--courses", *codes])
     if int(ge_count or 0):
         command.extend(["--add-ge", ge_count])
 
     advanced = _ask_menu(
-        "Set CityU registration and timetable options? [y/N]"
+        "Set more options (course list file, term, lunch, ...)? [y/N]"
     ).casefold()
     if advanced in {"y", "yes"}:
+        catalogue_path = _prompt_path(
+            "Course list JSON with non-GE sections (Enter to skip)"
+        )
+        if catalogue_path:
+            command.extend(["--timetable-catalog", catalogue_path])
         questions = [
             ("--required", "Courses that must be included, e.g. CS2311 GE1401"),
             ("--term", "Term, e.g. 2627A for Semester A 2026/27"),
-            ("--study-load", "Study load: full-time, part-time or summer"),
+            ("--study-load", "Credit limit by study load: full-time, part-time or summer"),
             ("--completed", "Courses you have completed, e.g. CS1102 MA1200"),
             ("--lunch", "Lunch break minutes between 11:30 and 14:30"),
             ("--min-gap", "Minimum minutes between classes"),
@@ -571,6 +574,9 @@ def _plan_menu_command(
             if answer in {"y", "yes"}:
                 command.append("--allow-section-change")
 
+    if not ({"--courses", "--add-ge", "--timetable-catalog"} & set(command)):
+        _print_red("Enter at least one course code or a number of GE courses.")
+        return None, None
     command.extend(_basic_settings_arguments(settings))
     command.append("--ask")
     return command, aims_path
@@ -807,9 +813,14 @@ def _run_course_planner(args: argparse.Namespace, parser) -> None:
             for path in args.timetable_catalog or []
             for course in load_course_catalog(path)
         ]
+        wanted = list(dict.fromkeys(
+            code for item in args.courses or []
+            for code in item.replace(",", " ").upper().split()
+        ))
         if args.add_ge < 0:
             raise ValueError("--add-ge cannot be negative")
-        if args.add_ge:
+        if wanted or args.add_ge:
+            # Course details shown by menu option 6 (data/ge_course_information.json).
             ge_term = None
             if args.term:
                 from .plan_generator import term_key
@@ -826,6 +837,20 @@ def _run_course_planner(args: argparse.Namespace, parser) -> None:
                 for course in load_ge_section_catalog(term=ge_term)
                 if course.code.upper() not in known
             )
+        if wanted:
+            keep = set(wanted) | {code.upper() for code in args.required or []}
+            courses = [c for c in courses if c.code.upper() in keep]
+            found = {c.code.upper() for c in courses}
+            missing = [code for code in wanted if code not in found]
+            if missing:
+                _print_yellow(
+                    "Note: no section details for " + ", ".join(missing)
+                    + " (menu option 6 has none). Import them with the "
+                    "'Import GE course information' GitHub workflow, or "
+                    "give a course list with --timetable-catalog."
+                )
+            if not courses:
+                raise ValueError("None of the courses you entered have section details.")
         bundles = {}
         if args.ge_bundles:
             with open(args.ge_bundles, "r", encoding="utf-8-sig") as file:
@@ -874,6 +899,12 @@ def _run_course_planner(args: argparse.Namespace, parser) -> None:
 
     for warning in report.warnings:
         _print_yellow(f"Note: {warning}")
+    fit_lines = report.fit_summary()
+    if fit_lines:
+        print("\nTimeslots that fit your timetable:")
+        for line in fit_lines:
+            print(f"  {line}")
+        print()
     if not report.plans:
         _print_red(report.explain_no_plans())
         return
@@ -954,7 +985,7 @@ def main(argv: list[str] | None = None) -> None:
         prog="cityuschedule",
         description="Check CityU course timetables for clashes and export them as calendar events.",
         epilog=(
-            "Course plans: give --timetable-catalog and/or --add-ge, "
+            "Course plans: give --courses, --timetable-catalog and/or --add-ge, "
             "optionally with --aims-html, or choose option 8 in the menu."
         ),
     )
@@ -1057,7 +1088,13 @@ def main(argv: list[str] | None = None) -> None:
         help="Export the selected plan number as an ICS calendar, starting from 1",
     )
     planning = parser.add_argument_group(
-        "course plan generator (with --timetable-catalog or --add-ge)"
+        "course plan generator (with --courses, --timetable-catalog or --add-ge)"
+    )
+    planning.add_argument(
+        "--courses", nargs="+", metavar="CODE",
+        help="Course codes you are interested in, e.g. GE1102 GE1401; "
+        "their sections come from the GE course details (menu option 6) "
+        "and any --timetable-catalog",
     )
     planning.add_argument(
         "--exclude", nargs="+", default=[], metavar="CODE",
@@ -1084,11 +1121,11 @@ def main(argv: list[str] | None = None) -> None:
         help="Do not check walking time between buildings",
     )
     planning.add_argument(
-        "--study-load", default="full-time",
+        "--study-load", default="none",
         choices=("full-time", "part-time", "summer", "none"),
         help=(
             "CityU study load: full-time 12-18 credits, part-time max 11, "
-            "summer max 7 (default full-time)"
+            "summer max 7 (default none: no credit limit)"
         ),
     )
     planning.add_argument(
@@ -1693,7 +1730,7 @@ def main(argv: list[str] | None = None) -> None:
     if args.csv_file and args.aims_html:
         parser.error("Choose either a CSV file or --aims-html, not both.")
 
-    if args.timetable_catalog or args.add_ge:
+    if args.courses or args.timetable_catalog or args.add_ge:
         _run_course_planner(args, parser)
         return
 

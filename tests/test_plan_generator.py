@@ -808,6 +808,7 @@ def test_command_line_registration_options(tmp_path, capsys, monkeypatch):
     cli.main([
         "--timetable-catalog", str(path), "--aims-html", str(html), "--allow-section-change",
         "--required", "GE1102", "--no-travel-check", "--max-results", "1",
+        "--study-load", "full-time",
     ])
     text = capsys.readouterr().out
     assert "Registration steps:" in text
@@ -833,7 +834,7 @@ def test_course_without_credits_uses_credit_catalogue_or_zero():
         CatalogSection("XX1000", "C01", "Tue", "09:00", "10:50", "LI 3508"),
     ))
     report = generate_course_plans(
-        [no_credit, unknown], PlanOptions(), travel_times={},
+        [no_credit, unknown], PlanOptions(study_load="full-time"), travel_times={},
         credit_courses=[reg_course("CS2311", 3)],
     )
     assert report.plans[0].total_credits == 3
@@ -881,3 +882,30 @@ def test_ge_courses_adds_exact_number():
     assert report.plans
     for plan in report.plans:
         assert sum(code.startswith("GE") for code in plan.course_codes) == 1
+
+
+def test_no_credit_limit_means_no_credit_warning():
+    """Without credit limits anyone can plan, even with no credit data."""
+    unknown = CatalogCourse("XX1000", "Unknown", None, (
+        CatalogSection("XX1000", "C01", "Tue", "09:00", "10:50", "LI 3508"),
+    ))
+    report = generate_course_plans([unknown], PlanOptions(), travel_times={})
+    assert report.plans and not report.warnings
+    assert report.plans[0].explain().startswith("1 course(s) added")
+
+
+def test_more_courses_rank_before_more_credits():
+    a = course("AAA1000", 9, section("C01", "Mon", "09:00", "11:50"))
+    b = course("BBB1000", 3, section("C01", "Mon", "09:00", "09:50"))
+    c = course("CCC1000", 3, section("C01", "Mon", "10:00", "10:50"))
+    best = plans([a, b, c]).plans[0]
+    assert set(best.course_codes) == {"BBB1000", "CCC1000"}
+
+
+def test_fit_summary_counts_timeslots():
+    ge = course("GE1111", 3, section("C01", "Tue", "15:00", "17:50"),
+                section("C02", "Fri", "09:00", "11:50"))
+    report = plans([ge], avoid_days=("Fri",))
+    assert report.fit_summary() == [
+        "GE1111 has one timeslot that fits your timetable: C01 Tue 15:00-17:50"
+    ]
