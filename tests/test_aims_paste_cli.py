@@ -224,12 +224,20 @@ def test_paste_cli_exits_from_retry_prompt(monkeypatch):
     inputs = iter(["q"])
     monkeypatch.setattr("builtins.input", lambda: next(inputs))
 
+    cli.main()
+
+
+def test_paste_cli_exits_package_when_user_enters_zero(monkeypatch):
+    prepare_cli(monkeypatch, [], pasted_table="")
+    inputs = iter(["0"])
+    monkeypatch.setattr("builtins.input", lambda: next(inputs))
+
     try:
         cli.main()
     except SystemExit as error:
         assert error.code == 0
     else:
-        raise AssertionError("Expected q to exit paste input")
+        raise AssertionError("Expected 0 to exit the package")
 
 
 def test_paste_cli_reports_conflicting_bundle(monkeypatch, capsys):

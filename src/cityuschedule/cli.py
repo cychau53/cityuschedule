@@ -215,6 +215,7 @@ def _prompt_days(label: str, current: tuple[str, ...]) -> tuple[str, ...]:
     response = input(
         f"{label} [{current_value}] (blank keeps, none clears): "
     ).strip()
+    _exit_if_requested(response)
     if not response:
         return current
     if response.casefold() in {"none", "clear"}:
@@ -230,6 +231,7 @@ def _prompt_credit_limit(
     response = input(
         f"{label} [{current_value}] (blank keeps, none clears): "
     ).strip()
+    _exit_if_requested(response)
     if not response:
         return current
     if response.casefold() in {"none", "clear"}:
@@ -318,6 +320,7 @@ def _save_aims_path(path: str) -> None:
 def _prompt_path(label: str, default: str | None = None) -> str | None:
     default_text = f" [{default}]" if default else ""
     value = input(f"{label}{default_text}: ").strip()
+    _exit_if_requested(value)
     if not value:
         return default
     if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
@@ -325,8 +328,15 @@ def _prompt_path(label: str, default: str | None = None) -> str | None:
     return value
 
 
+class _ReturnToMenu(Exception):
+    pass
+
+
 def _exit_if_requested(value: str) -> None:
-    if value.strip().casefold() in {"0", "q"}:
+    entered = value.strip().casefold()
+    if entered == "q":
+        raise _ReturnToMenu
+    if entered == "0":
         raise SystemExit(0)
 
 
@@ -414,6 +424,7 @@ def _menu_command(
 
     if choice == "5":
         keyword = input("GE search keyword: ").strip()
+        _exit_if_requested(keyword)
         return (
             (["--ge-search", keyword], None)
             if keyword
@@ -422,6 +433,7 @@ def _menu_command(
 
     if choice == "6":
         course_code = input("GE course code: ").strip()
+        _exit_if_requested(course_code)
         return (
             (["--ge-info", course_code], None)
             if course_code
@@ -430,6 +442,7 @@ def _menu_command(
 
     if choice == "7":
         source_type = input("Export source (CSV or AIMS): ").strip().upper()
+        _exit_if_requested(source_type)
         if source_type not in {"CSV", "AIMS"}:
             _print_red("Choose CSV or AIMS.")
             return None, None
@@ -454,12 +467,14 @@ def _menu_command(
         start = input(
             "Semester start [2026-08-31]: "
         ).strip()
+        _exit_if_requested(start)
         if start:
             command.extend(["--semester-start", start])
 
         end = input(
             "Semester end [2026-11-28]: "
         ).strip()
+        _exit_if_requested(end)
         if end:
             command.extend(["--semester-end", end])
 
@@ -518,13 +533,14 @@ def interactive_menu() -> None:
             "9. Import GE courses from HTML\n"
             "10. Bundles saved\n"
             "0. Exit\n"
+            "Type q to return to the menu, or 0 to quit the package.\n"
             "Type delete all or delete names joined by 'and' to clear data."
         )
         try:
             choice = input(
                 _colorize("Choose an option: ", "33")
             ).strip()
-            if choice.casefold() in {"0", "q"}:
+            if choice.casefold() == "0":
                 return
 
             delete_command = choice.casefold()
@@ -638,6 +654,8 @@ def interactive_menu() -> None:
             )
         except EOFError:
             return
+        except _ReturnToMenu:
+            continue
 
         if command is None:
             if choice not in {
@@ -985,6 +1003,8 @@ def main(argv: list[str] | None = None) -> None:
                 unavailable_sections=unavailable_sections,
             )
 
+        except _ReturnToMenu:
+            return
         except (OSError, ValueError) as error:
             parser.error(str(error))
 
@@ -1439,8 +1459,12 @@ def main(argv: list[str] | None = None) -> None:
 
             print()
         save_choice = input(
-        "Save plans (e.g. 1 or 1,2, or Enter to skip): "
-    ).strip()
+            "Save plans (e.g. 1 or 1,2, or Enter to skip): "
+        ).strip()
+        try:
+            _exit_if_requested(save_choice)
+        except _ReturnToMenu:
+            return
     if save_choice:
         selected_indexes: list[int] = []
         for raw_item in save_choice.split(","):

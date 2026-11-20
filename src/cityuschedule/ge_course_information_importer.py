@@ -417,6 +417,12 @@ def main() -> None:
                         "Pass course codes as command-line arguments."
                     )
 
+                entered = entered.strip()
+                if entered.casefold() == "q":
+                    return
+                if entered == "0":
+                    raise SystemExit(0)
+
                 course_codes = entered.replace(",", " ").split()
 
             records = update_ge_course_information_from_web(

@@ -22,6 +22,33 @@ def test_running_without_arguments_opens_menu_and_searches_ge(
     assert "No Gateway Education courses found for 'environment'." in output
 
 
+def test_menu_typing_q_does_not_exit(monkeypatch):
+    inputs = iter(["q", "0"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+    monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: None)
+    monkeypatch.setattr(cli, "_load_basic_settings", lambda: cli.BasicSettings())
+
+    cli.interactive_menu()
+
+
+def test_menu_path_prompt_q_returns_to_menu(monkeypatch):
+    inputs = iter(["2", "q", "0"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+    monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: None)
+    monkeypatch.setattr(cli, "_load_basic_settings", lambda: cli.BasicSettings())
+
+    cli.interactive_menu()
+
+
+def test_basic_settings_q_returns_to_menu(monkeypatch):
+    inputs = iter(["1", "q", "0"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+    monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: None)
+    monkeypatch.setattr(cli, "_load_basic_settings", lambda: cli.BasicSettings())
+
+    cli.interactive_menu()
+
+
 def test_menu_and_choice_prompt_are_yellow(monkeypatch):
     class TerminalOutput:
         def __init__(self):
@@ -50,6 +77,7 @@ def test_menu_and_choice_prompt_are_yellow(monkeypatch):
     cli.interactive_menu()
 
     assert "\033[33m\nCityU Schedule\n1. Basic settings" in output.text
+    assert "Type q to return to the menu, or 0 to quit the package." in output.text
     assert prompts == ["\033[33mChoose an option: \033[0m"]
 
 

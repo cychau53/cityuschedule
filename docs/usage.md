@@ -214,7 +214,10 @@ again. If the table has no course heading and you leave the course-code prompt
 blank, the package asks for the code again.
 If the pasted text is not a complete course offering table, the package tells
 you what table is needed and reopens the paste prompt before asking for a code.
-At a retry prompt, enter `0` or `q` to exit.
+At a retry prompt, enter `q` to leave the current input and return to the main
+menu. Enter `0` only to quit the package.
+In interactive prompts for other menu functions, `q` also returns to the main
+menu. Enter `0` only to quit the package.
 In an interactive terminal, menus and instructions are yellow, errors and
 rejected bundles are red, suggested bundles are green, and complete credit
 totals are blue. Colors are suppressed when output is redirected or
