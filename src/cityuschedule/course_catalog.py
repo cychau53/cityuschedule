@@ -23,7 +23,7 @@ class CatalogSection:
 class CatalogCourse:
     code: str
     title: str
-    credits: int
+    credits: int | None
     sections: tuple[CatalogSection, ...]
 
 
@@ -70,15 +70,35 @@ def load_course_catalog(path: str | Path) -> list[CatalogCourse]:
             for section in item.get("sections", [])
         )
 
+        raw_credits = item.get("credits")
+
+        if raw_credits is None:
+            section_credits = {
+                section.section_credits
+                for section in sections
+                if section.section_credits is not None
+            }
+
+            if len(section_credits) == 1:
+                credits: int | None = section_credits.pop()
+            elif section_credits:
+                raise ValueError(
+                    f"Course {course_code} has no course-level credits and "
+                    f"conflicting section credits: {sorted(section_credits)}"
+                )
+            else:
+                credits = None
+        else:
+            credits = int(raw_credits)
+
         courses.append(
             CatalogCourse(
                 code=course_code,
                 title=item.get("title", ""),
-                credits=int(item["credits"]),
+                credits=credits,
                 sections=sections,
             )
         )
-
     return courses
 
 
