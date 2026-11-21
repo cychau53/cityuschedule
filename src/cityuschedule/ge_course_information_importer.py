@@ -398,11 +398,13 @@ def merge_ge_course_information_from_web(
             f"Every record in {output_path} must be a JSON object."
         )
 
+    requested_codes = set(codes)
+
     updated_records = [
         record
         for record in existing_records
         if str(record.get("course_code") or "").strip().upper()
-        not in set(codes)
+        not in requested_codes
     ]
 
     fetched_records = []
@@ -416,9 +418,17 @@ def merge_ge_course_information_from_web(
         )
 
     updated_records.extend(fetched_records)
+
+    print(
+        f"DEBUG: fetched {len(fetched_records)} record(s) "
+        f"for {', '.join(codes)}"
+    )
+    print(f"DEBUG: writing {len(updated_records)} record(s) to {output_path}")
+
     _write_records(updated_records, output_path)
 
     return fetched_records
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
