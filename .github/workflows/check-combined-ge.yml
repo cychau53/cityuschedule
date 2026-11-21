@@ -1,0 +1,95 @@
+name: Check combined GE information
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  combine:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install package
+        run: python -m pip install -e .
+
+      - name: Combine GE course information
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          from cityuschedule.ge_courses import load_ge_courses
+
+          records = load_ge_courses()
+
+          output = Path("output/ge_courses_combined.json")
+          output.parent.mkdir(parents=True, exist_ok=True)
+
+          output.write_text(
+              json.dumps(
+                  records,
+                  ensure_ascii=False,
+                  indent=2,
+              ) + "\n",
+              encoding="utf-8",
+          )
+
+          course_codes = {
+              record["course_code"]
+              for record in records
+          }
+
+          meeting_records = [
+              record
+              for record in records
+              if record.get("crn")
+          ]
+
+          courses_with_sections = {
+              record["course_code"]
+              for record in meeting_records
+          }
+
+          unique_sections = {
+              (
+                  record["course_code"],
+                  record.get("term"),
+                  record["crn"],
+                  record.get("section"),
+              )
+              for record in meeting_records
+          }
+
+          print(f"Combined output records: {len(records)}")
+          print(f"Distinct GE courses: {len(course_codes)}")
+          print(
+              "Courses with section information: "
+              f"{len(courses_with_sections)}"
+          )
+          print(f"Distinct sections: {len(unique_sections)}")
+          print(f"Section meeting records: {len(meeting_records)}")
+          print(f"Combined JSON written to {output}")
+
+          if not meeting_records:
+              print(
+                  "WARNING: No matching section information was found. "
+                  "Check ge_course_information.json and its course_code values."
+              )
+          PY
+
+      - name: Upload combined JSON
+        uses: actions/upload-artifact@v4
+        with:
+          name: combined-ge-information
+          path: output/ge_courses_combined.json
+          if-no-files-found: error

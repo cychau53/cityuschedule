@@ -1,0 +1,58 @@
+{
+  "YEUNG": {
+    "LI": 7,
+    "LAU": 7,
+    "BOC": 3,
+    "MMW": 7,
+    "JCT": 3,
+    "CMC": 19
+  },
+  "LI": {
+    "YEUNG": 7,
+    "LAU": 3,
+    "BOC": 4,
+    "MMW": 9,
+    "JCT": 4,
+    "CMC": 15
+  },
+  "LAU": {
+    "YEUNG": 7,
+    "LI": 3,
+    "BOC": 4,
+    "MMW": 7,
+    "JCT": 4,
+    "CMC": 12
+  },
+  "BOC": {
+    "YEUNG": 3,
+    "LI": 4,
+    "LAU": 4,
+    "MMW": 5,
+    "JCT": 0,
+    "CMC": 16
+  },
+  "MMW": {
+    "YEUNG": 7,
+    "LI": 9,
+    "LAU": 7,
+    "BOC": 5,
+    "JCT": 5,
+    "CMC": 19
+  },
+  "JCT": {
+    "YEUNG": 3,
+    "LI": 4,
+    "LAU": 4,
+    "BOC": 0,
+    "MMW": 5,
+    "CMC": 16
+  },
+  "CMC": {
+    "YEUNG": 19,
+    "LI": 15,
+    "LAU": 12,
+    "BOC": 16,
+    "MMW": 19,
+    "JCT": 16
+  }
+}

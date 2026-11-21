@@ -1,0 +1,5 @@
+course_code,course_title,crn,section,type,day,start_time,end_time,building,room
+CS1103,Introduction to Programming,12345,A,LEC,Mon,09:00,10:50,AC,LT-1
+CS1103,Introduction to Programming,12346,A1,TUT,Wed,14:00,14:50,AC,Room-1
+MA1200,Calculus and Linear Algebra,23456,B,LEC,Tue,11:00,12:50,AC,LT-2
+GE1401,University English,34567,C1,SEM,Wed,15:00,16:50,CM,Room-3
