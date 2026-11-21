@@ -27,14 +27,16 @@ cityuschedule
 Choose option `1` to set preferred and avoided days, minimum and maximum
 credits, lunch duration and time window, minimum minutes between classes,
 earliest class start, and latest class end. These settings are saved across
-launches and applied to AIMS course paste and course planning. Enter day names
-as `Mon`, `Tue`, `Wed`, `Thu`, `Fri`, `Sat`, or `Sun`, or use `M`, `T`, `W`,
-`R`, `F`, `S`, or `U`. Enter times as `HHMM` or `HH:MM`; for example, set the
-lunch duration to `30` and the lunch window to `1200-1400` to require a
-30-minute break between noon and 2:00 pm. Press Enter at a setting prompt to
-keep its current value; enter `none` to clear it (or reset the lunch window).
-AIMS paste warns if combined credits fall outside the configured limits but
-still displays fitting bundles.
+launches and apply to newly pasted or planned courses. Saved AIMS classes are
+used for clash and walking-time checks and for combined credit totals; day,
+lunch, gap, and time settings do not reject a schedule because of those fixed
+classes. Enter day names as `Mon`, `Tue`, `Wed`, `Thu`, `Fri`, `Sat`, or `Sun`,
+or use `M`, `T`, `W`, `R`, `F`, `S`, or `U`. Enter times as `HHMM` or
+`HH:MM`; for example, set the lunch duration to `30` and the lunch window to
+`1200-1400` to require a 30-minute break between noon and 2:00 pm. Press Enter
+at a setting prompt to keep its current value; enter `none` to clear it (or
+reset the lunch window). AIMS paste warns if combined credits fall outside the
+configured limits but still displays fitting bundles.
 
 At the main menu prompt, type `delete avoid`, `delete prefer`, `delete min`,
 `delete max`, `delete lunch`, `delete window`, `delete gap`, `delete earliest`,

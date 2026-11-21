@@ -1,5 +1,6 @@
 import json
 import sys
+from io import StringIO
 
 import pytest
 
@@ -72,6 +73,33 @@ def test_basic_settings_q_returns_to_menu(monkeypatch):
     monkeypatch.setattr(cli, "_load_basic_settings", lambda: cli.BasicSettings())
 
     cli.interactive_menu()
+
+
+def test_basic_settings_current_values_are_purple(monkeypatch):
+    class TerminalOutput(StringIO):
+        def isatty(self):
+            return True
+
+    output = TerminalOutput()
+    prompts = []
+    monkeypatch.setattr(cli.sys, "stdout", output)
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setattr(
+        "builtins.input",
+        lambda prompt="": prompts.append(prompt) or "",
+    )
+
+    cli._prompt_days("Prefer days", ("Mon",))
+    cli._prompt_days("Avoid days", ("Fri",))
+    cli._prompt_credit_limit("Minimum credits", 12)
+    cli._prompt_minutes("Lunch minutes", 30)
+    cli._prompt_lunch_window(("12:00", "14:00"))
+    cli._prompt_clock_limit("Earliest start", "09:00")
+    cli._prompt_clock_limit("Latest end", "18:00")
+
+    for current in ("[Mon]", "[Fri]", "[12]", "[30]", "[12:00-14:00]",
+                    "[09:00]", "[18:00]"):
+        assert f"\033[95m{current}\033[0m" in prompts.pop(0)
 
 
 def test_menu_and_choice_prompt_are_yellow(monkeypatch):

@@ -61,7 +61,7 @@ Run `cityuschedule` with no arguments and choose **8. Generate course plans**. Y
 3. How many GE courses the generator should add (Enter for as many as fit)
 4. Whether to set customized requirements. If yes: required courses, term, study load (credit limit), lunch minutes, minimum gap, earliest start, latest end, and (with AIMS) whether pre-registered courses may change section
 
-Your **Basic settings** (option 1) are applied automatically: preferred and avoided days, credit limits, lunch duration and window, minimum gap, and earliest/latest class times. Values entered in the customized-requirements prompts override the corresponding basic setting for that plan run. After the plans are listed you can save one to your saved bundles and export one to an `.ics` file. The AIMS path you use is remembered for next time.
+Your **Basic settings** (option 1) apply to newly planned courses: preferred and avoided days, lunch duration and window, minimum gap, and earliest/latest class times. Minimum and maximum credits include the courses in your AIMS timetable. AIMS classes are used for clash and walking-time checks, but are not rejected for violating the day or timing settings. Values entered in the customized-requirements prompts override corresponding basic settings for that plan run. After the plans are listed you can save one to your saved bundles and export one to an `.ics` file. The AIMS path you use is remembered for next time.
 
 ## Command line
 

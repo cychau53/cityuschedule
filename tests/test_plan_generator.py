@@ -283,6 +283,50 @@ def test_avoid_day_ignores_fixed_classes():
     assert len(report.plans) == 1
 
 
+def test_basic_timing_settings_ignore_fixed_aims_classes():
+    fixed = [
+        {
+            "course_code": "CS9000",
+            "section": "C01",
+            "day": "Mon",
+            "start_time": "11:50",
+            "end_time": "12:40",
+            "building": "LI",
+            "room": "1",
+        },
+        {
+            "course_code": "CS9001",
+            "section": "C01",
+            "day": "Fri",
+            "start_time": "08:00",
+            "end_time": "08:50",
+            "building": "LI",
+            "room": "1",
+        },
+    ]
+    courses = [
+        course("AAA1000", 3, section("C01", "Mon", "12:45", "13:35")),
+        course("BBB1000", 3, section("C01", "Mon", "13:45", "14:35")),
+    ]
+    report = generate_course_plans(
+        courses,
+        PlanOptions(
+            required_courses=("AAA1000", "BBB1000"),
+            avoid_days=("Fri",),
+            min_gap=10,
+            lunch_minutes=30,
+            lunch_window=("12:00", "13:30"),
+            earliest_start="09:00",
+            latest_end="18:00",
+        ),
+        fixed_sessions=fixed,
+        travel_times=TRAVEL,
+    )
+
+    assert report.plans
+    assert report.plans[0].course_codes == ("AAA1000", "BBB1000")
+
+
 def test_missing_required_course_raises_clear_error():
     a = course("AAA1000", 3, section("C01", "Mon", "09:00", "09:50"))
     with pytest.raises(ValueError, match="ZZZ9999"):

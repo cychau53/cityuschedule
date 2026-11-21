@@ -797,7 +797,7 @@ class _Rules:
                 neighbours.append((meeting, day[here + 1]))
             for first, second in neighbours:
                 gap = second.start - first.end
-                if gap < self.min_gap:
+                if gap < self.min_gap and not (first.fixed or second.fixed):
                     return None, "min_gap"
                 walk = self.walk(first, second)
                 if walk is not None and walk > gap:
@@ -807,7 +807,8 @@ class _Rules:
             day = new_state[name]
             if self.max_daily is not None and sum(m.end - m.start for m in day) > self.max_daily:
                 return None, "daily_hours"
-            if self.lunch and not self._has_lunch(day):
+            added_classes = tuple(meeting for meeting in day if not meeting.fixed)
+            if self.lunch and not self._has_lunch(added_classes):
                 return None, "lunch"
         return new_state, None
 

@@ -370,6 +370,58 @@ def test_paste_cli_applies_time_constraints(
     assert expected_reason in output
 
 
+def test_paste_cli_applies_settings_to_offering_not_saved_classes(
+    monkeypatch,
+    capsys,
+):
+    base_rows = [
+        {
+            "course_code": "BASE1001",
+            "crn": "20001",
+            "section": "C01",
+            "day": "Wed",
+            "start_time": "11:50",
+            "end_time": "12:40",
+            "building": "BOC",
+        },
+        {
+            "course_code": "BASE1002",
+            "crn": "20002",
+            "section": "C01",
+            "day": "Fri",
+            "start_time": "08:00",
+            "end_time": "08:50",
+            "building": "BOC",
+        },
+    ]
+    offering = PASTED_TABLE.replace(
+        "12:00 - 13:50",
+        "12:45 - 13:35",
+    ).replace(
+        "14:00 - 14:50",
+        "13:45 - 14:35",
+    )
+    prepare_cli(
+        monkeypatch,
+        base_rows,
+        [
+            "--avoid-days", "Fri",
+            "--min-gap", "10",
+            "--lunch", "30",
+            "--lunch-window", "1200", "1400",
+            "--earliest", "0900",
+            "--latest", "1800",
+        ],
+        pasted_table=offering,
+    )
+
+    cli.main()
+
+    output = capsys.readouterr().out
+    assert "Bundles fitting weekly timetable: 1" in output
+    assert "Suggested bundles:" in output
+
+
 def test_paste_cli_lists_avoid_only_rejections_first(monkeypatch, capsys):
     base_bundle = PASTED_TABLE.replace(
         "\nW\n12:00 - 13:50",

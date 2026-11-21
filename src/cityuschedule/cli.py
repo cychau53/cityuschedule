@@ -327,7 +327,8 @@ def _save_basic_settings(settings: BasicSettings) -> None:
 def _prompt_days(label: str, current: tuple[str, ...]) -> tuple[str, ...]:
     current_value = ", ".join(current) or "none"
     response = input(
-        f"{label} [{current_value}] (blank keeps, none clears): "
+        f"{label} {_colorize(f'[{current_value}]', '95')} "
+        "(blank keeps, none clears): "
     ).strip()
     _exit_if_requested(response)
     if not response:
@@ -343,7 +344,8 @@ def _prompt_credit_limit(
 ) -> int | None:
     current_value = str(current) if current is not None else "none"
     response = input(
-        f"{label} [{current_value}] (blank keeps, none clears): "
+        f"{label} {_colorize(f'[{current_value}]', '95')} "
+        "(blank keeps, none clears): "
     ).strip()
     _exit_if_requested(response)
     if not response:
@@ -361,7 +363,8 @@ def _prompt_credit_limit(
 
 def _prompt_minutes(label: str, current: int) -> int:
     response = input(
-        f"{label} [{current}] (blank keeps, none clears): "
+        f"{label} {_colorize(f'[{current}]', '95')} "
+        "(blank keeps, none clears): "
     ).strip()
     _exit_if_requested(response)
     if not response:
@@ -383,7 +386,8 @@ def _prompt_lunch_window(
     current_value = f"{current[0]}-{current[1]}"
     response = input(
         "Lunch time window (e.g. 1200-1400) "
-        f"[{current_value}] (blank keeps, none resets): "
+        f"{_colorize(f'[{current_value}]', '95')} "
+        "(blank keeps, none resets): "
     ).strip()
     _exit_if_requested(response)
     if not response:
@@ -401,7 +405,8 @@ def _prompt_clock_limit(
 ) -> str | None:
     current_value = current or "none"
     response = input(
-        f"{label} (HHMM or HH:MM) [{current_value}] "
+        f"{label} (HHMM or HH:MM) "
+        f"{_colorize(f'[{current_value}]', '95')} "
         "(blank keeps, none clears): "
     ).strip()
     _exit_if_requested(response)

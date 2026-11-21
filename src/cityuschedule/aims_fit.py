@@ -173,7 +173,6 @@ def _session_label(session: AimsSession) -> str:
 
 def _schedule_constraint_conflicts(
     selected: list[AimsSession],
-    base_sessions: tuple[AimsSession, ...],
     *,
     min_gap: int,
     earliest_start: str | None,
@@ -203,21 +202,17 @@ def _schedule_constraint_conflicts(
             )
 
     affected_days = _session_days(selected)
-    all_sessions = (*base_sessions, *selected)
     day_order = {name: index for index, name in enumerate(DAY_NAMES.values())}
     for day in sorted(affected_days, key=day_order.__getitem__):
         day_sessions = sorted(
             (
-                session
-                for session in all_sessions
+                session for session in selected
                 if session.day is not None and DAY_NAMES[session.day] == day
             ),
             key=lambda session: _minutes(session.start_time or "00:00"),
         )
         if min_gap:
             for first, second in pairwise(day_sessions):
-                if first not in selected and second not in selected:
-                    continue
                 assert first.end_time is not None
                 assert second.start_time is not None
                 gap = _minutes(second.start_time) - _minutes(first.end_time)
@@ -324,7 +319,6 @@ def registration_bundle_conflicts(
     reasons.extend(
         _schedule_constraint_conflicts(
             selected,
-            base_sessions,
             min_gap=min_gap,
             earliest_start=earliest_start,
             latest_end=latest_end,
