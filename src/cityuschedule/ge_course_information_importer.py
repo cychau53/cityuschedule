@@ -351,6 +351,74 @@ def update_ge_course_information(
     _write_records(records, output_path)
     return len(records)
 
+def merge_ge_course_information_from_web(
+    course_codes: list[str],
+    output_path: str | Path = DATA_PATH,
+    *,
+    timeout: float = 30,
+) -> list[dict]:
+    """Fetch course sections and update only those courses in the JSON file."""
+
+    if timeout <= 0:
+        raise ValueError("timeout must be greater than zero.")
+
+    codes = list(
+        dict.fromkeys(
+            normalize_course_code(code)
+            for code in course_codes
+        )
+    )
+
+    if not codes:
+        raise ValueError("Enter at least one GE course code.")
+
+    output_path = Path(output_path)
+
+    try:
+        existing_records = json.loads(
+            output_path.read_text(encoding="utf-8-sig")
+        )
+    except FileNotFoundError:
+        existing_records = []
+    except json.JSONDecodeError as error:
+        raise ValueError(
+            f"Invalid JSON in {output_path}: {error}"
+        ) from error
+
+    if not isinstance(existing_records, list):
+        raise ValueError(
+            f"{output_path} must contain a JSON list."
+        )
+
+    if not all(
+        isinstance(record, dict)
+        for record in existing_records
+    ):
+        raise ValueError(
+            f"Every record in {output_path} must be a JSON object."
+        )
+
+    updated_records = [
+        record
+        for record in existing_records
+        if str(record.get("course_code") or "").strip().upper()
+        not in set(codes)
+    ]
+
+    fetched_records = []
+
+    for code in codes:
+        fetched_records.extend(
+            fetch_ge_course_information(
+                code,
+                timeout=timeout,
+            )
+        )
+
+    updated_records.extend(fetched_records)
+    _write_records(updated_records, output_path)
+
+    return fetched_records
 
 def main() -> None:
     parser = argparse.ArgumentParser(
