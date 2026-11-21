@@ -41,7 +41,8 @@ jobs:
           from pathlib import Path
 
           from cityuschedule.ge_course_information_importer import (
-              update_ge_course_information_from_web,
+              fetch_ge_course_information,
+              merge_ge_course_information_from_web,
           )
 
           codes = (
@@ -52,18 +53,56 @@ jobs:
 
           output = Path("data/ge_course_information.json")
 
-          records = update_ge_course_information_from_web(
-              codes,
+          successful_codes = []
+          skipped_codes = []
+          total_records = 0
+
+          for code in codes:
+              try:
+                  records = fetch_ge_course_information(
+                      code,
+                      timeout=60,
+                  )
+              except ValueError as error:
+                  message = str(error)
+
+                  if (
+                      "No recognizable Course Section table found"
+                      in message
+                      or "no section rows were extracted" in message
+                  ):
+                      skipped_codes.append(code)
+                      print(f"Skipped {code}: {message}")
+                      continue
+
+                  raise
+
+              successful_codes.append(code)
+              total_records += len(records)
+
+          if not successful_codes:
+              raise SystemExit(
+                  "No requested GE course had published section "
+                  "information; refusing to commit."
+              )
+
+          merge_ge_course_information_from_web(
+              successful_codes,
               output_path=output,
               timeout=60,
           )
 
-          if not records:
-              raise SystemExit("No records fetched; refusing to commit.")
+          print(
+              f"Updated {len(successful_codes)} course(s) with "
+              f"{total_records} section record(s)."
+          )
 
-          print(f"Saved {len(records)} section records to {output}")
+          if skipped_codes:
+              print(
+                  "Skipped courses without published section "
+                  f"information: {', '.join(skipped_codes)}"
+              )
           PY
-
       - name: Validate JSON
         run: |
           python -m json.tool data/ge_course_information.json > /dev/null
