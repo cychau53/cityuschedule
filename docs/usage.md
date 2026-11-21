@@ -35,8 +35,9 @@ or use `M`, `T`, `W`, `R`, `F`, `S`, or `U`. Enter times as `HHMM` or
 `HH:MM`; for example, set the lunch duration to `30` and the lunch window to
 `1200-1400` to require a 30-minute break between noon and 2:00 pm. Press Enter
 at a setting prompt to keep its current value; enter `none` to clear it (or
-reset the lunch window). AIMS paste warns if combined credits fall outside the
-configured limits but still displays fitting bundles.
+reset the lunch window). The lunch duration cannot exceed the window length.
+AIMS paste warns if combined credits fall outside the configured limits but
+still displays fitting bundles.
 
 At the main menu prompt, type `delete avoid`, `delete prefer`, `delete min`,
 `delete max`, `delete lunch`, `delete window`, `delete gap`, `delete earliest`,

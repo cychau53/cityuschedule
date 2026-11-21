@@ -191,6 +191,26 @@ def _parse_lunch_window(value: str) -> tuple[str, str]:
     return start, end
 
 
+def _validate_lunch_duration(
+    lunch_minutes: int,
+    lunch_window: tuple[str, str],
+) -> None:
+    window_minutes = (
+        _minutes_from_clock(lunch_window[1])
+        - _minutes_from_clock(lunch_window[0])
+    )
+    if lunch_minutes > window_minutes:
+        raise ValueError(
+            f"Lunch break length ({lunch_minutes} minutes) cannot exceed "
+            f"the lunch time window ({window_minutes} minutes)."
+        )
+
+
+def _minutes_from_clock(value: str) -> int:
+    hours, minutes = map(int, value.split(":"))
+    return hours * 60 + minutes
+
+
 def _load_basic_settings() -> BasicSettings:
     settings_file = _basic_settings_config_file()
     try:
@@ -260,6 +280,7 @@ def _load_basic_settings() -> BasicSettings:
         lunch_window = _parse_lunch_window(
             "-".join(lunch_window_value)
         )
+        _validate_lunch_duration(lunch_minutes, lunch_window)
         if earliest_start is not None:
             if not isinstance(earliest_start, str):
                 raise ValueError("Saved earliest start must be a time.")
@@ -453,6 +474,7 @@ def _prompt_basic_settings(current: BasicSettings) -> BasicSettings:
                 current.latest_end,
                 allow_24=True,
             )
+            _validate_lunch_duration(lunch_minutes, lunch_window)
             if set(prefer_days) & set(avoid_days):
                 raise ValueError(
                     "A day cannot be both preferred and avoided."
@@ -592,6 +614,20 @@ def _print_purple(text: str) -> None:
 
 def _print_red(text: str, file: TextIO | None = None) -> None:
     _print_color(text, "31", file)
+
+
+def _is_basic_setting_conflict(reason: str) -> bool:
+    return (
+        reason.startswith((
+            "Uses avoided day(s):",
+            "Outside allowed time window:",
+            "Minimum gap of ",
+        ))
+        or (
+            reason.startswith("No ")
+            and " lunch break between " in reason
+        )
+    )
 
 
 class _CityUScheduleArgumentParser(argparse.ArgumentParser):
@@ -1465,6 +1501,7 @@ def main(argv: list[str] | None = None) -> None:
         args.lunch_window = _parse_lunch_window(
             f"{lunch_start}-{lunch_end}"
         )
+        _validate_lunch_duration(args.lunch, args.lunch_window)
         if (
             args.earliest is not None
             and args.latest is not None
@@ -1745,6 +1782,37 @@ def main(argv: list[str] | None = None) -> None:
                     f"the maximum ({args.max_credits})."
                 )
 
+        fitting_set = set(fitting)
+        rejected_bundles = [
+            bundle
+            for bundle in candidates
+            if bundle not in fitting_set
+        ]
+        rejected = [
+            (
+                bundle,
+                registration_bundle_conflicts(
+                    table,
+                    bundle,
+                    base_sessions,
+                    avoid_days=args.avoid_days,
+                    unavailable_sections=unavailable_sections,
+                    min_gap=args.min_gap,
+                    earliest_start=args.earliest,
+                    latest_end=args.latest,
+                    lunch_minutes=args.lunch,
+                    lunch_window=tuple(args.lunch_window),
+                ),
+            )
+            for bundle in rejected_bundles
+        ]
+        rejected.sort(
+            key=lambda item: not (
+                len(item[1]) == 1
+                and item[1][0].startswith("Uses avoided day(s):")
+            )
+        )
+
         print()
         by_section = {
             session.section: session
@@ -1756,12 +1824,21 @@ def main(argv: list[str] | None = None) -> None:
                 "Check the pasted table and section-family rules."
             )
         elif not fitting:
-            _print_red(
+            no_fit_for_basic_settings = bool(rejected) and all(
+                reasons
+                and all(_is_basic_setting_conflict(reason) for reason in reasons)
+                for _, reasons in rejected
+            )
+            message = (
                 "No complete bundle fits: each has an internal overlap, "
                 "overlaps the base timetable, fails a time, gap or lunch "
                 "requirement, lacks sufficient travel time, or uses an "
                 "avoided day."
             )
+            if no_fit_for_basic_settings:
+                _print_purple(message)
+            else:
+                _print_red(message)
         else:
             _print_green("Suggested bundles:")
             for number, bundle in enumerate(fitting, start=1):
@@ -1794,37 +1871,6 @@ def main(argv: list[str] | None = None) -> None:
                     else:
                         _print_green(session_label)
 
-        fitting_set = set(fitting)
-        rejected_bundles = [
-            bundle
-            for bundle in candidates
-            if bundle not in fitting_set
-        ]
-        rejected = [
-            (
-                bundle,
-                registration_bundle_conflicts(
-                    table,
-                    bundle,
-                    base_sessions,
-                    avoid_days=args.avoid_days,
-                    unavailable_sections=unavailable_sections,
-                    min_gap=args.min_gap,
-                    earliest_start=args.earliest,
-                    latest_end=args.latest,
-                    lunch_minutes=args.lunch,
-                    lunch_window=tuple(args.lunch_window),
-                ),
-            )
-            for bundle in rejected_bundles
-        ]
-        rejected.sort(
-            key=lambda item: not (
-                len(item[1]) == 1
-                and item[1][0].startswith("Uses avoided day(s):")
-            )
-        )
-
         if rejected:
             _print_red("\nRejected bundles:")
 
@@ -1854,13 +1900,17 @@ def main(argv: list[str] | None = None) -> None:
                         else:
                             _print_red(session_label)
                 else:
-                    _print_red(f"\n{number}. {' + '.join(bundle)}")
+                    bundle_label = f"\n{number}. {' + '.join(bundle)}"
+                    if reasons and all(
+                        _is_basic_setting_conflict(reason)
+                        for reason in reasons
+                    ):
+                        _print_purple(bundle_label)
+                    else:
+                        _print_red(bundle_label)
 
                 for reason in reasons:
-                    if (
-                        has_avoided_day
-                        and reason.startswith("Uses avoided day(s):")
-                    ):
+                    if _is_basic_setting_conflict(reason):
                         _print_purple(f"   - {reason}")
                     else:
                         _print_red(f"   - {reason}")

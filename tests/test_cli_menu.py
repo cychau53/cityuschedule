@@ -102,6 +102,27 @@ def test_basic_settings_current_values_are_purple(monkeypatch):
         assert f"\033[95m{current}\033[0m" in prompts.pop(0)
 
 
+def test_basic_settings_requires_lunch_length_to_fit_window(
+    monkeypatch,
+    capsys,
+):
+    invalid_attempt = ["", "", "", "", "31", "1200-1230", "", "", ""]
+    valid_attempt = ["", "", "", "", "30", "1200-1230", "", "", ""]
+    inputs = iter([*invalid_attempt, *valid_attempt])
+    monkeypatch.setattr(
+        "builtins.input",
+        lambda prompt="": next(inputs),
+    )
+
+    settings = cli._prompt_basic_settings(cli.BasicSettings())
+
+    assert settings.lunch_minutes == 30
+    assert settings.lunch_window == ("12:00", "12:30")
+    assert "cannot exceed the lunch time window (30 minutes)" in (
+        capsys.readouterr().out
+    )
+
+
 def test_menu_and_choice_prompt_are_yellow(monkeypatch):
     class TerminalOutput:
         def __init__(self):

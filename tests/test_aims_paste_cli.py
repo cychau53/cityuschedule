@@ -357,17 +357,24 @@ def test_paste_cli_rejects_avoided_days(monkeypatch, capsys):
 )
 def test_paste_cli_applies_time_constraints(
     monkeypatch,
-    capsys,
     args,
     expected_reason,
 ):
+    output = TerminalOutput()
+    monkeypatch.setattr(cli.sys, "stdout", output)
+    monkeypatch.delenv("NO_COLOR", raising=False)
     prepare_cli(monkeypatch, [], args)
 
     cli.main()
 
-    output = capsys.readouterr().out
-    assert "Bundles fitting weekly timetable: 0" in output
-    assert expected_reason in output
+    text = output.getvalue()
+    assert "Bundles fitting weekly timetable: 0" in text
+    assert expected_reason in text
+    reason_line = next(
+        line for line in text.splitlines() if expected_reason in line
+    )
+    assert reason_line.startswith("\033[95m")
+    assert "\033[95mNo complete bundle fits:" in text
 
 
 def test_paste_cli_applies_settings_to_offering_not_saved_classes(
