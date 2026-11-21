@@ -597,6 +597,7 @@ _REJECTION_TEXT = {
     "full_section": "section is full (no seats or no waitlist)",
     "not_web": "not web-enabled or has registration restrictions",
     "exclusive": "exclusive with another course in the plan",
+    "class_bundles": "no class bundles fit",
 }
 
 
@@ -611,12 +612,16 @@ class PlanReport:
     warnings: list[str] = field(default_factory=list)
     # course code -> section bundles that fit the fixed timetable on their own
     fitting: dict[str, tuple[CourseOption, ...]] = field(default_factory=dict)
+    no_bundles: set[str] = field(default_factory=set)
 
     def fit_summary(self) -> list[str]:
         """One line per course: how many timeslots fit your timetable."""
         lines = []
         for code, fits in sorted(self.fitting.items()):
             if not fits:
+                if code in self.no_bundles:
+                    lines.append(f"{code}: no class bundles fit")
+                    continue
                 lines.append(f"{code} has no timeslot that fits your timetable")
                 continue
             slots = "; ".join(
@@ -636,13 +641,24 @@ class PlanReport:
     def __len__(self) -> int:
         return len(self.plans)
 
+    def rejection_summary(self) -> list[tuple[str, str]]:
+        """Return formatted rejection reasons, retaining their keys for coloring."""
+        lines = []
+        for key, count in self.rejections.most_common():
+            if key == "bound":
+                continue
+            kind = "course(s)" if key == "class_bundles" else "option(s)"
+            lines.append((
+                key,
+                f"  {count:>6} {kind} rejected: {_REJECTION_TEXT.get(key, key)}",
+            ))
+        return lines
+
     def explain_no_plans(self) -> str:
         if self.plans:
             return ""
         lines = ["No plan satisfies all settings."]
-        for key, count in self.rejections.most_common():
-            if key != "bound":
-                lines.append(f"  {count:>6} option(s) rejected: {_REJECTION_TEXT.get(key, key)}")
+        lines.extend(line for _, line in self.rejection_summary())
         if self.truncated:
             lines.append("  Search stopped early; narrow the course list.")
         return "\n".join(lines)
@@ -1005,6 +1021,9 @@ def generate_course_plans(
     options_by_course: dict[str, list[CourseOption]] = {}
     for code, course in catalogue.items():
         course_options = build_course_options(course, bundle_definitions.get(code))
+        if not course_options:
+            report.no_bundles.add(code)
+            report.rejections["class_bundles"] += 1
         wanted = required_sections.get(code)
         if wanted:
             unknown = wanted - {s.section.upper() for s in course.sections}
@@ -1036,8 +1055,6 @@ def generate_course_plans(
             allowed.append(option)
             if len(option.meetings) < len(option.sections):
                 warn(f"{option.label} has a section with no fixed time; it is not checked for clashes")
-        if not allowed and code in required:
-            warn(f"{code} has no complete section bundle that can be registered")
         options_by_course[code] = allowed
     report.warnings[:] = list(dict.fromkeys(report.warnings))
     for code, course_options in options_by_course.items():

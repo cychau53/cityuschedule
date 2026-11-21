@@ -110,6 +110,43 @@ def test_families_are_not_mixed():
     assert [o.section_codes for o in build_course_options(ge)] == [("CA1", "LA1")]
 
 
+def test_c_l_t_bundles_match_aims_section_families():
+    ge = course(
+        "GE1354", 3,
+        section("CA1", "Mon", "09:00", "10:50"),
+        section("LA3", "Tue", "09:00", "09:50"),
+        section("TA2", "Wed", "09:00", "09:50"),
+        section("CB1", "Thu", "09:00", "10:50"),
+        section("LB1", "Fri", "09:00", "09:50"),
+        section("TB1", "Sat", "09:00", "09:50"),
+        section("L01", "Sun", "09:00", "09:50"),
+        section("C32", "Mon", "11:00", "12:50"),
+        section("L20", "Tue", "11:00", "11:50"),
+        section("T12", "Wed", "11:00", "11:50"),
+    )
+
+    assert [option.section_codes for option in build_course_options(ge)] == [
+        ("C32", "L01", "T12"),
+        ("C32", "L20", "T12"),
+        ("CA1", "LA3", "TA2"),
+        ("CB1", "LB1", "TB1"),
+    ]
+
+
+def test_incomplete_registration_families_report_no_class_bundles_fit():
+    incomplete = course(
+        "AAA1000", 3,
+        section("C01", "Mon", "09:00", "10:50"),
+        section("LA1", "Tue", "09:00", "09:50"),
+    )
+    report = plans([incomplete], required_courses=("AAA1000",))
+
+    assert report.plans == []
+    assert report.rejections["class_bundles"] == 1
+    assert report.fit_summary() == ["AAA1000: no class bundles fit"]
+    assert "no class bundles fit" in report.explain_no_plans()
+
+
 def test_explicit_bundle_definitions():
     ge = course(
         "GE1102", 3,

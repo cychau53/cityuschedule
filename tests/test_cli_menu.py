@@ -285,7 +285,6 @@ def test_basic_settings_persist_and_apply_to_paste_and_planning(
             "8",
             "ge1102",
             "",
-            "",
             "0",
         ]
     )

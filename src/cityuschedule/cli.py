@@ -630,6 +630,26 @@ def _is_basic_setting_conflict(reason: str) -> bool:
     )
 
 
+_BASIC_PLAN_REJECTIONS = {"avoid_day", "time_window", "min_gap", "lunch"}
+
+
+def _print_plan_rejections(report, no_plans: bool) -> None:
+    rejection_lines = report.rejection_summary()
+    if no_plans:
+        _print_red("No plan satisfies all settings.")
+    elif rejection_lines:
+        print("Options rejected:")
+
+    for key, line in rejection_lines:
+        if key in _BASIC_PLAN_REJECTIONS:
+            _print_purple(line)
+        else:
+            _print_red(line)
+
+    if report.truncated:
+        _print_red("  Search stopped early; narrow the course list.")
+
+
 class _CityUScheduleArgumentParser(argparse.ArgumentParser):
     def error(self, message: str) -> None:
         self.print_usage(sys.stderr)
@@ -771,37 +791,6 @@ def _plan_menu_command(
         command.extend(["--courses", *codes])
     if int(ge_count or 0):
         command.extend(["--add-ge", ge_count])
-
-    advanced = _ask_menu(
-        "Set customized requirements? [y/N]"
-    ).casefold()
-    if advanced in {"y", "yes"}:
-        questions = [
-            ("--required", "Courses that must be included, e.g. CS2311 GE1401"),
-            ("--term", "Term, e.g. 2627A for Semester A 2026/27"),
-            ("--study-load", "Credit limit by study load: full-time, part-time or summer"),
-            ("--lunch", "Lunch break minutes within your lunch time window"),
-            ("--min-gap", "Minimum minutes between classes"),
-            ("--earliest", "Earliest class start, e.g. 09:00"),
-            ("--latest", "Latest class end, e.g. 18:00"),
-        ]
-        for flag, label in questions:
-            value = _ask_menu(f"{label} (Enter to skip)")
-            if not value:
-                continue
-            if flag == "--required":
-                command.extend(
-                    [flag, *value.replace(",", " ").upper().split()]
-                )
-            else:
-                command.extend([flag, value])
-        if aims_path:
-            answer = _ask_menu(
-                "Let the planner change sections of pre-registered "
-                "courses? [y/N]"
-            ).casefold()
-            if answer in {"y", "yes"}:
-                command.append("--allow-section-change")
 
     if not ({"--courses", "--add-ge"} & set(command)):
         _print_red("Enter at least one course code or a number of GE courses.")
@@ -1163,8 +1152,12 @@ def _run_course_planner(args: argparse.Namespace, parser) -> None:
             print(f"  {line}")
         print()
     if not report.plans:
-        _print_red(report.explain_no_plans())
+        _print_plan_rejections(report, no_plans=True)
         return
+
+    if report.rejection_summary():
+        _print_plan_rejections(report, no_plans=False)
+        print()
 
     plans = report.plans
     print(

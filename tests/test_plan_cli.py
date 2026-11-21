@@ -1,8 +1,10 @@
+from collections import Counter
 from pathlib import Path
 
 import pytest
 
 from cityuschedule import cli
+from cityuschedule.plan_generator import PlanReport
 
 EXAMPLE = Path(__file__).resolve().parents[1] / "course_catalog.json"
 
@@ -120,10 +122,7 @@ def test_add_ge_uses_ge_section_data(capsys):
 
 
 def test_menu_option_8_builds_plan_command(monkeypatch):
-    feed(
-        monkeypatch, "ge1102, ge1401", "1", "y",
-        "cs2311", "2627A", "", "45", "", "09:00", "", "y",
-    )
+    feed(monkeypatch, "ge1102, ge1401", "1")
     settings = cli.BasicSettings(prefer_days=("Mon",), avoid_days=("Fri",), max_credits=18)
     command, aims_path = cli._menu_command("8", "saved.html", settings)
     assert command == [
@@ -133,11 +132,6 @@ def test_menu_option_8_builds_plan_command(monkeypatch):
         "--max-credits", "18",
         "--courses", "GE1102", "GE1401",
         "--add-ge", "1",
-        "--required", "CS2311",
-        "--term", "2627A",
-        "--lunch", "45",
-        "--earliest", "09:00",
-        "--allow-section-change",
         "--ask",
     ]
     assert aims_path == "saved.html"
@@ -155,7 +149,7 @@ def test_menu_runs_plan_generator(monkeypatch, capsys, tmp_path):
     """Option 8 needs only the saved AIMS timetable and course codes."""
     html = tmp_path / "aims.html"
     html.write_text(AIMS_HTML, encoding="utf-8")
-    feed(monkeypatch, "8", "GE1102", "", "", "", "", "0")
+    feed(monkeypatch, "8", "GE1102", "", "", "", "0")
     monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: str(html))
     cli.interactive_menu()
     output = capsys.readouterr().out
@@ -165,6 +159,37 @@ def test_menu_runs_plan_generator(monkeypatch, capsys, tmp_path):
     assert "GE1102 has 2 timeslots that fit your timetable" in output
     assert "Kept from your AIMS timetable: CS2311" in output
     assert "GE1102 C01+T01  (3 cr)" in output
+
+
+def test_basic_setting_plan_rejections_are_purple(monkeypatch):
+    output = []
+    monkeypatch.setattr(cli, "_print_red", lambda text, file=None: output.append(("red", text)))
+    monkeypatch.setattr(cli, "_print_purple", lambda text: output.append(("purple", text)))
+    report = PlanReport(
+        [],
+        rejections=Counter({
+            "avoid_day": 1,
+            "time_window": 1,
+            "min_gap": 1,
+            "lunch": 1,
+            "min_credits": 2,
+            "max_credits": 1,
+            "class_bundles": 1,
+        }),
+    )
+
+    cli._print_plan_rejections(report, no_plans=True)
+
+    purple_lines = {text for color, text in output if color == "purple"}
+    assert purple_lines == {
+        "       1 option(s) rejected: uses an avoided day",
+        "       1 option(s) rejected: outside the allowed start/end time",
+        "       1 option(s) rejected: gap between classes too short",
+        "       1 option(s) rejected: no lunch break",
+    }
+    assert ("red", "       2 option(s) rejected: not enough credits") in output
+    assert ("red", "       1 option(s) rejected: over the credit limit") in output
+    assert ("red", "       1 course(s) rejected: no class bundles fit") in output
 
 
 CLASH_HTML = AIMS_HTML.replace(
