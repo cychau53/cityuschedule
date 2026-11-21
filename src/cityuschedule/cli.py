@@ -30,6 +30,9 @@ from .ge_courses import (
     SECTION_DATA_PATH,
 )
 from .ge_importer import update_ge_courses_from_html
+from .ge_course_information_importer import (
+    merge_ge_course_information_from_web,
+)
 from .planner import calculate_course_credits
 from .timetable import format_timetable
 
@@ -625,7 +628,44 @@ def interactive_menu() -> None:
                         continue
 
                     try:
+                        basic_courses = load_ge_courses()
+
+                        matching_codes = list(
+                            dict.fromkeys(
+                                course["course_code"].strip().upper()
+                                for course in basic_courses
+                                if keyword.casefold()
+                                in " ".join(
+                                    str(course.get(field) or "")
+                                    for field in (
+                                        "course_code",
+                                        "course_title",
+                                        "area",
+                                        "area_name",
+                                        "offering_unit",
+                                        "level",
+                                    )
+                                ).casefold()
+                            )
+                        )
+
+                        if matching_codes:
+                            merge_ge_course_information_from_web(
+                                matching_codes,
+                                output_path=SECTION_DATA_PATH,
+                            )
+
                         main(["--ge-search", keyword])
+
+                    except (
+                        OSError,
+                        ValueError,
+                        RuntimeError,
+                    ) as error:
+                        print(
+                            "\nCould not update GE section "
+                            f"information: {error}"
+                        )
                     except SystemExit as error:
                         if error.code:
                             print(
@@ -1588,6 +1628,17 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.ge_info:
         course_code = args.ge_info.strip().upper()
+
+        try:
+            merge_ge_course_information_from_web(
+                [course_code],
+                output_path=SECTION_DATA_PATH,
+            )
+        except (OSError, ValueError, RuntimeError) as error:
+            parser.error(
+                f"Could not update section information for "
+                f"{course_code}: {error}"
+            )
 
         try:
             with SECTION_DATA_PATH.open(
