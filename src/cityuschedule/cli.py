@@ -624,53 +624,19 @@ def interactive_menu() -> None:
                     if keyword == "0":
                         return
                     if not keyword:
-                        _print_red("Enter a keyword or filter, q, or 0.")
+                        _print_red(
+                            "Enter a keyword or filter, q, or 0."
+                        )
                         continue
 
                     try:
-                        basic_courses = load_ge_courses()
-
-                        matching_codes = list(
-                            dict.fromkeys(
-                                course["course_code"].strip().upper()
-                                for course in basic_courses
-                                if keyword.casefold()
-                                in " ".join(
-                                    str(course.get(field) or "")
-                                    for field in (
-                                        "course_code",
-                                        "course_title",
-                                        "area",
-                                        "area_name",
-                                        "offering_unit",
-                                        "level",
-                                    )
-                                ).casefold()
-                            )
-                        )
-
-                        if matching_codes:
-                            merge_ge_course_information_from_web(
-                                matching_codes,
-                                output_path=SECTION_DATA_PATH,
-                            )
-
                         main(["--ge-search", keyword])
-
-                    except (
-                        OSError,
-                        ValueError,
-                        RuntimeError,
-                    ) as error:
-                        print(
-                            "\nCould not update GE section "
-                            f"information: {error}"
-                        )
                     except SystemExit as error:
                         if error.code:
                             print(
-                                "\nSearch failed. Enter another query, "
-                                "q to return to the menu, or 0 to exit."
+                                "\nSearch failed. Enter another "
+                                "query, q to return to the menu, "
+                                "or 0 to exit."
                             )
                 continue
 
