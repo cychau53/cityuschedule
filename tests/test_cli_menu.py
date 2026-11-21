@@ -225,6 +225,11 @@ def test_basic_settings_persist_and_apply_to_paste_and_planning(
             "F",
             "15",
             "21",
+            "30",
+            "1200-1400",
+            "10",
+            "0900",
+            "1800",
             "0",
             "4",
             "0",
@@ -255,6 +260,11 @@ def test_basic_settings_persist_and_apply_to_paste_and_planning(
         "avoid_days": ["Fri"],
         "min_credits": 15,
         "max_credits": 21,
+        "lunch_minutes": 30,
+        "lunch_window": ["12:00", "14:00"],
+        "min_gap": 10,
+        "earliest_start": "09:00",
+        "latest_end": "18:00",
     }
     settings_args = [
         "--prefer-days",
@@ -265,6 +275,17 @@ def test_basic_settings_persist_and_apply_to_paste_and_planning(
         "15",
         "--max-credits",
         "21",
+        "--lunch",
+        "30",
+        "--lunch-window",
+        "12:00",
+        "14:00",
+        "--min-gap",
+        "10",
+        "--earliest",
+        "09:00",
+        "--latest",
+        "18:00",
     ]
     assert commands == [
         [
@@ -276,9 +297,9 @@ def test_basic_settings_persist_and_apply_to_paste_and_planning(
         [
             "--aims-html",
             saved_path,
+            *settings_args,
             "--courses",
             "GE1102",
-            *settings_args,
             "--ask",
         ],
     ]
@@ -297,6 +318,11 @@ def test_basic_settings_persist_and_apply_to_paste_and_planning(
             },
             True,
         ),
+        ("delete lunch", {"lunch_minutes": 0}, True),
+        ("delete window", {"lunch_window": ["11:30", "14:30"]}, True),
+        ("delete gap", {"min_gap": 0}, True),
+        ("delete earliest", {"earliest_start": None}, True),
+        ("delete latest", {"latest_end": None}, True),
         (
             "delete prefer",
             {
@@ -384,6 +410,11 @@ def test_menu_deletes_saved_information(
         "avoid_days": ["Fri"],
         "min_credits": 12,
         "max_credits": 18,
+        "lunch_minutes": 30,
+        "lunch_window": ["12:00", "14:00"],
+        "min_gap": 10,
+        "earliest_start": "09:00",
+        "latest_end": "18:00",
     }
     saved_path = r"C:\Schedules\current AIMS.html"
     settings_file.write_text(json.dumps(original_settings), encoding="utf-8")
@@ -406,9 +437,17 @@ def test_menu_deletes_saved_information(
     if expected_settings is None:
         assert not settings_file.exists()
     else:
-        assert json.loads(settings_file.read_text(encoding="utf-8")) == (
-            expected_settings
-        )
+        actual_settings = json.loads(settings_file.read_text(encoding="utf-8"))
+        for key, value in expected_settings.items():
+            assert actual_settings[key] == value
+        for key in {
+            "lunch_minutes",
+            "lunch_window",
+            "min_gap",
+            "earliest_start",
+            "latest_end",
+        } - expected_settings.keys():
+            assert actual_settings[key] == original_settings[key]
     assert aims_file.exists() is expect_aims_path
     if expect_aims_path:
         assert aims_file.read_text(encoding="utf-8") == saved_path
@@ -441,6 +480,11 @@ def test_export_and_plan_menu_options_reuse_saved_aims_path(monkeypatch):
             avoid_days=("Fri",),
             min_credits=15,
             max_credits=21,
+            lunch_minutes=30,
+            lunch_window=("12:00", "14:00"),
+            min_gap=10,
+            earliest_start="09:00",
+            latest_end="18:00",
         ),
     )
 
@@ -455,8 +499,6 @@ def test_export_and_plan_menu_options_reuse_saved_aims_path(monkeypatch):
     assert plan_command == [
         "--aims-html",
         saved_path,
-        "--courses",
-        "GE1102",
         "--prefer-days",
         "Thu",
         "--avoid-days",
@@ -465,6 +507,19 @@ def test_export_and_plan_menu_options_reuse_saved_aims_path(monkeypatch):
         "15",
         "--max-credits",
         "21",
+        "--lunch",
+        "30",
+        "--lunch-window",
+        "12:00",
+        "14:00",
+        "--min-gap",
+        "10",
+        "--earliest",
+        "09:00",
+        "--latest",
+        "18:00",
+        "--courses",
+        "GE1102",
         "--ask",
     ]
     assert plan_path == saved_path

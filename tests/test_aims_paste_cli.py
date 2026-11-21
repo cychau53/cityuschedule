@@ -334,6 +334,42 @@ def test_paste_cli_rejects_avoided_days(monkeypatch, capsys):
     assert "Uses avoided day(s): Wed" in output
 
 
+@pytest.mark.parametrize(
+    ("args", "expected_reason"),
+    [
+        (
+            ["--min-gap", "15"],
+            "Minimum gap of 15 minutes not met",
+        ),
+        (
+            ["--lunch", "30", "--lunch-window", "1200", "1400"],
+            "No 30-minute lunch break between 12:00 and 14:00 on Wed",
+        ),
+        (
+            ["--earliest", "1300"],
+            "starts before 13:00",
+        ),
+        (
+            ["--latest", "1400"],
+            "ends after 14:00",
+        ),
+    ],
+)
+def test_paste_cli_applies_time_constraints(
+    monkeypatch,
+    capsys,
+    args,
+    expected_reason,
+):
+    prepare_cli(monkeypatch, [], args)
+
+    cli.main()
+
+    output = capsys.readouterr().out
+    assert "Bundles fitting weekly timetable: 0" in output
+    assert expected_reason in output
+
+
 def test_paste_cli_lists_avoid_only_rejections_first(monkeypatch, capsys):
     base_bundle = PASTED_TABLE.replace(
         "\nW\n12:00 - 13:50",

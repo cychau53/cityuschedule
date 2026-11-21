@@ -81,6 +81,13 @@ def test_plan_command_rejects_unknown_required_course(capsys):
     assert "ZZZ9999" in capsys.readouterr().err
 
 
+def test_plan_command_no_longer_accepts_completed_courses(capsys):
+    with pytest.raises(SystemExit) as error:
+        plan("--completed", "CS1102")
+    assert error.value.code == 2
+    assert "--completed" in capsys.readouterr().err
+
+
 def test_plan_command_rejects_odd_require_section(capsys):
     with pytest.raises(SystemExit):
         plan("--require-section", "TEST101")
@@ -115,23 +122,22 @@ def test_add_ge_uses_ge_section_data(capsys):
 def test_menu_option_8_builds_plan_command(monkeypatch):
     feed(
         monkeypatch, "ge1102, ge1401", "1", "y",
-        "cs2311", "2627A", "", "cs1102", "45", "", "09:00", "", "y",
+        "cs2311", "2627A", "", "45", "", "09:00", "", "y",
     )
     settings = cli.BasicSettings(prefer_days=("Mon",), avoid_days=("Fri",), max_credits=18)
     command, aims_path = cli._menu_command("8", "saved.html", settings)
     assert command == [
         "--aims-html", "saved.html",
+        "--prefer-days", "Mon",
+        "--avoid-days", "Fri",
+        "--max-credits", "18",
         "--courses", "GE1102", "GE1401",
         "--add-ge", "1",
         "--required", "CS2311",
         "--term", "2627A",
-        "--completed", "CS1102",
         "--lunch", "45",
         "--earliest", "09:00",
         "--allow-section-change",
-        "--prefer-days", "Mon",
-        "--avoid-days", "Fri",
-        "--max-credits", "18",
         "--ask",
     ]
     assert aims_path == "saved.html"

@@ -219,6 +219,19 @@ def test_min_gap_and_lunch_break():
     assert [p.chosen[1].section_codes for p in report.plans] == [("C02",)]
 
 
+def test_custom_lunch_window_is_applied():
+    a = course("AAA1000", 3, section("C01", "Mon", "12:00", "13:00"))
+    b = course("BBB1000", 3, section("C01", "Mon", "13:15", "14:00"),
+               section("C02", "Mon", "14:00", "14:50"))
+    report = plans(
+        [a, b],
+        required_courses=("AAA1000", "BBB1000"),
+        lunch_minutes=30,
+        lunch_window=("12:00", "13:30"),
+    )
+    assert [plan.chosen[1].section_codes for plan in report.plans] == [("C02",)]
+
+
 def test_time_window_and_daily_hours():
     a = course("AAA1000", 3, section("C01", "Mon", "08:30", "09:50"),
                section("C02", "Tue", "10:00", "11:50"))
@@ -652,13 +665,12 @@ def test_crn_is_exported_with_sessions():
     assert run([db]).plans[0].to_sessions()[0]["crn"] == "40001"
 
 
-# --- prerequisites, exclusive and equivalent courses ---------------------
+# --- prerequisites and exclusive courses --------------------------------
 
 
 REQS = {
     "CS2312": CourseRequirements(prerequisites=("CS2311",)),
     "CS1302": CourseRequirements(exclusive=("CS1102",)),
-    "CS2310": CourseRequirements(equivalent=("CS2311",)),
     "CS3103": CourseRequirements(precursors=("CS2310", "CS2311")),
 }
 
@@ -671,28 +683,11 @@ def req_courses():
     ]
 
 
-def test_completed_courses_drive_requirement_checks():
-    report = run(req_courses(), requirements=REQS, completed_courses=("CS1102",))
-    codes = set(report.plans[0].course_codes)
-    assert codes == {"CS2310", "CS3103"}
-    text = "\n".join(report.warnings)
-    assert "CS1102 is already completed" in text
-    assert "CS2312 skipped: missing prerequisite" in text
-    assert "CS1302 skipped: exclusive with CS1102" in text
-    notes = report.plans[0].registration_steps()
-    assert any("recommended precursor" in n for n in notes)
-
-
-def test_equivalent_course_completed():
-    report = run(req_courses(), requirements=REQS, completed_courses=("CS2311",))
-    assert "CS2310" not in report.plans[0].course_codes
-    assert any("equivalent course CS2311" in w for w in report.warnings)
-
-
-def test_without_completed_courses_prerequisites_are_only_noted():
+def test_prerequisites_and_precursors_are_reported_for_user_to_check():
     report = run(req_courses(), requirements=REQS)
     assert "CS2312" in report.plans[0].course_codes
     assert any("Check prerequisites" in w and "CS2312" in w for w in report.warnings)
+    assert any("CS3103" in w for w in report.warnings)
 
 
 def test_exclusive_courses_never_share_a_plan():
@@ -702,17 +697,20 @@ def test_exclusive_courses_never_share_a_plan():
     assert report.rejections["exclusive"] > 0
 
 
-def test_required_course_with_missing_prerequisite_is_kept():
-    report = run(req_courses(), requirements=REQS, completed_courses=("CS1102",),
-                 required_courses=("CS2312",))
+def test_required_course_with_prerequisite_is_kept_for_user_to_check():
+    report = run(
+        req_courses(),
+        requirements=REQS,
+        required_courses=("CS2312",),
+    )
     assert "CS2312" in report.plans[0].course_codes
-    assert any("kept because it is required" in w for w in report.warnings)
+    assert any("Check prerequisites" in w and "CS2312" in w for w in report.warnings)
 
 
 def test_requirement_records_from_project_formats():
     records = [
         {"course_code": "CS2312", "prerequisites": [], "precursors": ["CS2310", "CS2311"],
-         "exclusive_courses": ["CS2332"], "equivalent_courses": []},
+         "exclusive_courses": ["CS2332"]},
         {"course_code": "CB2100", "prerequisites": "CB1000 or CB1001",
          "exclusions": "", "equivalents": ""},
         {"code": "GE1205", "credits": 3},

@@ -2,6 +2,7 @@ import argparse
 import csv
 import json
 import os
+import re
 import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -44,6 +45,11 @@ class BasicSettings:
     avoid_days: tuple[str, ...] = ()
     min_credits: int | None = None
     max_credits: int | None = None
+    lunch_minutes: int = 0
+    lunch_window: tuple[str, str] = ("11:30", "14:30")
+    min_gap: int = 0
+    earliest_start: str | None = None
+    latest_end: str | None = None
 
 
 def load_sessions(csv_path: str) -> list[dict[str, str]]:
@@ -76,6 +82,8 @@ def _aims_path_config_file() -> Path:
 
 def _basic_settings_config_file() -> Path:
     return _cityuschedule_config_dir() / "basic_settings.json"
+
+
 def _saved_bundles_file() -> Path:
     return _cityuschedule_config_dir() / "saved_bundles.json"
 
@@ -152,6 +160,37 @@ def _parse_day_list(value: str) -> tuple[str, ...]:
     return tuple(days)
 
 
+def _parse_clock_time(
+    value: str,
+    label: str,
+    *,
+    allow_24: bool = False,
+) -> str:
+    value = value.strip()
+    if re.fullmatch(r"\d{4}", value):
+        hours, minutes = int(value[:2]), int(value[2:])
+    elif re.fullmatch(r"\d{1,2}:\d{2}", value):
+        hour_text, minute_text = value.split(":")
+        hours, minutes = int(hour_text), int(minute_text)
+    else:
+        raise ValueError(f"{label} must use HHMM or HH:MM format.")
+
+    if minutes > 59 or hours > 24 or (hours == 24 and (minutes or not allow_24)):
+        raise ValueError(f"{label} must be a valid 24-hour time.")
+    return f"{hours:02d}:{minutes:02d}"
+
+
+def _parse_lunch_window(value: str) -> tuple[str, str]:
+    parts = re.split(r"\s*-\s*", value.strip())
+    if len(parts) != 2:
+        raise ValueError("Lunch time window must look like 1200-1400.")
+    start = _parse_clock_time(parts[0], "Lunch window start")
+    end = _parse_clock_time(parts[1], "Lunch window end", allow_24=True)
+    if start >= end:
+        raise ValueError("Lunch window end must be later than its start.")
+    return start, end
+
+
 def _load_basic_settings() -> BasicSettings:
     settings_file = _basic_settings_config_file()
     try:
@@ -170,6 +209,11 @@ def _load_basic_settings() -> BasicSettings:
         avoid_days = values.get("avoid_days", [])
         min_credits = values.get("min_credits")
         max_credits = values.get("max_credits")
+        lunch_minutes = values.get("lunch_minutes", 0)
+        lunch_window_value = values.get("lunch_window", ["11:30", "14:30"])
+        min_gap = values.get("min_gap", 0)
+        earliest_start = values.get("earliest_start")
+        latest_end = values.get("latest_end")
         if not isinstance(prefer_days, list) or not all(
             isinstance(day, str) for day in prefer_days
         ):
@@ -199,6 +243,46 @@ def _load_basic_settings() -> BasicSettings:
             raise ValueError(
                 "Saved minimum credits exceed maximum credits."
             )
+        for label, minutes in (
+            ("lunch duration", lunch_minutes),
+            ("minimum gap", min_gap),
+        ):
+            if type(minutes) is not int or minutes < 0:
+                raise ValueError(
+                    f"Saved {label} must be a non-negative integer."
+                )
+        if (
+            not isinstance(lunch_window_value, list)
+            or len(lunch_window_value) != 2
+            or not all(isinstance(value, str) for value in lunch_window_value)
+        ):
+            raise ValueError("Saved lunch window must contain two times.")
+        lunch_window = _parse_lunch_window(
+            "-".join(lunch_window_value)
+        )
+        if earliest_start is not None:
+            if not isinstance(earliest_start, str):
+                raise ValueError("Saved earliest start must be a time.")
+            earliest_start = _parse_clock_time(
+                earliest_start,
+                "Saved earliest start",
+            )
+        if latest_end is not None:
+            if not isinstance(latest_end, str):
+                raise ValueError("Saved latest end must be a time.")
+            latest_end = _parse_clock_time(
+                latest_end,
+                "Saved latest end",
+                allow_24=True,
+            )
+        if (
+            earliest_start is not None
+            and latest_end is not None
+            and earliest_start > latest_end
+        ):
+            raise ValueError(
+                "Saved earliest start is later than latest end."
+            )
         if set(normalized_prefer) & set(normalized_avoid):
             raise ValueError(
                 "A day cannot be both preferred and avoided."
@@ -212,6 +296,11 @@ def _load_basic_settings() -> BasicSettings:
         avoid_days=normalized_avoid,
         min_credits=min_credits,
         max_credits=max_credits,
+        lunch_minutes=lunch_minutes,
+        lunch_window=lunch_window,
+        min_gap=min_gap,
+        earliest_start=earliest_start,
+        latest_end=latest_end,
     )
 
 
@@ -221,6 +310,11 @@ def _save_basic_settings(settings: BasicSettings) -> None:
         "avoid_days": list(settings.avoid_days),
         "min_credits": settings.min_credits,
         "max_credits": settings.max_credits,
+        "lunch_minutes": settings.lunch_minutes,
+        "lunch_window": list(settings.lunch_window),
+        "min_gap": settings.min_gap,
+        "earliest_start": settings.earliest_start,
+        "latest_end": settings.latest_end,
     }
     settings_file = _basic_settings_config_file()
     settings_file.parent.mkdir(parents=True, exist_ok=True)
@@ -265,11 +359,65 @@ def _prompt_credit_limit(
     return credits
 
 
+def _prompt_minutes(label: str, current: int) -> int:
+    response = input(
+        f"{label} [{current}] (blank keeps, none clears): "
+    ).strip()
+    _exit_if_requested(response)
+    if not response:
+        return current
+    if response.casefold() in {"none", "clear"}:
+        return 0
+    try:
+        minutes = int(response)
+    except ValueError:
+        raise ValueError(f"{label} must be a non-negative integer.") from None
+    if minutes < 0:
+        raise ValueError(f"{label} must be a non-negative integer.")
+    return minutes
+
+
+def _prompt_lunch_window(
+    current: tuple[str, str],
+) -> tuple[str, str]:
+    current_value = f"{current[0]}-{current[1]}"
+    response = input(
+        "Lunch time window (e.g. 1200-1400) "
+        f"[{current_value}] (blank keeps, none resets): "
+    ).strip()
+    _exit_if_requested(response)
+    if not response:
+        return current
+    if response.casefold() in {"none", "clear"}:
+        return ("11:30", "14:30")
+    return _parse_lunch_window(response)
+
+
+def _prompt_clock_limit(
+    label: str,
+    current: str | None,
+    *,
+    allow_24: bool = False,
+) -> str | None:
+    current_value = current or "none"
+    response = input(
+        f"{label} (HHMM or HH:MM) [{current_value}] "
+        "(blank keeps, none clears): "
+    ).strip()
+    _exit_if_requested(response)
+    if not response:
+        return current
+    if response.casefold() in {"none", "clear"}:
+        return None
+    return _parse_clock_time(response, label, allow_24=allow_24)
+
+
 def _prompt_basic_settings(current: BasicSettings) -> BasicSettings:
     while True:
         _print_yellow(
             "Basic settings: days may be entered as Mon/Tue/Wed/Thu/Fri/Sat/Sun "
-            "or M/T/W/R/F/S/U."
+            "or M/T/W/R/F/S/U. Times accept HHMM or HH:MM; lunch windows "
+            "use start-end, e.g. 1200-1400."
         )
         try:
             prefer_days = _prompt_days("Prefer days", current.prefer_days)
@@ -281,6 +429,24 @@ def _prompt_basic_settings(current: BasicSettings) -> BasicSettings:
             max_credits = _prompt_credit_limit(
                 "Maximum credits",
                 current.max_credits,
+            )
+            lunch_minutes = _prompt_minutes(
+                "Lunch break length in minutes",
+                current.lunch_minutes,
+            )
+            lunch_window = _prompt_lunch_window(current.lunch_window)
+            min_gap = _prompt_minutes(
+                "Minimum minutes between classes",
+                current.min_gap,
+            )
+            earliest_start = _prompt_clock_limit(
+                "Earliest class start",
+                current.earliest_start,
+            )
+            latest_end = _prompt_clock_limit(
+                "Latest class end",
+                current.latest_end,
+                allow_24=True,
             )
             if set(prefer_days) & set(avoid_days):
                 raise ValueError(
@@ -294,6 +460,14 @@ def _prompt_basic_settings(current: BasicSettings) -> BasicSettings:
                 raise ValueError(
                     "Minimum credits cannot exceed maximum credits."
                 )
+            if (
+                earliest_start is not None
+                and latest_end is not None
+                and earliest_start > latest_end
+            ):
+                raise ValueError(
+                    "Earliest class start cannot be later than latest class end."
+                )
         except ValueError as error:
             _print_red(str(error))
             continue
@@ -303,6 +477,11 @@ def _prompt_basic_settings(current: BasicSettings) -> BasicSettings:
             avoid_days=avoid_days,
             min_credits=min_credits,
             max_credits=max_credits,
+            lunch_minutes=lunch_minutes,
+            lunch_window=lunch_window,
+            min_gap=min_gap,
+            earliest_start=earliest_start,
+            latest_end=latest_end,
         )
 
 
@@ -316,6 +495,16 @@ def _basic_settings_arguments(settings: BasicSettings) -> list[str]:
         arguments.extend(["--min-credits", str(settings.min_credits)])
     if settings.max_credits is not None:
         arguments.extend(["--max-credits", str(settings.max_credits)])
+    if settings.lunch_minutes:
+        arguments.extend(["--lunch", str(settings.lunch_minutes)])
+    if settings.lunch_window != ("11:30", "14:30"):
+        arguments.extend(["--lunch-window", *settings.lunch_window])
+    if settings.min_gap:
+        arguments.extend(["--min-gap", str(settings.min_gap)])
+    if settings.earliest_start:
+        arguments.extend(["--earliest", settings.earliest_start])
+    if settings.latest_end:
+        arguments.extend(["--latest", settings.latest_end])
     return arguments
 
 
@@ -535,21 +724,22 @@ def _plan_menu_command(
         return None, None
 
     command = ["--aims-html", aims_path] if aims_path else []
+    command.extend(_basic_settings_arguments(settings))
+
     if codes:
         command.extend(["--courses", *codes])
     if int(ge_count or 0):
         command.extend(["--add-ge", ge_count])
 
     advanced = _ask_menu(
-        "Set more options (required courses, term, lunch, ...)? [y/N]"
+        "Set customized requirements? [y/N]"
     ).casefold()
     if advanced in {"y", "yes"}:
         questions = [
             ("--required", "Courses that must be included, e.g. CS2311 GE1401"),
             ("--term", "Term, e.g. 2627A for Semester A 2026/27"),
             ("--study-load", "Credit limit by study load: full-time, part-time or summer"),
-            ("--completed", "Courses you have completed, e.g. CS1102 MA1200"),
-            ("--lunch", "Lunch break minutes between 11:30 and 14:30"),
+            ("--lunch", "Lunch break minutes within your lunch time window"),
             ("--min-gap", "Minimum minutes between classes"),
             ("--earliest", "Earliest class start, e.g. 09:00"),
             ("--latest", "Latest class end, e.g. 18:00"),
@@ -558,7 +748,7 @@ def _plan_menu_command(
             value = _ask_menu(f"{label} (Enter to skip)")
             if not value:
                 continue
-            if flag in {"--required", "--completed"}:
+            if flag == "--required":
                 command.extend(
                     [flag, *value.replace(",", " ").upper().split()]
                 )
@@ -575,7 +765,6 @@ def _plan_menu_command(
     if not ({"--courses", "--add-ge"} & set(command)):
         _print_red("Enter at least one course code or a number of GE courses.")
         return None, None
-    command.extend(_basic_settings_arguments(settings))
     command.append("--ask")
     return command, aims_path
 
@@ -675,6 +864,31 @@ def interactive_menu() -> None:
                                 None,
                                 "maximum credits",
                             ),
+                            "lunch": (
+                                "lunch_minutes",
+                                0,
+                                "lunch break length",
+                            ),
+                            "window": (
+                                "lunch_window",
+                                ("11:30", "14:30"),
+                                "lunch time window",
+                            ),
+                            "gap": (
+                                "min_gap",
+                                0,
+                                "minimum gap",
+                            ),
+                            "earliest": (
+                                "earliest_start",
+                                None,
+                                "earliest class start",
+                            ),
+                            "latest": (
+                                "latest_end",
+                                None,
+                                "latest class end",
+                            ),
                         }
                         targets = list(
                             dict.fromkeys(
@@ -690,9 +904,10 @@ def interactive_menu() -> None:
                         ):
                             raise ValueError(
                                 "Use delete all, delete avoid, delete "
-                                "prefer, delete min, delete max, or "
-                                "delete AIMS. Join multiple names with "
-                                "'and'."
+                                "prefer, delete min, delete max, delete "
+                                "lunch, delete window, delete gap, delete "
+                                "earliest, delete latest, or delete AIMS. "
+                                "Join multiple names with 'and'."
                             )
 
                         if "aims" in targets:
@@ -882,10 +1097,10 @@ def _run_course_planner(args: argparse.Namespace, parser) -> None:
             study_load=None if args.study_load == "none" else args.study_load,
             allow_overload=args.allow_overload,
             allow_section_changes=args.allow_section_change,
-            completed_courses=tuple(code.upper() for code in args.completed),
             seat_policy=args.seats,
             web_only=args.web_only,
             term=args.term,
+            lunch_window=tuple(args.lunch_window),
         )
         report = generate_course_plans(
             courses,
@@ -1103,15 +1318,26 @@ def main(argv: list[str] | None = None) -> None:
     planning.add_argument(
         "--max-courses", type=int, help="Most new courses in a plan",
     )
-    planning.add_argument("--earliest", help="Earliest class start, e.g. 09:00")
-    planning.add_argument("--latest", help="Latest class end, e.g. 18:00")
+    planning.add_argument(
+        "--earliest", help="Earliest class start, e.g. 0900 or 09:00",
+    )
+    planning.add_argument(
+        "--latest", help="Latest class end, e.g. 1800 or 18:00",
+    )
     planning.add_argument(
         "--min-gap", type=int, default=0,
         help="Minimum minutes between classes",
     )
     planning.add_argument(
         "--lunch", type=int, default=0,
-        help="Minutes of lunch break needed between 11:30 and 14:30",
+        help="Minutes of lunch break needed within --lunch-window",
+    )
+    planning.add_argument(
+        "--lunch-window",
+        nargs=2,
+        metavar=("START", "END"),
+        default=("11:30", "14:30"),
+        help="Lunch time window (default: 11:30 14:30)",
     )
     planning.add_argument(
         "--max-daily-hours", type=float, help="Most class hours in one day",
@@ -1135,10 +1361,6 @@ def main(argv: list[str] | None = None) -> None:
     planning.add_argument(
         "--allow-section-change", action="store_true",
         help="Let the planner move pre-registered courses to other sections",
-    )
-    planning.add_argument(
-        "--completed", nargs="+", default=[], metavar="CODE",
-        help="Courses you have passed, for prerequisite and exclusive checks",
     )
     planning.add_argument(
         "--seats", default="waitlist", choices=("open", "waitlist", "any"),
@@ -1218,6 +1440,36 @@ def main(argv: list[str] | None = None) -> None:
         and args.min_credits > args.max_credits
     ):
         parser.error("--min-credits cannot exceed --max-credits.")
+    if args.min_gap < 0:
+        parser.error("--min-gap cannot be negative.")
+    if args.lunch < 0:
+        parser.error("--lunch cannot be negative.")
+    try:
+        if args.earliest:
+            args.earliest = _parse_clock_time(
+                args.earliest,
+                "Earliest class start",
+            )
+        if args.latest:
+            args.latest = _parse_clock_time(
+                args.latest,
+                "Latest class end",
+                allow_24=True,
+            )
+        lunch_start, lunch_end = args.lunch_window
+        args.lunch_window = _parse_lunch_window(
+            f"{lunch_start}-{lunch_end}"
+        )
+        if (
+            args.earliest is not None
+            and args.latest is not None
+            and args.earliest > args.latest
+        ):
+            raise ValueError(
+                "Earliest class start cannot be later than latest class end."
+            )
+    except ValueError as error:
+        parser.error(str(error))
 
     if args.paste_aims:
         if not args.aims_html:
@@ -1375,6 +1627,11 @@ def main(argv: list[str] | None = None) -> None:
                 preferred_days=args.prefer_days,
                 avoid_days=args.avoid_days,
                 unavailable_sections=unavailable_sections,
+                min_gap=args.min_gap,
+                earliest_start=args.earliest,
+                latest_end=args.latest,
+                lunch_minutes=args.lunch,
+                lunch_window=tuple(args.lunch_window),
             )
 
         except _ReturnToMenu:
@@ -1398,7 +1655,14 @@ def main(argv: list[str] | None = None) -> None:
         avoided_days = {
             day.capitalize() for day in (args.avoid_days or [])
         }
-        if preferred_days or avoided_days:
+        if (
+            preferred_days
+            or avoided_days
+            or args.lunch
+            or args.min_gap
+            or args.earliest
+            or args.latest
+        ):
             print()
             if preferred_days:
                 _print_purple(
@@ -1409,6 +1673,21 @@ def main(argv: list[str] | None = None) -> None:
                 _print_purple(
                     "Current avoid days: "
                     + ", ".join(sorted(avoided_days))
+                )
+            if args.lunch:
+                _print_purple(
+                    f"Current lunch: {args.lunch} minutes between "
+                    f"{args.lunch_window[0]} and {args.lunch_window[1]}"
+                )
+            if args.min_gap:
+                _print_purple(
+                    f"Current minimum gap: {args.min_gap} minutes"
+                )
+            if args.earliest or args.latest:
+                _print_purple(
+                    "Current class time limits: "
+                    f"{args.earliest or 'any start'} to "
+                    f"{args.latest or 'any end'}"
                 )
         if unavailable_sections:
             print(
@@ -1474,8 +1753,9 @@ def main(argv: list[str] | None = None) -> None:
         elif not fitting:
             _print_red(
                 "No complete bundle fits: each has an internal overlap, "
-                "overlaps the base timetable, lacks sufficient travel time, "
-                "or uses an avoided day."
+                "overlaps the base timetable, fails a time, gap or lunch "
+                "requirement, lacks sufficient travel time, or uses an "
+                "avoided day."
             )
         else:
             _print_green("Suggested bundles:")
@@ -1524,6 +1804,11 @@ def main(argv: list[str] | None = None) -> None:
                     base_sessions,
                     avoid_days=args.avoid_days,
                     unavailable_sections=unavailable_sections,
+                    min_gap=args.min_gap,
+                    earliest_start=args.earliest,
+                    latest_end=args.latest,
+                    lunch_minutes=args.lunch,
+                    lunch_window=tuple(args.lunch_window),
                 ),
             )
             for bundle in rejected_bundles

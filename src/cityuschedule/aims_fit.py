@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from itertools import combinations
+from itertools import combinations, pairwise
 
 from .aims_table_parser import AimsSession, ParsedAimsTable
 from .travel_time import time as check_travel_time
@@ -75,6 +75,11 @@ def fitting_registration_bundles(
     preferred_days: list[str] | None = None,
     avoid_days: list[str] | None = None,
     unavailable_sections: list[str] | None = None,
+    min_gap: int = 0,
+    earliest_start: str | None = None,
+    latest_end: str | None = None,
+    lunch_minutes: int = 0,
+    lunch_window: tuple[str, str] = ("11:30", "14:30"),
 ) -> list[tuple[str, ...]]:
     """Keep complete bundles that fit the base timetable and allow transfers."""
     sessions_by_section = {
@@ -82,15 +87,7 @@ def fitting_registration_bundles(
         for session in table.scheduled_sessions
     }
 
-    preferred_days_set = {
-        day.capitalize() for day in (preferred_days or [])
-    }
-    avoided_days = {
-        day.capitalize() for day in (avoid_days or [])
-    }
-    unavailable_sections_set = {
-        section.upper() for section in (unavailable_sections or [])
-    }
+    preferred_days_set = {day.capitalize() for day in (preferred_days or [])}
     fitting: list[tuple[tuple[str, ...], int]] = []
 
     for bundle in table.registration_bundles():
@@ -98,38 +95,20 @@ def fitting_registration_bundles(
             sessions_by_section[section]
             for section in bundle
         ]
-        if {
-            session.section.upper() for session in selected
-        } & unavailable_sections_set:
-            continue
         bundle_days = _session_days(selected)
 
-        if bundle_days & avoided_days:
-            continue
-
-        internal_conflict = any(
-            sessions_overlap(first, second)
-            for first, second in combinations(selected, 2)
-        )
-        if internal_conflict:
-            continue
-
-        base_conflict = any(
-            sessions_overlap(candidate, existing)
-            for candidate in selected
-            for existing in base_sessions
-        )
-        if base_conflict:
-            continue
-
-        try:
-            check_travel_time(
-                [
-                    _to_travel_session(session)
-                    for session in (*base_sessions, *selected)
-                ]
-            )
-        except ValueError:
+        if registration_bundle_conflicts(
+            table,
+            bundle,
+            base_sessions,
+            avoid_days=avoid_days,
+            unavailable_sections=unavailable_sections,
+            min_gap=min_gap,
+            earliest_start=earliest_start,
+            latest_end=latest_end,
+            lunch_minutes=lunch_minutes,
+            lunch_window=lunch_window,
+        ):
             continue
 
         fitting.append(
@@ -192,6 +171,98 @@ def _session_label(session: AimsSession) -> str:
     )
 
 
+def _schedule_constraint_conflicts(
+    selected: list[AimsSession],
+    base_sessions: tuple[AimsSession, ...],
+    *,
+    min_gap: int,
+    earliest_start: str | None,
+    latest_end: str | None,
+    lunch_minutes: int,
+    lunch_window: tuple[str, str],
+) -> list[str]:
+    reasons = []
+    for session in selected:
+        assert session.start_time is not None
+        assert session.end_time is not None
+        if (
+            earliest_start is not None
+            and _minutes(session.start_time) < _minutes(earliest_start)
+        ):
+            reasons.append(
+                f"Outside allowed time window: {_session_label(session)} "
+                f"starts before {earliest_start}"
+            )
+        if (
+            latest_end is not None
+            and _minutes(session.end_time) > _minutes(latest_end)
+        ):
+            reasons.append(
+                f"Outside allowed time window: {_session_label(session)} "
+                f"ends after {latest_end}"
+            )
+
+    affected_days = _session_days(selected)
+    all_sessions = (*base_sessions, *selected)
+    day_order = {name: index for index, name in enumerate(DAY_NAMES.values())}
+    for day in sorted(affected_days, key=day_order.__getitem__):
+        day_sessions = sorted(
+            (
+                session
+                for session in all_sessions
+                if session.day is not None and DAY_NAMES[session.day] == day
+            ),
+            key=lambda session: _minutes(session.start_time or "00:00"),
+        )
+        if min_gap:
+            for first, second in pairwise(day_sessions):
+                if first not in selected and second not in selected:
+                    continue
+                assert first.end_time is not None
+                assert second.start_time is not None
+                gap = _minutes(second.start_time) - _minutes(first.end_time)
+                if gap < min_gap:
+                    reasons.append(
+                        f"Minimum gap of {min_gap} minutes not met: "
+                        f"{_session_label(first)} and {_session_label(second)} "
+                        f"have {gap} minutes between them"
+                    )
+
+        if lunch_minutes and not _has_lunch_break(
+            day_sessions,
+            lunch_minutes,
+            lunch_window,
+        ):
+            reasons.append(
+                f"No {lunch_minutes}-minute lunch break between "
+                f"{lunch_window[0]} and {lunch_window[1]} on {day}"
+            )
+
+    return reasons
+
+
+def _has_lunch_break(
+    sessions: list[AimsSession],
+    lunch_minutes: int,
+    lunch_window: tuple[str, str],
+) -> bool:
+    cursor = _minutes(lunch_window[0])
+    lunch_end = _minutes(lunch_window[1])
+    for session in sessions:
+        assert session.start_time is not None
+        assert session.end_time is not None
+        start = _minutes(session.start_time)
+        end = _minutes(session.end_time)
+        if end <= cursor:
+            continue
+        if start >= lunch_end:
+            break
+        if start - cursor >= lunch_minutes:
+            return True
+        cursor = max(cursor, end)
+    return lunch_end - cursor >= lunch_minutes
+
+
 def _to_travel_session(session: AimsSession) -> dict[str, str]:
     assert session.day is not None
     assert session.start_time is not None
@@ -213,6 +284,11 @@ def registration_bundle_conflicts(
     base_sessions: tuple[AimsSession, ...],
     avoid_days: list[str] | None = None,
     unavailable_sections: list[str] | None = None,
+    min_gap: int = 0,
+    earliest_start: str | None = None,
+    latest_end: str | None = None,
+    lunch_minutes: int = 0,
+    lunch_window: tuple[str, str] = ("11:30", "14:30"),
 ) -> list[str]:
     """Explain timetable, day-preference, and travel rejection reasons."""
     by_section = {
@@ -244,6 +320,18 @@ def registration_bundle_conflicts(
         reasons.append(
             "Uses avoided day(s): " + ", ".join(sorted(avoided_days))
         )
+
+    reasons.extend(
+        _schedule_constraint_conflicts(
+            selected,
+            base_sessions,
+            min_gap=min_gap,
+            earliest_start=earliest_start,
+            latest_end=latest_end,
+            lunch_minutes=lunch_minutes,
+            lunch_window=lunch_window,
+        )
+    )
 
     for first, second in combinations(selected, 2):
         if sessions_overlap(first, second):

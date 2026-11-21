@@ -59,9 +59,9 @@ Run `cityuschedule` with no arguments and choose **8. Generate course plans**. Y
 1. Your AIMS timetable HTML: the one saved in option 3 is used if you have one; otherwise type a path, or press Enter to plan without one
 2. The course codes you are interested in, e.g. `GE1102 GE1401 GE2410`
 3. How many GE courses the generator should add (Enter for as many as fit)
-4. Whether to set more options. If yes: required courses, term, study load (credit limit), completed courses, lunch minutes, minimum gap, earliest start, latest end, and (with AIMS) whether pre-registered courses may change section
+4. Whether to set customized requirements. If yes: required courses, term, study load (credit limit), lunch minutes, minimum gap, earliest start, latest end, and (with AIMS) whether pre-registered courses may change section
 
-Your **Basic settings** (option 1) are applied automatically: preferred days, avoided days, minimum and maximum credits, number of results. After the plans are listed you can save one to your saved bundles and export one to an `.ics` file. The AIMS path you use is remembered for next time.
+Your **Basic settings** (option 1) are applied automatically: preferred and avoided days, credit limits, lunch duration and window, minimum gap, and earliest/latest class times. Values entered in the customized-requirements prompts override the corresponding basic setting for that plan run. After the plans are listed you can save one to your saved bundles and export one to an `.ics` file. The AIMS path you use is remembered for next time.
 
 ## Command line
 
@@ -130,9 +130,9 @@ Days accept `Mon`, `M`, `Thu`, `R`, `Thursday` and so on.
 | `--min-credits`, `--max-credits` | Credit limits; totals include the AIMS timetable |
 | `--credit-catalog FILE ...` | Extra credit lists for your courses (added to `data/catalogue/*_course_requirements.json`) |
 | `--prefer-days`, `--avoid-days` | Day preferences |
-| `--earliest 09:00`, `--latest 18:00` | Allowed class times |
+| `--earliest 0900`, `--latest 1800` | Allowed class times (also accept `HH:MM`) |
 | `--min-gap 10` | Minimum minutes between consecutive classes |
-| `--lunch 45` | Free minutes needed between 11:30 and 14:30 on class days |
+| `--lunch 30 --lunch-window 1200 1400` | Free minutes needed in a lunch window on class days |
 | `--max-daily-hours 6` | Maximum class hours per day |
 | `--no-travel-check` | Skip walking-time checks |
 | `--max-results N` | Number of plans to show (default 5) |
@@ -142,7 +142,6 @@ Days accept `Mon`, `M`, `Thu`, `R`, `Thursday` and so on.
 | `--study-load full-time\|part-time\|summer\|none` | CityU study-load credit limit (default `none`: no credit limit) |
 | `--allow-overload` | Allow more credits than the study-load maximum |
 | `--allow-section-change` | Let pre-registered courses move to other sections |
-| `--completed CODE ...` | Courses you have passed, for prerequisite, exclusive and equivalent checks |
 | `--seats open\|waitlist\|any` | Which full sections may be used (default `waitlist`) |
 | `--web-only` | Leave out non-web-enabled and restricted sections |
 | `--term 2627A` | Only courses offered in that term |
@@ -164,7 +163,7 @@ The planner follows the course registration rules of CityU's Academic Regulation
 | Non-web-enabled courses, or bypassing a restriction, need the AIMS e-form during the last time-ticket and approval from the course-offering unit ([Non-web-enabled Course](https://www.cityu.edu.hk/arro/creg/nweb_main.htm), [Registration Restrictions](https://www.cityu.edu.hk/arro/creg/wadp_rstr.htm)) | Marked `[e-form]` or `[restricted]` and rank lower; `--web-only` leaves them out. |
 | GE quota control: only a limited number of GE Area 1-3 courses in the 2nd time-ticket ([Time-ticket](https://www.cityu.edu.hk/arro/creg/wadp_ttkt.htm), [GE Quota](https://www.cityu.edu.hk/arro/creg/wadp_geqt.htm)) | A plan with two or more Area 1-3 courses says to add the others in the 3rd time-ticket. |
 | Courses are offered in particular terms (offering terms in `data/catalogue/*_course_requirements.json` and `data/ge_courses.json`) | With `--term 2627A` (or `Semester A 2026/27`, `2026-27 Sem A`), courses not offered in that term are left out. Courses with no term data are kept. |
-| Check prerequisites yourself; DegreeWorks study plans do not ([DegreeWorks](https://www.cityu.edu.hk/arro/dgwk/dgwk_main.htm)) | With `--completed`, courses missing a prerequisite, exclusive with a completed or current course, or equivalent to a completed one are skipped (required courses are kept with a warning). Two exclusive courses are never in the same plan. Missing precursors give a note. Without `--completed`, a note lists courses to check. Requirements come from `data/catalogue/*_course_requirements.json` and your course list. |
+| Check prerequisites yourself; DegreeWorks study plans do not ([DegreeWorks](https://www.cityu.edu.hk/arro/dgwk/dgwk_main.htm)) | Prerequisites and precursors are listed for you to verify in DegreeWorks or the course catalogue. The planner does not track courses you have completed. Two exclusive courses are never in the same plan, and a candidate exclusive with a course already on your timetable is skipped. Requirements come from `data/catalogue/*_course_requirements.json` and your course list. |
 
 ### Optional section fields
 
@@ -182,7 +181,7 @@ Copy these from the Master Class Schedule to get the registration checks ([Perso
 - `web`: `N` if the course is not web-enabled.
 - `restrictions`: registration restriction text. Notes containing "only for" or "not for" are also treated as restrictions.
 
-A course can also list `prerequisites`, `precursors`, `exclusive_courses` and `equivalent_courses`.
+A course can also list `prerequisites`, `precursors` and `exclusive_courses`.
 
 ### Not covered
 

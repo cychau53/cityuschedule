@@ -41,9 +41,9 @@ https://www.cityu.edu.hk/arro/creg/creg_main.htm):
   used through the waitlist (3rd time-ticket, not guaranteed); sections
   that are not web-enabled or are restricted need the AIMS e-form in the
   last time-ticket. Plans that need fewer of these rank higher.
-* Prerequisites, precursors, exclusive and equivalent courses are checked
-  against the courses you have completed, and courses not offered in the
-  chosen term are left out.
+* Courses not offered in the chosen term are left out. Prerequisites and
+  precursors are surfaced for the student to verify; the planner does not
+  track completed courses.
 * Each plan lists its add/drop steps with CRNs and notes the GE quota
   control in the 2nd time-ticket.
 
@@ -182,7 +182,6 @@ class CourseRequirements:
     prerequisites: tuple[str, ...] = ()
     precursors: tuple[str, ...] = ()
     exclusive: tuple[str, ...] = ()
-    equivalent: tuple[str, ...] = ()
     terms: tuple[tuple[str, str], ...] = ()
 
 
@@ -200,7 +199,6 @@ def course_requirements_from_records(
             prerequisites=_course_codes(record.get("prerequisites")),
             precursors=_course_codes(record.get("precursors")),
             exclusive=_course_codes(record.get("exclusive_courses")),
-            equivalent=_course_codes(record.get("equivalent_courses")),
             terms=_term_keys(record.get("offering_terms", record.get("terms"))),
         )
         old = result.get(code)
@@ -396,7 +394,6 @@ class PlanOptions:
     study_load: str | None = None
     allow_overload: bool = False
     allow_section_changes: bool = False
-    completed_courses: tuple[str, ...] = ()
     seat_policy: str = "waitlist"  # "open", "waitlist" or "any"
     web_only: bool = False
     term: str | None = None  # e.g. "2627A" or "Semester A 2026/27"
@@ -958,8 +955,7 @@ def generate_course_plans(
         warn("Credits unknown for pre-registered courses (counted as 0): " + ", ".join(unknown_fixed))
 
     # Candidate courses ----------------------------------------------------
-    completed = {c.upper() for c in options.completed_courses}
-    taken = completed | fixed_codes
+    taken = fixed_codes
     catalogue: dict[str, CatalogCourse] = {}
     unknown_credits, unchecked = [], []
     for course in courses:
@@ -969,25 +965,18 @@ def generate_course_plans(
         if code in fixed_codes:
             warn(f"{code} is already in your timetable; skipped (allow section changes to move it)")
             continue
-        if code in completed:
-            warn(f"{code} is already completed; skipped")
-            continue
         need = requirements.get(code, CourseRequirements())
         problem = ""
         if term and need.terms and term not in need.terms:
             problem = "not offered in the chosen term"
-        elif set(need.equivalent) & completed:
-            problem = "equivalent course " + ", ".join(sorted(set(need.equivalent) & completed)) + " completed"
         elif set(need.exclusive) & taken:
             problem = "exclusive with " + ", ".join(sorted(set(need.exclusive) & taken))
-        elif completed and need.prerequisites and not set(need.prerequisites) & completed:
-            problem = "missing prerequisite (one of " + ", ".join(need.prerequisites) + ")"
         if problem:
             if code not in required:
                 warn(f"{code} skipped: {problem}")
                 continue
             warn(f"{code}: {problem}; kept because it is required")
-        if not completed and (need.prerequisites or need.precursors):
+        if need.prerequisites or need.precursors:
             unchecked.append(code)
         if course.credits is None:
             credits = credits_of(code)
@@ -999,8 +988,8 @@ def generate_course_plans(
         warn("Credits unknown (counted as 0): " + ", ".join(sorted(unknown_credits)))
     if unchecked:
         warn(
-            "Check prerequisites/precursors in DegreeWorks or the course catalogue "
-            "(or enter your completed courses): " + ", ".join(sorted(unchecked))
+            "Check prerequisites/precursors in DegreeWorks or the course catalogue: "
+            + ", ".join(sorted(unchecked))
         )
     missing = sorted(required - set(catalogue))
     if missing:
@@ -1024,10 +1013,6 @@ def generate_course_plans(
             report.rejections["required_section"] += len(course_options) - len(kept)
             course_options = kept
         need = requirements.get(code, CourseRequirements())
-        if completed and need.precursors and not set(need.precursors) & completed:
-            note = "recommended precursor (one of " + ", ".join(need.precursors) + ") not completed"
-            course_options = [replace(o, notes=(*o.notes, note)) for o in course_options]
-
         allowed = []
         for option in course_options:
             if code in movable:
