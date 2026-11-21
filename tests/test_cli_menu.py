@@ -283,7 +283,7 @@ def test_basic_settings_persist_and_apply_to_paste_and_planning(
             "4",
             "0",
             "8",
-            "ge1102",
+            "ge1105",
             "",
             "2627A",
             "0",
@@ -350,7 +350,7 @@ def test_basic_settings_persist_and_apply_to_paste_and_planning(
             "--term",
             "2627A",
             "--courses",
-            "GE1102",
+            "GE1105",
             "--ask",
         ],
     ]
@@ -519,7 +519,7 @@ def test_menu_reports_unknown_delete_command(monkeypatch, capsys):
 
 def test_export_and_plan_menu_options_reuse_saved_aims_path(monkeypatch):
     saved_path = r"C:\Schedules\current AIMS.html"
-    inputs = iter(["AIMS", "", "", "", "ge1102", "", "2627A"])
+    inputs = iter(["AIMS", "", "", "", "ge1102", "", "2627B"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
 
     export_command, export_path = cli._menu_command("7", saved_path)
@@ -570,7 +570,7 @@ def test_export_and_plan_menu_options_reuse_saved_aims_path(monkeypatch):
         "--latest",
         "18:00",
         "--term",
-        "2627A",
+        "2627B",
         "--courses",
         "GE1102",
         "--ask",

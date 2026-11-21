@@ -125,7 +125,7 @@ def test_add_ge_uses_ge_section_data(capsys):
 
 
 def test_menu_option_8_builds_plan_command(monkeypatch):
-    feed(monkeypatch, "ge1102, ge1401", "1", "2627B")
+    feed(monkeypatch, "ge1102, ge1105", "1", "2627B")
     settings = cli.BasicSettings(prefer_days=("Mon",), avoid_days=("Fri",), max_credits=18)
     command, aims_path = cli._menu_command("8", "saved.html", settings)
     assert command == [
@@ -134,7 +134,7 @@ def test_menu_option_8_builds_plan_command(monkeypatch):
         "--avoid-days", "Fri",
         "--max-credits", "18",
         "--term", "2627B",
-        "--courses", "GE1102", "GE1401",
+        "--courses", "GE1102", "GE1105",
         "--add-ge", "1",
         "--ask",
     ]
@@ -142,11 +142,137 @@ def test_menu_option_8_builds_plan_command(monkeypatch):
 
 
 def test_menu_option_8_without_aims_or_courses(monkeypatch, capsys):
-    feed(monkeypatch, "", "", "")
-    assert cli._menu_command("8", None, cli.BasicSettings()) == (None, None)
+    feed(monkeypatch, "", "", "", "GE1105", "", "2627A")
+    command, path = cli._menu_command("8", None, cli.BasicSettings())
+    assert command is not None
+    assert "--courses" in command
+    assert path is None
     assert "at least one course code" in capsys.readouterr().out
-    feed(monkeypatch, "", "GE1102", "two")
-    assert cli._menu_command("8", None, cli.BasicSettings()) == (None, None)
+
+    feed(monkeypatch, "", "GE1102", "two", "1", "2627B")
+    command, _ = cli._menu_command("8", None, cli.BasicSettings())
+    assert command is not None
+    term_index = command.index("--term")
+    assert command[term_index : term_index + 2] == ["--term", "2627B"]
+    assert command[command.index("--add-ge") + 1] == "1"
+    assert "non-negative whole number" in capsys.readouterr().out
+
+
+def test_menu_option_8_reprompts_invalid_course_code(monkeypatch, capsys):
+    feed(monkeypatch, "", "GE-1102", "GE1102", "", "2627B")
+
+    command, _ = cli._menu_command("8", None, cli.BasicSettings())
+
+    assert command is not None
+    assert command[-5:] == ["--term", "2627B", "--courses", "GE1102", "--ask"]
+    assert "Invalid course code" in capsys.readouterr().out
+
+
+def test_menu_option_8_reprompts_course_unavailable_in_term(monkeypatch, capsys):
+    feed(monkeypatch, "GE1102", "", "2627A", "GE1105")
+
+    command, _ = cli._menu_command("8", "saved.html", cli.BasicSettings())
+
+    assert command is not None
+    assert command[-5:] == ["--term", "2627A", "--courses", "GE1105", "--ask"]
+    assert "No section details for GE1102 in 2627A" in capsys.readouterr().out
+
+
+def test_invalid_plan_course_reprompts_without_returning_to_menu(
+    monkeypatch,
+    capsys,
+):
+    feed(
+        monkeypatch,
+        "8",
+        "",
+        "GE1102",
+        "",
+        "2627A",
+        "",
+        "",
+        "GE1105",
+        "0",
+    )
+    monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: None)
+    commands = []
+    monkeypatch.setattr(cli, "main", lambda argv=None: commands.append(argv))
+
+    cli.interactive_menu()
+
+    assert len(commands) == 1
+    assert "--courses" in commands[0]
+    assert commands[0][commands[0].index("--courses") + 1] == "GE1105"
+    output = capsys.readouterr().out
+    assert "No section details for GE1102 in 2627A" in output
+
+
+def test_menu_option_8_reprompts_invalid_aims_path(monkeypatch, tmp_path, capsys):
+    aims = tmp_path / "aims.html"
+    aims.write_text(AIMS_HTML, encoding="utf-8")
+    feed(
+        monkeypatch,
+        str(tmp_path / "missing.html"),
+        str(aims),
+        "GE1105",
+        "",
+        "2627A",
+    )
+
+    command, path = cli._menu_command("8", None, cli.BasicSettings())
+
+    assert command is not None
+    assert path == str(aims)
+    assert "Invalid AIMS timetable" in capsys.readouterr().out
+
+
+def test_plan_dates_reprompt_invalid_and_out_of_order(monkeypatch, capsys):
+    feed(monkeypatch, "2026-02-30", "2026-08-31")
+    start = cli._prompt_plan_date("Semester start", "2026-08-31")
+
+    feed(monkeypatch, "2026-08-01", "2026-11-28")
+    end = cli._prompt_plan_date(
+        "Semester end",
+        "2026-11-28",
+        minimum=start,
+    )
+
+    assert start.isoformat() == "2026-08-31"
+    assert end.isoformat() == "2026-11-28"
+    output = capsys.readouterr().out
+    assert "valid date in YYYY-MM-DD format" in output
+    assert "Semester end must be on or after semester start." in output
+
+
+def test_plan_ask_reprompts_invalid_choices_and_output_path(
+    monkeypatch,
+    capsys,
+    tmp_path,
+):
+    output_path = tmp_path / "chosen.ics"
+    feed(
+        monkeypatch,
+        "1,99",
+        "1",
+        "999999",
+        "1",
+        str(tmp_path),
+        "",
+        "",
+        str(output_path),
+    )
+    saved = []
+    monkeypatch.setattr(cli, "_load_saved_bundles", list)
+    monkeypatch.setattr(cli, "_save_bundles_to_disk", saved.extend)
+
+    plan("--ask", "--no-travel-check")
+
+    output = capsys.readouterr().out
+    assert output_path.is_file()
+    assert saved
+    assert "Enter plan numbers from 1 to" in output
+    assert "Enter a plan number from 1 to" in output
+    assert "Could not export plan:" in output
 
 
 def test_menu_runs_plan_generator(monkeypatch, capsys, tmp_path):

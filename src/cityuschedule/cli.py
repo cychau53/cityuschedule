@@ -5,6 +5,7 @@ import os
 import re
 import sys
 from dataclasses import dataclass, replace
+from datetime import date
 from pathlib import Path
 from typing import TextIO
 
@@ -766,6 +767,135 @@ def _ask_menu(label: str) -> str:
     return value
 
 
+def _prompt_plan_aims_path() -> str | None:
+    while True:
+        path = _prompt_path(
+            "AIMS timetable HTML path to plan around (Enter to skip)"
+        )
+        if not path:
+            return None
+        try:
+            load_aims_html(path)
+        except (OSError, ValueError) as error:
+            _print_red(f"Invalid AIMS timetable: {error}")
+            continue
+        return path
+
+
+def _prompt_plan_course_codes() -> list[str]:
+    while True:
+        response = _ask_menu(
+            "Course codes you are interested in, e.g. GE1102 GE1401 GE2410"
+        )
+        codes = response.replace(",", " ").upper().split()
+        invalid = [
+            code
+            for code in codes
+            if not re.fullmatch(r"[A-Z]{2,4}\d{4}[A-Z]?", code)
+        ]
+        if invalid:
+            _print_red(
+                "Invalid course code(s): "
+                + ", ".join(invalid)
+                + ". Enter codes such as GE1102 or CS1102."
+            )
+            continue
+        return list(dict.fromkeys(codes))
+
+
+def _prompt_plan_ge_count() -> str:
+    while True:
+        count = _ask_menu(
+            "How many GE courses should the generator add? "
+            "(Enter for as many as fit)"
+        )
+        if not count:
+            return ""
+        if re.fullmatch(r"[0-9]+", count):
+            try:
+                return str(int(count))
+            except ValueError:
+                pass
+        _print_red("Enter a non-negative whole number of GE courses.")
+
+
+def _prompt_plan_save_choices(plan_count: int) -> list[int]:
+    while True:
+        response = input(
+            "Save plans (e.g. 1 or 1,2, or Enter to skip): "
+        ).strip()
+        _exit_if_requested(response)
+        if not response:
+            return []
+        choices = [item.strip() for item in response.split(",")]
+        if all(re.fullmatch(r"[0-9]+", item) for item in choices):
+            try:
+                numbers = [int(item) for item in choices]
+            except ValueError:
+                numbers = []
+            if numbers and all(1 <= number <= plan_count for number in numbers):
+                return sorted({number - 1 for number in numbers})
+        _print_red(
+            f"Enter plan numbers from 1 to {plan_count}, separated by commas, "
+            "or press Enter to skip."
+        )
+
+
+def _prompt_plan_export_number(plan_count: int) -> int | None:
+    while True:
+        response = input(
+            f"Export a plan to .ics? Enter 1-{plan_count}, or Enter to skip: "
+        ).strip()
+        _exit_if_requested(response)
+        if not response:
+            return None
+        if re.fullmatch(r"[0-9]+", response):
+            try:
+                number = int(response)
+            except ValueError:
+                number = 0
+            if 1 <= number <= plan_count:
+                return number
+        _print_red(
+            f"Enter a plan number from 1 to {plan_count}, or press Enter to skip."
+        )
+
+
+def _prompt_plan_date(
+    label: str,
+    default: str,
+    *,
+    minimum: date | None = None,
+) -> date:
+    while True:
+        value = input(f"{label} [{default}]: ").strip()
+        _exit_if_requested(value)
+        value = value or default
+        try:
+            parsed = date.fromisoformat(value)
+        except ValueError:
+            _print_red(f"Enter a valid date in YYYY-MM-DD format for {label.lower()}.")
+            continue
+        if parsed.isoformat() != value:
+            _print_red(f"Enter a valid date in YYYY-MM-DD format for {label.lower()}.")
+            continue
+        if minimum and parsed < minimum:
+            _print_red("Semester end must be on or after semester start.")
+            continue
+        return parsed
+
+
+def _prompt_plan_output_path(default: str) -> str:
+    while True:
+        output = _prompt_path("Output .ics path", default)
+        if not output:
+            _print_red("Enter a non-empty output path.")
+            continue
+        if "\0" not in output:
+            return output
+        _print_red("Output path cannot contain a null character.")
+
+
 def _prompt_plan_term() -> str:
     """Require a valid CityU semester for course-plan generation."""
     from .plan_generator import term_key
@@ -782,27 +912,29 @@ def _prompt_plan_term() -> str:
         _print_red("Enter a valid semester, e.g. 2627A, 2627B, or 2627S.")
 
 
+def _ge_catalog_term(term: str) -> str | None:
+    from .plan_generator import term_key
+
+    key = term_key(term)
+    if not key:
+        return None
+    year, part = key
+    label = "Summer" if part == "S" else f"Sem {part}"
+    return f"20{year}-{int(year) + 1:02d} {label}"
+
+
 def _plan_menu_command(
     saved_aims_path: str | None,
     settings: BasicSettings,
 ) -> tuple[list[str] | None, str | None]:
     """Ask for course plan generator inputs (menu option 8)."""
-    aims_path = saved_aims_path or _prompt_path(
-        "AIMS timetable HTML path to plan around (Enter to skip)"
-    )
-    codes = _ask_menu(
-        "Course codes you are interested in, e.g. GE1102 GE1401 GE2410"
-    ).replace(",", " ").upper().split()
-    ge_count = _ask_menu(
-        "How many GE courses should the generator add? (Enter for as many as fit)"
-    )
-    if ge_count and not ge_count.isdigit():
-        _print_red("Enter a whole number of GE courses.")
-        return None, None
-
-    if not codes and not int(ge_count or 0):
-        _print_red("Enter at least one course code or a number of GE courses.")
-        return None, None
+    aims_path = saved_aims_path or _prompt_plan_aims_path()
+    while True:
+        codes = _prompt_plan_course_codes()
+        ge_count = _prompt_plan_ge_count()
+        if codes or int(ge_count or 0):
+            break
+        _print_red("Enter at least one course code or a positive GE course count.")
 
     from .plan_generator import term_key
 
@@ -810,6 +942,32 @@ def _plan_menu_command(
     while not term_key(semester):
         _print_red("Enter a valid semester, e.g. 2627A, 2627B, or 2627S.")
         semester = _ask_menu("Semester to check, e.g. 2627A, 2627B, or 2627S")
+
+    ge_term = _ge_catalog_term(semester)
+    available_codes = (
+        {
+            course.code.upper()
+            for course in load_ge_section_catalog(term=ge_term)
+        }
+        if codes
+        else set()
+    )
+    while True:
+        if not codes:
+            if int(ge_count or 0):
+                break
+            _print_red("Enter at least one course code or a positive GE course count.")
+            codes = _prompt_plan_course_codes()
+            continue
+        unavailable = [code for code in codes if code not in available_codes]
+        if not unavailable:
+            break
+        _print_red(
+            "No section details for "
+            + ", ".join(unavailable)
+            + f" in {semester}. Enter available course code(s)."
+        )
+        codes = _prompt_plan_course_codes()
 
     command = ["--aims-html", aims_path] if aims_path else []
     command.extend(_basic_settings_arguments(settings))
@@ -1092,16 +1250,7 @@ def _run_course_planner(args: argparse.Namespace, parser) -> None:
             raise ValueError("--add-ge cannot be negative")
         if wanted or args.add_ge:
             # Course details shown by menu option 6 (data/ge_course_information.json).
-            ge_term = None
-            if args.term:
-                from .plan_generator import term_key
-
-                key = term_key(args.term)
-                if key:
-                    year, part = key
-                    ge_term = f"20{year}-{int(year) + 1:02d} " + (
-                        "Summer" if part == "S" else f"Sem {part}"
-                    )
+            ge_term = _ge_catalog_term(args.term) if args.term else None
             known = {course.code.upper() for course in courses}
             courses.extend(
                 course
@@ -1196,33 +1345,33 @@ def _run_course_planner(args: argparse.Namespace, parser) -> None:
 
     def export(number: int, output: str, start: str, end: str) -> None:
         if not 1 <= number <= len(plans):
-            parser.error(
+            raise ValueError(
                 f"Plan {number} does not exist. "
                 f"Choose a plan from 1 to {len(plans)}."
             )
         try:
             export_plan(plans[number - 1], output, start, end, args.exclusions)
-        except (OSError, ValueError) as error:
-            parser.error(f"Could not export plan: {error}")
+        except OSError as error:
+            raise OSError(f"Could not export plan: {error}") from error
+        except ValueError as error:
+            raise ValueError(f"Could not export plan: {error}") from error
         _print_green(f"Exported plan {number} to {output}")
 
     if args.export_plan is not None:
-        export(
-            args.export_plan, args.output, args.semester_start, args.semester_end
-        )
+        try:
+            export(
+                args.export_plan,
+                args.output,
+                args.semester_start,
+                args.semester_end,
+            )
+        except (OSError, ValueError) as error:
+            parser.error(str(error))
     if not args.ask:
         return
 
     try:
-        save_choice = input(
-            "Save plans (e.g. 1 or 1,2, or Enter to skip): "
-        ).strip()
-        _exit_if_requested(save_choice)
-        chosen = sorted({
-            int(item) - 1
-            for item in save_choice.split(",")
-            if item.strip().isdigit() and 1 <= int(item) <= len(plans)
-        })
+        chosen = _prompt_plan_save_choices(len(plans))
         if chosen:
             saved_bundles = _load_saved_bundles()
             saved_bundles.extend({"plan": plans[i].to_dict()} for i in chosen)
@@ -1232,19 +1381,27 @@ def _run_course_planner(args: argparse.Namespace, parser) -> None:
             except OSError as error:
                 _print_red(f"Could not save plans: {error}")
 
-        number = input(
-            f"Export a plan to .ics? Enter 1-{len(plans)}, or Enter to skip: "
-        ).strip()
-        _exit_if_requested(number)
-        if not number:
+        number = _prompt_plan_export_number(len(plans))
+        if number is None:
             return
-        if not number.isdigit():
-            _print_red(f"Skipped export: {number!r} is not a plan number.")
-            return
-        output = _prompt_path("Output .ics path", args.output)
-        start = _prompt_path("Semester start", args.semester_start)
-        end = _prompt_path("Semester end", args.semester_end)
-        export(int(number), output, start, end)
+        output = _prompt_plan_output_path(args.output)
+        start = _prompt_plan_date("Semester start", args.semester_start)
+        end = _prompt_plan_date(
+            "Semester end",
+            args.semester_end,
+            minimum=start,
+        )
+        while True:
+            try:
+                export(number, output, start.isoformat(), end.isoformat())
+            except OSError as error:
+                _print_red(str(error))
+                output = _prompt_plan_output_path(args.output)
+                continue
+            except ValueError as error:
+                _print_red(str(error))
+                return
+            break
     except (EOFError, _ReturnToMenu):
         return
 
