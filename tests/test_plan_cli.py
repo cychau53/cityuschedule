@@ -149,17 +149,17 @@ def test_menu_option_8_without_aims_or_courses(monkeypatch, capsys):
     assert path is None
     assert "at least one course code" in capsys.readouterr().out
 
-    feed(monkeypatch, "", "GE1102", "two", "1", "2627B")
+    feed(monkeypatch, "", "GE1102", "two", "2", "1", "2627B")
     command, _ = cli._menu_command("8", None, cli.BasicSettings())
     assert command is not None
     term_index = command.index("--term")
     assert command[term_index : term_index + 2] == ["--term", "2627B"]
     assert command[command.index("--add-ge") + 1] == "1"
-    assert "non-negative whole number" in capsys.readouterr().out
+    assert "whole number of GE courses from 0 to 1" in capsys.readouterr().out
 
 
 def test_menu_option_8_reprompts_invalid_course_code(monkeypatch, capsys):
-    feed(monkeypatch, "", "GE-1102", "GE1102", "", "2627B")
+    feed(monkeypatch, "", "GE-1102", "GE1102", "0", "2627B")
 
     command, _ = cli._menu_command("8", None, cli.BasicSettings())
 
@@ -169,7 +169,7 @@ def test_menu_option_8_reprompts_invalid_course_code(monkeypatch, capsys):
 
 
 def test_menu_option_8_reprompts_course_unavailable_in_term(monkeypatch, capsys):
-    feed(monkeypatch, "GE1102", "", "2627A", "GE1105")
+    feed(monkeypatch, "GE1102", "0", "2627A", "GE1105")
 
     command, _ = cli._menu_command("8", "saved.html", cli.BasicSettings())
 

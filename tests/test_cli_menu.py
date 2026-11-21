@@ -284,7 +284,7 @@ def test_basic_settings_persist_and_apply_to_paste_and_planning(
             "0",
             "8",
             "ge1105",
-            "",
+            "0",
             "2627A",
             "0",
         ]
@@ -519,7 +519,7 @@ def test_menu_reports_unknown_delete_command(monkeypatch, capsys):
 
 def test_export_and_plan_menu_options_reuse_saved_aims_path(monkeypatch):
     saved_path = r"C:\Schedules\current AIMS.html"
-    inputs = iter(["AIMS", "", "", "", "ge1102", "", "2627B"])
+    inputs = iter(["AIMS", "", "", "", "ge1102", "0", "2627B"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
 
     export_command, export_path = cli._menu_command("7", saved_path)

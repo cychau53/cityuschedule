@@ -803,20 +803,35 @@ def _prompt_plan_course_codes() -> list[str]:
         return list(dict.fromkeys(codes))
 
 
-def _prompt_plan_ge_count() -> str:
+def _prompt_required_plan_course_codes() -> list[str]:
     while True:
-        count = _ask_menu(
+        codes = _prompt_plan_course_codes()
+        if codes:
+            return codes
+        _print_red("Enter at least one course code.")
+
+
+def _prompt_plan_ge_count(maximum: int) -> str:
+    while True:
+        count = input(
             "How many GE courses should the generator add? "
-            "(Enter for as many as fit)"
-        )
+            f"(0-{maximum}; Enter for up to {maximum}, q = menu): "
+        ).strip()
+        if count.casefold() == "q":
+            raise _ReturnToMenu
         if not count:
-            return ""
+            return str(maximum)
         if re.fullmatch(r"[0-9]+", count):
             try:
-                return str(int(count))
+                number = int(count)
             except ValueError:
                 pass
-        _print_red("Enter a non-negative whole number of GE courses.")
+            else:
+                if 0 <= number <= maximum:
+                    return str(number)
+        _print_red(
+            f"Enter a whole number of GE courses from 0 to {maximum}."
+        )
 
 
 def _prompt_plan_save_choices(plan_count: int) -> list[int]:
@@ -929,12 +944,8 @@ def _plan_menu_command(
 ) -> tuple[list[str] | None, str | None]:
     """Ask for course plan generator inputs (menu option 8)."""
     aims_path = saved_aims_path or _prompt_plan_aims_path()
-    while True:
-        codes = _prompt_plan_course_codes()
-        ge_count = _prompt_plan_ge_count()
-        if codes or int(ge_count or 0):
-            break
-        _print_red("Enter at least one course code or a positive GE course count.")
+    codes = _prompt_required_plan_course_codes()
+    ge_count = _prompt_plan_ge_count(len(codes))
 
     from .plan_generator import term_key
 
@@ -944,21 +955,11 @@ def _plan_menu_command(
         semester = _ask_menu("Semester to check, e.g. 2627A, 2627B, or 2627S")
 
     ge_term = _ge_catalog_term(semester)
-    available_codes = (
-        {
-            course.code.upper()
-            for course in load_ge_section_catalog(term=ge_term)
-        }
-        if codes
-        else set()
-    )
+    available_codes = {
+        course.code.upper()
+        for course in load_ge_section_catalog(term=ge_term)
+    }
     while True:
-        if not codes:
-            if int(ge_count or 0):
-                break
-            _print_red("Enter at least one course code or a positive GE course count.")
-            codes = _prompt_plan_course_codes()
-            continue
         unavailable = [code for code in codes if code not in available_codes]
         if not unavailable:
             break
@@ -967,7 +968,13 @@ def _plan_menu_command(
             + ", ".join(unavailable)
             + f" in {semester}. Enter available course code(s)."
         )
-        codes = _prompt_plan_course_codes()
+        codes = _prompt_required_plan_course_codes()
+        if int(ge_count or 0) > len(codes):
+            _print_red(
+                f"The GE course count cannot exceed the {len(codes)} "
+                "course code(s) entered."
+            )
+            ge_count = _prompt_plan_ge_count(len(codes))
 
     command = ["--aims-html", aims_path] if aims_path else []
     command.extend(_basic_settings_arguments(settings))

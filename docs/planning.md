@@ -58,7 +58,10 @@ Run `cityuschedule` with no arguments and choose **8. Generate course plans**. Y
 
 1. Your AIMS timetable HTML: the one saved in option 3 is used if you have one; otherwise type a path, or press Enter to plan without one
 2. The course codes you are interested in, e.g. `GE1102 GE1401 GE2410`
-3. How many GE courses the generator should add (Enter for as many as fit)
+3. How many GE courses the generator should add (0 through the number of course codes entered; Enter uses that maximum)
+
+At least one course code is required in the menu. If the GE count is larger than
+the number of course codes entered, you will be asked for the count again.
 
 Your **Basic settings** (option 1) are applied automatically to newly planned courses: preferred and avoided days, lunch duration and window, minimum gap, and earliest/latest class times. Minimum and maximum credits include the courses in your AIMS timetable. AIMS classes are used for clash and walking-time checks, but are not rejected for violating the day or timing settings. Advanced planner filters remain available when running the planner directly from the command line. After the plans are listed you can save one to your saved bundles and export one to an `.ics` file. The AIMS path you use is remembered for next time.
 
