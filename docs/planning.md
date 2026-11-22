@@ -127,7 +127,7 @@ cityuschedule --aims-html aims_schedule.html \
   --prefer-days Mon Tue Wed
 ```
 
-A CSV timetable such as `examples/sample_courses.csv` can be given instead of `--aims-html` for the fixed timetable: `cityuschedule examples/sample_courses.csv --courses GE1102 --term 2627B`.
+A CSV timetable can be given instead of `--aims-html` for the fixed timetable: `cityuschedule path/to/your_timetable.csv --courses GE1102 --term 2627B`.
 
 Days accept `Mon`, `M`, `Thu`, `R`, `Thursday` and so on.
 

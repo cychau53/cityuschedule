@@ -89,7 +89,7 @@ Semester codes include examples such as `2627A`, `2627B`, and `2627S`. The plann
 A CSV can be supplied as the positional fixed timetable:
 
 ```bash
-cityuschedule examples/sample_courses.csv --courses GE1102 --term 2627B
+cityuschedule path/to/your_timetable.csv --courses GE1102 --term 2627B
 ```
 
 Useful planning constraints include `--min-credits`, `--max-credits`, `--prefer-days`, `--avoid-days`, `--earliest`, `--latest`, `--min-gap`, `--lunch`, `--max-daily-hours`, `--no-travel-check`, `--study-load`, and `--seats`. See `cityuschedule --help` for the full option list and defaults.
