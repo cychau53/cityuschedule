@@ -8,6 +8,9 @@ The plan generator (menu option 8, or `cityuschedule --courses ...`) works like 
 4. It says how many timeslots of each course fit your timetable, for example "GE1111 has one timeslot that fits your timetable".
 5. It prints one weekly timetable per plan. If GE1234 can be taken on Tuesday 15:00-17:50 or Friday 09:00-11:50, plan 1 puts it on Tuesday and plan 2 on Friday (or the other way round, by ranking).
 
+In the fit summary, courses with matching timeslots are shown in green, while
+courses with no fitting timeslots are shown in red.
+
 You can choose how many of the GE courses to add (`--add-ge N`), days to avoid or prefer, and credit limits. Credit limits are optional. GE courses count as 3 credit units (GE1601 as 1); the credits of your AIMS courses come from the project's credit catalogues. The best plans come first, with the reason for each ranking and the AIMS registration steps.
 
 It is built on the project's existing modules, so it gives the same answers as the rest of the program:
@@ -66,7 +69,7 @@ details for the selected semester are rejected and must be re-entered. The GE
 count must be at least 1 and no greater than the number of course codes entered;
 otherwise, you will be asked for the count again.
 
-Your **Basic settings** (option 1) are applied automatically to newly planned courses: preferred and avoided days, lunch duration and window, minimum gap, and earliest/latest class times. Minimum and maximum credits include the courses in your AIMS timetable. AIMS classes are used for clash and walking-time checks, but are not rejected for violating the day or timing settings. Advanced planner filters remain available when running the planner directly from the command line. After the plans are listed you can save one to **10. Saved Plan** and export one to an `.ics` file. Saved plans show their timetable and Web Add/Drop sections with CRNs. Delete a saved plan from the main menu with `delete plan1` or `delete plan 1`. The AIMS path you use is remembered for next time.
+Your **Basic settings** (option 1) are applied automatically to newly planned courses: preferred and avoided days, lunch duration and window, minimum gap, and earliest/latest class times. Minimum and maximum credits include the courses in your AIMS timetable. AIMS classes are used for clash and walking-time checks, but are not rejected for violating the day or timing settings. Advanced planner filters remain available when running the planner directly from the command line. After the plans are listed you can save one to **10. Saved timetable plan** and export one to an `.ics` file. Saved plans show their timetable and Web Add/Drop sections with CRNs. Delete a saved plan from the main menu with `delete plan1` or `delete plan 1`. The AIMS path you use is remembered for next time.
 
 ## Command line
 

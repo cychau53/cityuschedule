@@ -232,19 +232,101 @@ def _format_saved_plan(plan: dict, number: int) -> str:
             lines.append(line)
 
     registration_steps = plan.get("registration_steps", [])
-    other_steps = [
-        str(step)
-        for step in registration_steps
-        if not str(step).startswith((
-            "Study load:",
-            "Keep pre-registered:",
-            "Web Add/Drop",
-        ))
-    ] if isinstance(registration_steps, list) else []
+    other_steps = []
+    if isinstance(registration_steps, list):
+        for step in registration_steps:
+            text = str(step)
+            unnumbered = re.sub(r"^\s*\d+\.\s*", "", text)
+            if not unnumbered.startswith((
+                "Study load:",
+                "Keep pre-registered:",
+                "Web Add/Drop",
+            )):
+                other_steps.append(text)
     if other_steps:
         lines.extend(["", "Other registration steps:"])
         lines.extend(f"  {step}" for step in other_steps)
     return "\n".join(lines)
+
+
+def _saved_plan_added_sections(plan: dict) -> set[tuple[str, str]]:
+    added_sections = set()
+    sections = plan.get("sections", [])
+    if isinstance(sections, list):
+        for section in sections:
+            if not isinstance(section, dict):
+                continue
+            code = str(section.get("course_code") or "").upper()
+            name = str(section.get("section") or section.get("type") or "").upper()
+            if code and name:
+                added_sections.add((code, name))
+    if added_sections:
+        return added_sections
+
+    courses = plan.get("courses", [])
+    if isinstance(courses, list):
+        for course in courses:
+            match = re.match(
+                r"\s*([A-Z]{2,4}\s?\d{4}[A-Z]?)\s+(.+)",
+                str(course).upper(),
+            )
+            if not match:
+                continue
+            code = match.group(1).replace(" ", "")
+            added_sections.update(
+                (code, section)
+                for section in match.group(2).split("+")
+                if section
+            )
+    return added_sections
+
+
+def _saved_plan_signature(plan: dict) -> tuple:
+    courses = plan.get("courses", [])
+    normalized_courses = tuple(sorted(
+        str(course).strip().upper()
+        for course in courses
+    )) if isinstance(courses, list) else ()
+    sections = plan.get("sections", [])
+    normalized_sections = []
+    if isinstance(sections, list):
+        for section in sections:
+            if not isinstance(section, dict):
+                continue
+            normalized_sections.append((
+                str(section.get("course_code") or "").strip().upper(),
+                str(section.get("section") or section.get("type") or "").strip().upper(),
+                str(section.get("crn") or "").strip(),
+                str(section.get("day") or "").strip().casefold(),
+                str(section.get("start") or section.get("start_time") or "").strip(),
+                str(section.get("end") or section.get("end_time") or "").strip(),
+                str(section.get("location") or "").strip().casefold(),
+            ))
+    return normalized_courses, tuple(sorted(normalized_sections))
+
+
+def _print_saved_plan(plan: dict, number: int) -> None:
+    added_sections = _saved_plan_added_sections(plan)
+    for line in _format_saved_plan(plan, number).splitlines():
+        if line == f"Plan {number}":
+            _print_yellow(line)
+            continue
+        prefix = "Course(s) added: "
+        if line.startswith(prefix) and line[len(prefix):] != "None":
+            print(prefix + _colorize(line[len(prefix):], "32"))
+            continue
+        session = re.match(
+            r"^\s+\d{2}:\d{2}-\d{2}:\d{2}\s+"
+            r"([A-Z]{2,4}\s?\d{4}[A-Z]?)\s+(\S+)",
+            line.upper(),
+        )
+        if session and (
+            session.group(1).replace(" ", ""),
+            session.group(2),
+        ) in added_sections:
+            _print_green(line)
+        else:
+            print(line)
 
 
 def _show_saved_plans() -> None:
@@ -257,7 +339,7 @@ def _show_saved_plans() -> None:
     print(f"Found {len(saved_plans)} saved plan(s).\n")
 
     for number, entry in enumerate(saved_plans, start=1):
-        print(_format_saved_plan(_saved_plan_data(entry), number))
+        _print_saved_plan(_saved_plan_data(entry), number)
         print()
 
 
@@ -1228,12 +1310,11 @@ def interactive_menu() -> None:
             "5. Search GE courses\n"
             "6. Show GE course details\n"
             "7. Export a timetable calendar\n"
-            "8. Generate course plans (CityU registration rules)\n"
+            "8. Generate timetable plans\n"
             "9. Import GE courses from HTML\n"
-            "10. Saved Plan\n"
+            "10. Saved timetable plan\n"
             "0. Exit\n"
             "Type q to return to the menu, or 0 to exit the package.\n"
-            "Type delete plan1 or delete plan 1 to delete a saved plan.\n"
             "Type delete all or delete names joined by 'and' to clear data."
         )
         try:
@@ -1362,7 +1443,7 @@ def interactive_menu() -> None:
                                 "prefer, delete min, delete max, delete "
                                 "lunch, delete window, delete gap, delete "
                                 "earliest, delete latest, delete AIMS, "
-                                "or delete plan1. "
+                                "delete plan 1, or delete plan1. "
                                 "Join multiple names with 'and'."
                             )
 
@@ -1572,7 +1653,13 @@ def _run_course_planner(args: argparse.Namespace, parser) -> None:
     if fit_lines:
         print("\nTimeslots that fit your timetable:")
         for line in fit_lines:
-            _print_green(f"  {line}")
+            if (
+                "no timeslot that fits your timetable" in line
+                or "no class bundles fit" in line
+            ):
+                _print_red(f"  {line}")
+            else:
+                _print_green(f"  {line}")
         print()
     if not report.plans:
         _print_plan_rejections(report, no_plans=True)
@@ -1636,12 +1723,26 @@ def _run_course_planner(args: argparse.Namespace, parser) -> None:
         chosen = _prompt_plan_save_choices(len(plans))
         if chosen:
             saved_bundles = _load_saved_bundles()
-            saved_bundles.extend({"plan": plans[i].to_dict()} for i in chosen)
-            try:
-                _save_bundles_to_disk(saved_bundles)
-                _print_green(f"Saved {len(chosen)} plan(s).")
-            except OSError as error:
-                _print_red(f"Could not save plans: {error}")
+            saved_signatures = {
+                _saved_plan_signature(_saved_plan_data(entry))
+                for entry in saved_bundles
+            }
+            new_plans = []
+            for index in chosen:
+                plan_data = plans[index].to_dict()
+                signature = _saved_plan_signature(plan_data)
+                if signature in saved_signatures:
+                    _print_red(f"Plan {index + 1} has already been saved.")
+                    continue
+                saved_signatures.add(signature)
+                new_plans.append({"plan": plan_data})
+            saved_bundles.extend(new_plans)
+            if new_plans:
+                try:
+                    _save_bundles_to_disk(saved_bundles)
+                    _print_green(f"Saved {len(new_plans)} plan(s).")
+                except OSError as error:
+                    _print_red(f"Could not save plans: {error}")
 
         number = _prompt_plan_export_number(len(plans))
         if number is None:

@@ -119,6 +119,42 @@ def test_ask_saves_and_exports(monkeypatch, tmp_path):
     assert "waiting between classes" not in saved[0]["plan"]["summary"]
 
 
+def test_ask_warns_and_skips_duplicate_saved_plan(monkeypatch):
+    class TerminalOutput(StringIO):
+        def isatty(self):
+            return True
+
+    output = TerminalOutput()
+    saved = []
+    monkeypatch.setattr(cli.sys, "stdout", output)
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setattr(cli, "_load_saved_bundles", lambda: saved)
+    monkeypatch.setattr(
+        cli,
+        "_save_bundles_to_disk",
+        lambda plans: saved.__setitem__(slice(None), plans),
+    )
+    monkeypatch.setattr(cli, "_prompt_plan_save_choices", lambda count: [0])
+    monkeypatch.setattr(cli, "_prompt_plan_export_number", lambda count: None)
+    args = [
+        "--timetable-catalog", str(EXAMPLE), "--term", "2627A",
+        "--ask", "--no-travel-check",
+    ]
+
+    cli.main(args)
+    assert len(saved) == 1
+    output.seek(0)
+    output.truncate(0)
+
+    cli.main(args)
+
+    assert len(saved) == 1
+    assert (
+        "\033[31mPlan 1 has already been saved.\033[0m"
+        in output.getvalue()
+    )
+
+
 def test_course_plan_uses_ge_section_data(capsys):
     cli.main([
         "--courses", "GE1102", "--term", "2627B",
@@ -366,7 +402,7 @@ def test_menu_runs_plan_generator(monkeypatch, capsys, tmp_path):
     monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: str(html))
     cli.interactive_menu()
     output = capsys.readouterr().out
-    assert "8. Generate course plans" in output
+    assert "8. Generate timetable plans" in output
     assert "11." not in output
     assert "JSON" not in output
     assert "GE1102 has 2 timeslots that fit your timetable" in output
@@ -489,6 +525,35 @@ def test_saved_timetable_leaves_one_slot(ge_data, tmp_path, capsys):
     # GE3333 (Thu 10:00) clashes with CS2311 in the saved AIMS timetable.
     assert "GE1111 has one timeslot that fits your timetable: C01 Tue 15:00-17:50" in output
     assert "GE3333 has no timeslot that fits your timetable" in output
+
+
+def test_fit_summary_colors_fits_green_and_no_fits_red(ge_data, monkeypatch):
+    class TerminalOutput(StringIO):
+        def isatty(self):
+            return True
+
+    output = TerminalOutput()
+    monkeypatch.setattr(cli.sys, "stdout", output)
+    monkeypatch.delenv("NO_COLOR", raising=False)
+
+    cli.main([
+        "--courses", "GE1111", "GE3333",
+        "--term", "2627A", "--avoid-days", "Thu", "--no-travel-check",
+    ])
+
+    fit_lines = [
+        line for line in output.getvalue().splitlines()
+        if "timeslot" in line
+    ]
+    assert any(
+        line.startswith("\033[32m  GE1111 has")
+        and "timeslots that fit your timetable" in line
+        for line in fit_lines
+    )
+    assert any(
+        line.startswith("\033[31m  GE3333 has no timeslot")
+        for line in fit_lines
+    )
 
 
 def test_choose_how_many_ge_courses(ge_data, capsys):

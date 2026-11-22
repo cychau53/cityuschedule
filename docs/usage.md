@@ -47,7 +47,7 @@ values, join their names with `and`, such as `delete max and min` or
 `delete AIMS and max`. Type `delete plan1` or `delete plan 1` to delete a saved
 plan by its number.
 
-Choose **10. Saved Plan** to review saved plans, including their timetable and
+Choose **10. Saved timetable plan** to review saved plans, including their timetable and
 Web Add/Drop sections with CRNs.
 
 The other numbered options check a CSV or AIMS timetable, paste an AIMS

@@ -225,8 +225,10 @@ def test_menu_and_choice_prompt_are_yellow(monkeypatch):
     cli.interactive_menu()
 
     assert "\033[33m\nCityU Schedule\n1. Basic settings" in output.text
-    assert "10. Saved Plan" in output.text
+    assert "10. Saved timetable plan" in output.text
     assert "Bundles saved" not in output.text
+    assert "8. Generate timetable plans" in output.text
+    assert "Type delete plan" not in output.text
     assert "Type q to return to the menu, or 0 to exit the package." in output.text
     assert prompts == ["\033[33mChoose an option: \033[0m"]
 
@@ -268,6 +270,9 @@ def test_saved_plan_is_displayed_in_readable_format(monkeypatch, capsys):
                     "add_sections": [{"section": "T02", "crn": "34567"}],
                 },
             ],
+            "registration_steps": [
+                "1. Web Add/Drop: add GE1205 (S03 CRN 12718)",
+            ],
         },
     }])
 
@@ -282,7 +287,52 @@ def test_saved_plan_is_displayed_in_readable_format(monkeypatch, capsys):
     assert "Web Add/Drop:\n  1. GE1234\n     add S01 CRN 12345" in output
     assert "     add T01 CRN 23456" in output
     assert "  2. GE5678\n     add T02 CRN 34567" in output
+    assert "Other registration steps:" not in output
     assert "waiting between classes" not in output
+
+
+def test_saved_plan_colors_added_course_and_timetable_slot(monkeypatch):
+    class TerminalOutput(StringIO):
+        def isatty(self):
+            return True
+
+    output = TerminalOutput()
+    monkeypatch.setattr(cli.sys, "stdout", output)
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setattr(cli, "_load_saved_bundles", lambda: [{
+        "plan": {
+            "courses": ["GE1205 S03"],
+            "sections": [
+                {
+                    "course_code": "GE1205", "section": "S03",
+                    "crn": "12718",
+                },
+            ],
+            "sessions": [
+                {
+                    "course_code": "CS2402", "section": "C01", "day": "Mon",
+                    "start_time": "09:00", "end_time": "11:50",
+                    "building": "MMW", "room": "2450",
+                },
+                {
+                    "course_code": "GE1205", "section": "S03", "day": "Mon",
+                    "start_time": "12:00", "end_time": "14:50",
+                    "building": "LI", "room": "2614",
+                },
+            ],
+        },
+    }])
+
+    cli._show_saved_plans()
+
+    lines = output.getvalue().splitlines()
+    assert "\033[33mPlan 1\033[0m" in lines
+    assert any("\033[32mGE1205 S03\033[0m" in line for line in lines)
+    assert (
+        "\033[32m    12:00-14:50  GE1205 S03  LI 2614\033[0m"
+        in lines
+    )
+    assert "    09:00-11:50  CS2402 C01  MMW 2450" in lines
 
 
 def test_legacy_saved_plan_uses_sections_and_registration_steps():
@@ -328,6 +378,19 @@ def test_delete_saved_plan_by_number(monkeypatch, command, capsys):
     assert len(saved) == 1
     assert saved[0]["plan"]["courses"] == ["CS2311 C01"]
     assert "Deleted Plan 1." in capsys.readouterr().out
+
+
+def test_invalid_delete_command_explains_plan_syntax(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: None)
+    monkeypatch.setattr(cli, "_load_basic_settings", lambda: cli.BasicSettings())
+    inputs = iter(["delete plan", "0"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+
+    cli.interactive_menu()
+
+    output = capsys.readouterr().out
+    assert "delete plan 1" in output
+    assert "delete plan1" in output
 
 
 def test_menu_dispatches_paste_aims_command(monkeypatch, capsys, tmp_path):
