@@ -225,8 +225,109 @@ def test_menu_and_choice_prompt_are_yellow(monkeypatch):
     cli.interactive_menu()
 
     assert "\033[33m\nCityU Schedule\n1. Basic settings" in output.text
+    assert "10. Saved Plan" in output.text
+    assert "Bundles saved" not in output.text
     assert "Type q to return to the menu, or 0 to exit the package." in output.text
     assert prompts == ["\033[33mChoose an option: \033[0m"]
+
+
+def test_saved_plan_is_displayed_in_readable_format(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "_load_saved_bundles", lambda: [{
+        "plan": {
+            "total_credits": 16,
+            "days_on_campus": 2,
+            "summary": "1 course(s) added; 110 min waiting between classes",
+            "courses": ["GE1234 L01+T01", "GE5678 LA1+TA4+CA9"],
+            "sessions": [
+                {
+                    "course_code": "CS2402", "section": "C01", "day": "Mon",
+                    "start_time": "09:00", "end_time": "11:50",
+                    "building": "MMW", "room": "2450",
+                },
+                {
+                    "course_code": "GE1205", "section": "S03", "day": "Mon",
+                    "start_time": "12:00", "end_time": "14:50",
+                    "building": "LI", "room": "2614",
+                },
+                {
+                    "course_code": "CS2310", "section": "C01", "day": "Tue",
+                    "start_time": "15:00", "end_time": "17:50",
+                    "building": "MMW", "room": "2450",
+                },
+            ],
+            "web_add_drop": [
+                {
+                    "course_code": "GE1234",
+                    "add_sections": [
+                        {"section": "S01", "crn": "12345"},
+                        {"section": "T01", "crn": "23456"},
+                    ],
+                },
+                {
+                    "course_code": "GE5678",
+                    "add_sections": [{"section": "T02", "crn": "34567"}],
+                },
+            ],
+        },
+    }])
+
+    cli._show_saved_plans()
+
+    output = capsys.readouterr().out
+    assert "Plan 1\nTotal credit: 16" in output
+    assert "Course(s) added: GE1234 L01+T01, GE5678 LA1+TA4+CA9" in output
+    assert "Total day(s) on campus: 2" in output
+    assert "  Mon\n    09:00-11:50  CS2402 C01  MMW 2450" in output
+    assert "    12:00-14:50  GE1205 S03  LI 2614" in output
+    assert "Web Add/Drop:\n  1. GE1234\n     add S01 CRN 12345" in output
+    assert "     add T01 CRN 23456" in output
+    assert "  2. GE5678\n     add T02 CRN 34567" in output
+    assert "waiting between classes" not in output
+
+
+def test_legacy_saved_plan_uses_sections_and_registration_steps():
+    plan = {
+        "total_credits": 3,
+        "courses": ["GE1102 C01+T01"],
+        "sections": [
+            {
+                "course_code": "GE1102", "section": "C01", "crn": "12345",
+                "day": "Wed", "start": "09:00", "end": "10:50",
+                "location": "LI 2610",
+            },
+        ],
+        "registration_steps": [
+            "Web Add/Drop: add GE1102 (C01 CRN 12345), all sections together",
+        ],
+    }
+
+    text = cli._format_saved_plan(plan, 2)
+
+    assert "Plan 2\nTotal credit: 3" in text
+    assert "Total day(s) on campus: 1" in text
+    assert "  Wed\n    09:00-10:50  GE1102 C01  LI 2610" in text
+    assert "Web Add/Drop:\n  1. GE1102\n     add C01 CRN 12345" in text
+
+
+@pytest.mark.parametrize("command", ["delete plan1", "delete plan 1"])
+def test_delete_saved_plan_by_number(monkeypatch, command, capsys):
+    saved = [{"plan": {"courses": ["GE1102 C01"]}}, {"plan": {"courses": ["CS2311 C01"]}}]
+    monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: None)
+    monkeypatch.setattr(cli, "_load_basic_settings", lambda: cli.BasicSettings())
+    monkeypatch.setattr(cli, "_load_saved_bundles", lambda: saved)
+    monkeypatch.setattr(
+        cli,
+        "_save_bundles_to_disk",
+        lambda plans: saved.__setitem__(slice(None), plans),
+    )
+    inputs = iter([command, "0"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+
+    cli.interactive_menu()
+
+    assert len(saved) == 1
+    assert saved[0]["plan"]["courses"] == ["CS2311 C01"]
+    assert "Deleted Plan 1." in capsys.readouterr().out
 
 
 def test_menu_dispatches_paste_aims_command(monkeypatch, capsys, tmp_path):

@@ -460,7 +460,7 @@ class CoursePlan:
             return f"over the {high}-credit maximum study load"
         return ""
 
-    def explain(self) -> str:
+    def explain(self, *, include_idle: bool = True) -> str:
         s = self.score
         parts = [
             f"{s.new_courses} course(s) added",
@@ -470,8 +470,9 @@ class CoursePlan:
                 if self.unknown_credit_courses else []
             ),
             f"{s.days_on_campus} day(s) on campus",
-            f"{s.idle_minutes} min waiting between classes",
         ]
+        if include_idle:
+            parts.append(f"{s.idle_minutes} min waiting between classes")
         if s.non_preferred_meetings:
             parts.append(f"{s.non_preferred_meetings} class(es) on non-preferred days")
         if s.early_or_late:
@@ -560,10 +561,15 @@ class CoursePlan:
 
     def to_dict(self) -> dict:
         """Plain data for saving the plan (menu option 10 shows saved plans)."""
+        sessions = self.to_sessions()
         return {
             "total_credits": self.total_credits,
-            "summary": self.explain(),
-            "courses": [option.label for option in self.chosen],
+            "days_on_campus": len({session["day"] for session in sessions}),
+            "summary": self.explain(include_idle=False),
+            "courses": [
+                option.label for option in self.chosen
+                if not option.preregistered or option.replaces_sections
+            ],
             "sections": [
                 {
                     "course_code": s.course_code,
@@ -575,6 +581,20 @@ class CoursePlan:
                     "location": s.location,
                 }
                 for s in self.sections
+            ],
+            "sessions": sessions,
+            "web_add_drop": [
+                {
+                    "course_code": option.course_code,
+                    "drop_sections": list(option.replaces_sections),
+                    "add_sections": [
+                        {"section": section.section, "crn": section.crn}
+                        for section in option.sections
+                    ],
+                }
+                for option in self.chosen
+                if option.route == "web"
+                and (not option.preregistered or option.replaces_sections)
             ],
             "registration_steps": self.registration_steps(),
         }
@@ -1263,7 +1283,10 @@ PLANNING_ONLY_NOTICE = (
 
 
 def format_plan(plan: CoursePlan, number: int | None = None, steps: bool = True) -> str:
-    lines = [f"{'Plan' if number is None else f'Plan {number}'}: {plan.explain()}"]
+    lines = [
+        f"{'Plan' if number is None else f'Plan {number}'}: "
+        f"{plan.explain(include_idle=False)}"
+    ]
     tags = {"waitlist": "waitlist", "e-form": "e-form", "closed": "full, no waitlist"}
     for option in plan.chosen:
         labels = []

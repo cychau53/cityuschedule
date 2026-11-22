@@ -44,7 +44,11 @@ At the main menu prompt, type `delete avoid`, `delete prefer`, `delete min`,
 `delete latest`, or `delete AIMS` to clear that saved value. Type `delete all`
 to remove all basic settings and the remembered AIMS path. To clear multiple
 values, join their names with `and`, such as `delete max and min` or
-`delete AIMS and max`.
+`delete AIMS and max`. Type `delete plan1` or `delete plan 1` to delete a saved
+plan by its number.
+
+Choose **10. Saved Plan** to review saved plans, including their timetable and
+Web Add/Drop sections with CRNs.
 
 The other numbered options check a CSV or AIMS timetable, paste an AIMS
 offering, search or inspect GE courses, export a calendar, generate course

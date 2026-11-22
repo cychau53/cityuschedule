@@ -113,6 +113,10 @@ def test_ask_saves_and_exports(monkeypatch, tmp_path):
     assert output.is_file()
     assert saved and saved[0]["plan"]["sections"]
     assert saved[0]["plan"]["registration_steps"]
+    assert saved[0]["plan"]["sessions"]
+    assert saved[0]["plan"]["days_on_campus"] == 1
+    assert saved[0]["plan"]["web_add_drop"]
+    assert "waiting between classes" not in saved[0]["plan"]["summary"]
 
 
 def test_course_plan_uses_ge_section_data(capsys):
@@ -149,6 +153,7 @@ def test_added_plan_courses_are_green_in_terminal(monkeypatch):
         for line in ge_lines
     )
     assert any(line.startswith("\033[33mPlan 1:") for line in lines)
+    assert "waiting between classes" not in output.getvalue()
 
 
 def test_menu_option_8_builds_plan_command(monkeypatch):

@@ -36,7 +36,7 @@ from .ge_course_information_importer import (
     merge_ge_course_information_from_web,
 )
 from .planner import calculate_course_credits
-from .timetable import format_timetable
+from .timetable import WEEKDAYS, format_timetable
 
 
 
@@ -98,20 +98,185 @@ def _load_saved_bundles() -> list[dict]:
         return data if isinstance(data, list) else []
     except (OSError, json.JSONDecodeError):
         return []
-        
-def _show_saved_bundles() -> None:
-    bundles = _load_saved_bundles()
 
-    if not bundles:
-        print("No saved GE bundles were found.")
+
+def _saved_plan_data(entry: object) -> dict:
+    if not isinstance(entry, dict):
+        return {}
+    plan = entry.get("plan", entry)
+    return plan if isinstance(plan, dict) else {}
+
+
+def _saved_plan_sessions(plan: dict) -> list[dict]:
+    sessions = plan.get("sessions")
+    if not isinstance(sessions, list) or not sessions:
+        sessions = plan.get("sections", [])
+
+    result = []
+    for session in sessions:
+        if not isinstance(session, dict):
+            continue
+        location = str(session.get("location") or "")
+        building = str(session.get("building") or "")
+        room = str(session.get("room") or "")
+        if not building and location:
+            building, _, location_room = location.partition(" ")
+            room = room or location_room
+        result.append({
+            "course_code": str(session.get("course_code") or ""),
+            "section": str(session.get("section") or session.get("type") or ""),
+            "day": str(session.get("day") or ""),
+            "start_time": str(
+                session.get("start_time") or session.get("start") or ""
+            ),
+            "end_time": str(session.get("end_time") or session.get("end") or ""),
+            "building": building,
+            "room": room,
+        })
+    return result
+
+
+def _saved_web_add_drop(plan: dict) -> list[dict]:
+    saved = plan.get("web_add_drop")
+    if isinstance(saved, list):
+        return [item for item in saved if isinstance(item, dict)]
+
+    registration_steps = plan.get("registration_steps", [])
+    web_codes = []
+    if isinstance(registration_steps, list):
+        for step in registration_steps:
+            if "Web Add/Drop" in str(step):
+                web_codes.extend(
+                    code.upper()
+                    for code in re.findall(
+                        r"\badd\s+([A-Z]{2,4}\d{4}[A-Z]?)\b",
+                        str(step),
+                        flags=re.IGNORECASE,
+                    )
+                )
+    sections_by_course: dict[str, list[dict]] = {}
+    for section in plan.get("sections", []):
+        if isinstance(section, dict):
+            code = str(section.get("course_code") or "").upper()
+            sections_by_course.setdefault(code, []).append({
+                "section": section.get("section", ""),
+                "crn": section.get("crn", ""),
+            })
+    return [
+        {
+            "course_code": code,
+            "add_sections": sections_by_course.get(code, []),
+        }
+        for code in dict.fromkeys(web_codes)
+    ]
+
+
+def _format_saved_plan(plan: dict, number: int) -> str:
+    sessions = _saved_plan_sessions(plan)
+    courses = plan.get("courses", [])
+    courses = [str(course) for course in courses] if isinstance(courses, list) else []
+    days = plan.get("days_on_campus")
+    if not isinstance(days, int):
+        days = len({session["day"] for session in sessions if session["day"]})
+
+    lines = [
+        f"Plan {number}",
+        f"Total credit: {plan.get('total_credits', 'Unknown')}",
+        "Course(s) added: " + (", ".join(courses) if courses else "None"),
+        f"Total day(s) on campus: {days}",
+        "",
+    ]
+    sessions_by_day: dict[str, list[dict]] = {day: [] for day in WEEKDAYS}
+    for session in sessions:
+        if session["day"] in sessions_by_day:
+            sessions_by_day[session["day"]].append(session)
+    for day in WEEKDAYS:
+        day_sessions = sorted(
+            sessions_by_day[day],
+            key=lambda session: session["start_time"],
+        )
+        if not day_sessions:
+            continue
+        lines.append(f"  {day}")
+        for session in day_sessions:
+            location = " ".join(
+                part for part in (session["building"], session["room"]) if part
+            )
+            row = (
+                f"    {session['start_time']}-{session['end_time']}  "
+                f"{session['course_code']} {session['section']}  {location}"
+            )
+            lines.append(row.rstrip())
+
+    lines.extend(["", "Web Add/Drop:"])
+    web_add_drop = _saved_web_add_drop(plan)
+    if not web_add_drop:
+        lines.append("  None.")
+    for index, item in enumerate(web_add_drop, start=1):
+        lines.append(f"  {index}. {item.get('course_code', 'Unknown')}")
+        drop_sections = item.get("drop_sections", [])
+        if not isinstance(drop_sections, list):
+            drop_sections = []
+        for section in drop_sections:
+            lines.append(f"     drop {section}")
+        add_sections = item.get("add_sections", [])
+        if not isinstance(add_sections, list):
+            add_sections = []
+        for section in add_sections:
+            if not isinstance(section, dict):
+                continue
+            line = f"     add {section.get('section', 'Unknown')}"
+            crn = section.get("crn")
+            if crn:
+                line += f" CRN {crn}"
+            lines.append(line)
+
+    registration_steps = plan.get("registration_steps", [])
+    other_steps = [
+        str(step)
+        for step in registration_steps
+        if not str(step).startswith((
+            "Study load:",
+            "Keep pre-registered:",
+            "Web Add/Drop",
+        ))
+    ] if isinstance(registration_steps, list) else []
+    if other_steps:
+        lines.extend(["", "Other registration steps:"])
+        lines.extend(f"  {step}" for step in other_steps)
+    return "\n".join(lines)
+
+
+def _show_saved_plans() -> None:
+    saved_plans = _load_saved_bundles()
+
+    if not saved_plans:
+        print("No saved plans were found.")
         return
 
-    print(f"Found {len(bundles)} saved GE bundle(s).\n")
+    print(f"Found {len(saved_plans)} saved plan(s).\n")
 
-    for number, bundle in enumerate(bundles, start=1):
-        print(f"Bundle {number}")
-        print(bundle)
+    for number, entry in enumerate(saved_plans, start=1):
+        print(_format_saved_plan(_saved_plan_data(entry), number))
         print()
+
+
+def _delete_saved_plan(number: int) -> None:
+    saved_plans = _load_saved_bundles()
+    if not saved_plans:
+        _print_red("No saved plans were found.")
+        return
+    if not 1 <= number <= len(saved_plans):
+        _print_red(f"Plan number must be from 1 to {len(saved_plans)}.")
+        return
+    del saved_plans[number - 1]
+    try:
+        _save_bundles_to_disk(saved_plans)
+    except OSError as error:
+        _print_red(f"Could not delete Plan {number}: {error}")
+        return
+    _print_green(f"Deleted Plan {number}.")
+
 
 def _save_bundles_to_disk(bundles: list[dict]) -> None:
     path = _saved_bundles_file()
@@ -1065,9 +1230,10 @@ def interactive_menu() -> None:
             "7. Export a timetable calendar\n"
             "8. Generate course plans (CityU registration rules)\n"
             "9. Import GE courses from HTML\n"
-            "10. Bundles saved\n"
+            "10. Saved Plan\n"
             "0. Exit\n"
             "Type q to return to the menu, or 0 to exit the package.\n"
+            "Type delete plan1 or delete plan 1 to delete a saved plan.\n"
             "Type delete all or delete names joined by 'and' to clear data."
         )
         try:
@@ -1109,6 +1275,16 @@ def interactive_menu() -> None:
                 continue
 
             delete_command = choice.casefold()
+            delete_plan = re.fullmatch(r"delete\s+plan\s*(\d+)", delete_command)
+            if delete_plan:
+                try:
+                    plan_number = int(delete_plan.group(1))
+                except ValueError:
+                    _print_red("Enter a valid saved plan number.")
+                else:
+                    _delete_saved_plan(plan_number)
+                continue
+
             if delete_command.startswith("delete"):
                 try:
                     if delete_command == "delete all":
@@ -1185,7 +1361,8 @@ def interactive_menu() -> None:
                                 "Use delete all, delete avoid, delete "
                                 "prefer, delete min, delete max, delete "
                                 "lunch, delete window, delete gap, delete "
-                                "earliest, delete latest, or delete AIMS. "
+                                "earliest, delete latest, delete AIMS, "
+                                "or delete plan1. "
                                 "Join multiple names with 'and'."
                             )
 
@@ -1235,7 +1412,7 @@ def interactive_menu() -> None:
                     _print_green("Basic settings saved.")
                 continue
             if choice == "10":
-                _show_saved_bundles()
+                _show_saved_plans()
                 continue
 
             task_options = {"2", "3", "4", "6", "7", "8", "9"}

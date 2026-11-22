@@ -253,6 +253,9 @@ def test_min_gap_and_lunch_break():
                section("C02", "Mon", "14:00", "15:50"))
     report = plans([a, b], required_courses=("AAA1000", "BBB1000"), min_gap=30)
     assert [p.chosen[1].section_codes for p in report.plans] == [("C02",)]
+    assert report.plans[0].score.idle_minutes == 70
+    assert "waiting between classes" in report.plans[0].explain()
+    assert "waiting between classes" not in report.plans[0].explain(include_idle=False)
     report = plans([a, b], required_courses=("AAA1000", "BBB1000"), lunch_minutes=60)
     assert [p.chosen[1].section_codes for p in report.plans] == [("C02",)]
 
