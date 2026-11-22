@@ -12,7 +12,7 @@ def test_running_without_arguments_opens_menu_and_searches_ge(
     capsys,
 ):
     monkeypatch.setattr(sys, "argv", ["cityuschedule"])
-    inputs = iter(["5", "environment", "AREA1", "q", "0"])
+    inputs = iter(["4", "environment", "AREA1", "q", "0"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
     searches = []
 
@@ -33,7 +33,7 @@ def test_running_without_arguments_opens_menu_and_searches_ge(
 
 def test_ge_search_zero_exits_package(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["cityuschedule"])
-    inputs = iter(["5", "0"])
+    inputs = iter(["4", "0"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
     searches = []
     monkeypatch.setattr(
@@ -46,6 +46,22 @@ def test_ge_search_zero_exits_package(monkeypatch, capsys):
 
     assert searches == []
     assert capsys.readouterr().out.count("CityU Schedule") == 1
+
+
+def test_standalone_csv_check_is_not_supported(capsys):
+    with pytest.raises(SystemExit) as error:
+        cli.main(["courses.csv"])
+
+    assert error.value.code == 2
+    assert "only be used with course-planning options" in capsys.readouterr().err
+
+
+def test_ge_html_import_arguments_are_not_supported(capsys):
+    with pytest.raises(SystemExit) as error:
+        cli.main(["--ge-html", "ge_courses.html"])
+
+    assert error.value.code == 2
+    assert "unrecognized arguments: --ge-html" in capsys.readouterr().err
 
 
 def test_menu_typing_q_does_not_exit(monkeypatch):
@@ -122,40 +138,6 @@ def test_invalid_day_format_reprompts_same_setting_in_red(monkeypatch):
     assert "\033[31mUnrecognized day" in output.getvalue()
 
 
-def test_export_prompts_reject_bad_source_and_dates(monkeypatch):
-    class TerminalOutput(StringIO):
-        def isatty(self):
-            return True
-
-    prompts = []
-    answers = iter([
-        "WRONG", "CSV", "courses.csv", "", "not-a-date",
-        "2026-08-31", "2026-11-28",
-    ])
-    output = TerminalOutput()
-    monkeypatch.setattr(cli.sys, "stdout", output)
-    monkeypatch.delenv("NO_COLOR", raising=False)
-    monkeypatch.setattr(
-        "builtins.input",
-        lambda prompt="": prompts.append(prompt) or next(answers),
-    )
-
-    command, _ = cli._menu_command("7")
-
-    assert command == [
-        "courses.csv", "--export",
-        "--output", "cityu_timetable.ics",
-        "--semester-start", "2026-08-31",
-        "--semester-end", "2026-11-28",
-    ]
-    assert prompts[0].startswith("Export source")
-    assert prompts[1].startswith("Export source")
-    assert prompts[4].startswith("Semester start")
-    assert prompts[5].startswith("Semester start")
-    assert "\033[31mChoose CSV or AIMS." in output.getvalue()
-    assert "\033[31mEnter a valid date" in output.getvalue()
-
-
 def test_invalid_ge_details_code_reprompts_in_red(monkeypatch):
     class TerminalOutput(StringIO):
         def isatty(self):
@@ -171,7 +153,7 @@ def test_invalid_ge_details_code_reprompts_in_red(monkeypatch):
         lambda prompt="": prompts.append(prompt) or next(answers),
     )
 
-    assert cli._menu_command("6") == (["--ge-info", "GE1102"], None)
+    assert cli._menu_command("5") == (["--ge-info", "GE1102"], None)
     assert len(prompts) == 2
     assert "\033[31mEnter a GE course code" in output.getvalue()
 
@@ -225,12 +207,28 @@ def test_menu_and_choice_prompt_are_yellow(monkeypatch):
     cli.interactive_menu()
 
     assert "\033[33m\nCityU Schedule\n1. Basic settings" in output.text
-    assert "10. Saved timetable plan" in output.text
+    assert "7. Saved timetable plan" in output.text
     assert "Bundles saved" not in output.text
-    assert "8. Generate timetable plans" in output.text
+    assert "6. Generate timetable plans" in output.text
+    assert "Check a CSV timetable" not in output.text
+    assert "Import GE courses from HTML" not in output.text
+    assert "8." not in output.text
+    assert "calendar" not in output.text.lower()
     assert "Type delete plan" not in output.text
     assert "Type q to return to the menu, or 0 to exit the package." in output.text
     assert prompts == ["\033[33mChoose an option: \033[0m"]
+
+
+def test_menu_option_7_shows_saved_plans(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: None)
+    monkeypatch.setattr(cli, "_load_basic_settings", lambda: cli.BasicSettings())
+    monkeypatch.setattr(cli, "_load_saved_bundles", lambda: [])
+    answers = iter(["7", "0"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
+
+    cli.interactive_menu()
+
+    assert "No saved plans were found." in capsys.readouterr().out
 
 
 def test_saved_plan_is_displayed_in_readable_format(monkeypatch, capsys):
@@ -431,7 +429,7 @@ def test_invalid_delete_command_explains_plan_syntax(monkeypatch, capsys):
 
 
 def test_menu_dispatches_paste_aims_command(monkeypatch, capsys, tmp_path):
-    inputs = iter(["4", r"C:\Schedules\current AIMS.html", "0"])
+    inputs = iter(["3", r"C:\Schedules\current AIMS.html", "0"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
     monkeypatch.setattr(cli, "_load_basic_settings", lambda: cli.BasicSettings())
     commands = []
@@ -457,7 +455,7 @@ def test_menu_dispatches_paste_aims_command(monkeypatch, capsys, tmp_path):
 def test_menu_saves_aims_path_and_reuses_it(monkeypatch, tmp_path):
     config_file = tmp_path / "aims_html_path.txt"
     saved_path = r"C:\Schedules\current AIMS.html"
-    inputs = iter(["3", f'"{saved_path}"', "0", "4", "0"])
+    inputs = iter(["2", f'"{saved_path}"', "0", "3", "0"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
     monkeypatch.setattr(cli, "_load_basic_settings", lambda: cli.BasicSettings())
     monkeypatch.setattr(
@@ -482,10 +480,10 @@ def test_menu_reprompts_same_option_after_task_error(monkeypatch, tmp_path, caps
     config_file = tmp_path / "aims_html_path.txt"
     inputs = iter(
         [
-            "3",
+            "2",
             r"C:\Schedules\missing.html",
             r"C:\Schedules\current.html",
-            "5",
+            "4",
             "environment",
             "q",
             "0",
@@ -514,23 +512,24 @@ def test_menu_reprompts_same_option_after_task_error(monkeypatch, tmp_path, caps
         ["--ge-search", "environment"],
     ]
     assert config_file.read_text(encoding="utf-8") == r"C:\Schedules\current.html"
-    assert "Please enter the inputs for option 3 again." in capsys.readouterr().out
+    assert "Please enter the inputs for option 2 again." in capsys.readouterr().out
 
 
 def test_menu_reprompts_required_input_without_returning_to_menu(monkeypatch):
-    inputs = iter(["2", "", "courses.csv", "0"])
+    inputs = iter(["2", "", "courses.html", "0"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
     monkeypatch.setattr(cli, "_load_basic_settings", lambda: cli.BasicSettings())
+    monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: None)
     commands = []
     monkeypatch.setattr(cli, "main", lambda argv=None: commands.append(argv))
 
     cli.interactive_menu()
 
-    assert commands == [["courses.csv"]]
+    assert commands == [["--aims-html", "courses.html"]]
 
 
 def test_menu_exits_when_task_requests_exit(monkeypatch):
-    inputs = iter(["4", r"C:\Schedules\current AIMS.html"])
+    inputs = iter(["3", r"C:\Schedules\current AIMS.html"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
     monkeypatch.setattr(cli, "_load_basic_settings", lambda: cli.BasicSettings())
     monkeypatch.setattr(
@@ -576,9 +575,9 @@ def test_basic_settings_persist_and_apply_to_paste_and_planning(
             "0900",
             "1800",
             "0",
-            "4",
+            "3",
             "0",
-            "8",
+            "6",
             "2627A",
             "ge1105",
             "1",
@@ -815,14 +814,13 @@ def test_menu_reports_unknown_delete_command(monkeypatch, capsys):
     )
 
 
-def test_export_and_plan_menu_options_reuse_saved_aims_path(monkeypatch):
+def test_plan_menu_option_reuses_saved_aims_path(monkeypatch):
     saved_path = r"C:\Schedules\current AIMS.html"
-    inputs = iter(["AIMS", "", "", "", "2627B", "ge1102", "1"])
+    inputs = iter(["2627B", "ge1102", "1"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
 
-    export_command, export_path = cli._menu_command("7", saved_path)
     plan_command, plan_path = cli._menu_command(
-        "8",
+        "6",
         saved_path,
         cli.BasicSettings(
             prefer_days=("Thu",),
@@ -837,14 +835,6 @@ def test_export_and_plan_menu_options_reuse_saved_aims_path(monkeypatch):
         ),
     )
 
-    assert export_command == [
-        "--aims-html",
-        saved_path,
-        "--export",
-        "--output",
-        "cityu_timetable.ics",
-    ]
-    assert export_path == saved_path
     assert plan_command == [
         "--aims-html",
         saved_path,

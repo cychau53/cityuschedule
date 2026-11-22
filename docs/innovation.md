@@ -4,7 +4,7 @@
 
 `cityuschedule` is more than a timetable viewer. It combines timetable
 
-validation, clash detection, gap analysis, and calendar export in one
+validation, clash detection, gap analysis, and course planning in one
 
 lightweight command-line package.
 
@@ -21,10 +21,6 @@ lightweight command-line package.
 \- \*\*Gap analysis:\*\* It reports free periods between classes, helping students
 
 &#x20; find time for study, lunch, or travel.
-
-\- \*\*Calendar export:\*\* It creates an `.ics` file that can be imported into
-
-&#x20; common calendar applications.
 
 \- \*\*Simple input:\*\* Students provide a CSV file rather than logging into an
 

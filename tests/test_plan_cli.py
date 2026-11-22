@@ -45,6 +45,23 @@ def plan(*args):
     cli.main(["--timetable-catalog", str(EXAMPLE), "--term", "2627A", *args])
 
 
+def test_csv_timetable_is_still_available_to_course_planner(
+    monkeypatch,
+    tmp_path,
+):
+    csv_path = str(tmp_path / "courses.csv")
+    planner_calls = []
+    monkeypatch.setattr(
+        cli,
+        "_run_course_planner",
+        lambda args, parser: planner_calls.append(args),
+    )
+
+    cli.main([csv_path, "--courses", "GE1102"])
+
+    assert planner_calls[0].csv_file == csv_path
+
+
 def test_plan_command_lists_ranked_plans(capsys):
     plan("--required", "TEST101", "--no-travel-check")
     output = capsys.readouterr().out
@@ -64,12 +81,6 @@ def test_plan_command_plans_around_aims_timetable(tmp_path, capsys):
     assert "TEST101 has one timeslot that fits your timetable: C02 Fri 09:00-11:50" in output
     # TEST101 C01 (Thu 10:00) clashes with the fixed CS2311 class.
     assert "TEST101 C01" not in output
-
-
-def test_plan_command_exports_selected_plan(tmp_path):
-    output = tmp_path / "nested" / "plan.ics"
-    plan("--export-plan", "1", "--output", str(output), "--no-travel-check")
-    assert "BEGIN:VEVENT" in output.read_text(encoding="utf-8")
 
 
 def test_plan_command_reports_when_nothing_fits(capsys):
@@ -97,20 +108,32 @@ def test_plan_command_rejects_odd_require_section(capsys):
     assert "course code and section pairs" in capsys.readouterr().err
 
 
+@pytest.mark.parametrize(
+    ("flag", "value"),
+    [("--export", None), ("--export-plan", "1")],
+)
+def test_calendar_export_flags_are_removed(flag, value, capsys):
+    arguments = [flag]
+    if value:
+        arguments.append(value)
+    with pytest.raises(SystemExit) as error:
+        cli.main(arguments)
+    assert error.value.code == 2
+    assert "unrecognized arguments" in capsys.readouterr().err
+
+
 def test_require_section_pairs():
     assert cli._required_section_pairs(["test101", "c02", "TEST201", "C01"]) == {
         "TEST101": ["C02"], "TEST201": ["C01"],
     }
 
 
-def test_ask_saves_and_exports(monkeypatch, tmp_path):
-    output = tmp_path / "chosen.ics"
+def test_ask_saves_plans(monkeypatch):
     saved = []
     monkeypatch.setattr(cli, "_load_saved_bundles", list)
     monkeypatch.setattr(cli, "_save_bundles_to_disk", saved.extend)
-    feed(monkeypatch, "1", "2", str(output), "", "")
+    feed(monkeypatch, "1")
     plan("--ask", "--no-travel-check")
-    assert output.is_file()
     assert saved and saved[0]["plan"]["sections"]
     assert saved[0]["plan"]["registration_steps"]
     assert saved[0]["plan"]["sessions"]
@@ -135,7 +158,6 @@ def test_ask_warns_and_skips_duplicate_saved_plan(monkeypatch):
         lambda plans: saved.__setitem__(slice(None), plans),
     )
     monkeypatch.setattr(cli, "_prompt_plan_save_choices", lambda count: [0])
-    monkeypatch.setattr(cli, "_prompt_plan_export_number", lambda count: None)
     args = [
         "--timetable-catalog", str(EXAMPLE), "--term", "2627A",
         "--ask", "--no-travel-check",
@@ -192,7 +214,7 @@ def test_added_plan_courses_are_green_in_terminal(monkeypatch):
     assert "waiting between classes" not in output.getvalue()
 
 
-def test_menu_option_8_builds_plan_command(monkeypatch):
+def test_menu_option_6_builds_plan_command(monkeypatch):
     prompts = []
     answers = iter(["2627B", "ge1102, ge1105", "1"])
     monkeypatch.setattr(
@@ -200,7 +222,7 @@ def test_menu_option_8_builds_plan_command(monkeypatch):
         lambda prompt="": prompts.append(prompt) or next(answers),
     )
     settings = cli.BasicSettings(prefer_days=("Mon",), avoid_days=("Fri",), max_credits=18)
-    command, aims_path = cli._menu_command("8", "saved.html", settings)
+    command, aims_path = cli._menu_command("6", "saved.html", settings)
     assert prompts[0].startswith("Semester to check")
     assert prompts[1].startswith("Course codes")
     assert prompts[2].startswith("How many GE courses")
@@ -217,16 +239,16 @@ def test_menu_option_8_builds_plan_command(monkeypatch):
     assert aims_path == "saved.html"
 
 
-def test_menu_option_8_without_aims_or_courses(monkeypatch, capsys):
+def test_menu_option_6_without_aims_or_courses(monkeypatch, capsys):
     feed(monkeypatch, "2627A", "", "", "GE1105", "")
-    command, path = cli._menu_command("8", None, cli.BasicSettings())
+    command, path = cli._menu_command("6", None, cli.BasicSettings())
     assert command is not None
     assert "--courses" in command
     assert path is None
     assert "at least one course code" in capsys.readouterr().out
 
     feed(monkeypatch, "2627B", "", "GE1102", "two", "2", "1")
-    command, _ = cli._menu_command("8", None, cli.BasicSettings())
+    command, _ = cli._menu_command("6", None, cli.BasicSettings())
     assert command is not None
     term_index = command.index("--term")
     assert command[term_index : term_index + 2] == ["--term", "2627B"]
@@ -234,7 +256,7 @@ def test_menu_option_8_without_aims_or_courses(monkeypatch, capsys):
     assert "whole number of GE courses from 1 to 1" in capsys.readouterr().out
 
 
-def test_menu_option_8_ge_count_must_be_one_through_code_count(
+def test_menu_option_6_ge_count_must_be_one_through_code_count(
     monkeypatch,
     capsys,
 ):
@@ -250,15 +272,15 @@ def test_menu_option_8_ge_count_must_be_one_through_code_count(
     assert "whole number of GE courses from 1 to 1" in capsys.readouterr().out
 
 
-def test_menu_option_8_blank_ge_count_uses_course_count(monkeypatch):
+def test_menu_option_6_blank_ge_count_uses_course_count(monkeypatch):
     feed(monkeypatch, "")
     assert cli._prompt_plan_ge_count(3) == "3"
 
 
-def test_menu_option_8_reprompts_invalid_course_code(monkeypatch, capsys):
+def test_menu_option_6_reprompts_invalid_course_code(monkeypatch, capsys):
     feed(monkeypatch, "2627B", "", "GE-1102", "GE1102", "1")
 
-    command, _ = cli._menu_command("8", None, cli.BasicSettings())
+    command, _ = cli._menu_command("6", None, cli.BasicSettings())
 
     assert command is not None
     assert command[-7:] == [
@@ -273,7 +295,7 @@ def test_menu_option_8_reprompts_invalid_course_code(monkeypatch, capsys):
     assert "Invalid course code" in capsys.readouterr().out
 
 
-def test_menu_option_8_reprompts_course_unavailable_in_term(monkeypatch):
+def test_menu_option_6_reprompts_course_unavailable_in_term(monkeypatch):
     class TerminalOutput(StringIO):
         def isatty(self):
             return True
@@ -283,7 +305,7 @@ def test_menu_option_8_reprompts_course_unavailable_in_term(monkeypatch):
     monkeypatch.delenv("NO_COLOR", raising=False)
     feed(monkeypatch, "2627A", "GE1102", "1", "GE1105")
 
-    command, _ = cli._menu_command("8", "saved.html", cli.BasicSettings())
+    command, _ = cli._menu_command("6", "saved.html", cli.BasicSettings())
 
     assert command is not None
     assert command[-7:] == [
@@ -304,7 +326,7 @@ def test_invalid_plan_course_reprompts_without_returning_to_menu(
 ):
     feed(
         monkeypatch,
-        "8",
+        "6",
         "2627A",
         "",
         "GE1102",
@@ -326,7 +348,7 @@ def test_invalid_plan_course_reprompts_without_returning_to_menu(
     assert "No section details for GE1102 in 2627A" in output
 
 
-def test_menu_option_8_reprompts_invalid_aims_path(monkeypatch, tmp_path, capsys):
+def test_menu_option_6_reprompts_invalid_aims_path(monkeypatch, tmp_path, capsys):
     aims = tmp_path / "aims.html"
     aims.write_text(AIMS_HTML, encoding="utf-8")
     feed(
@@ -338,48 +360,15 @@ def test_menu_option_8_reprompts_invalid_aims_path(monkeypatch, tmp_path, capsys
         "1",
     )
 
-    command, path = cli._menu_command("8", None, cli.BasicSettings())
+    command, path = cli._menu_command("6", None, cli.BasicSettings())
 
     assert command is not None
     assert path == str(aims)
     assert "Invalid AIMS timetable" in capsys.readouterr().out
 
 
-def test_plan_dates_reprompt_invalid_and_out_of_order(monkeypatch, capsys):
-    feed(monkeypatch, "2026-02-30", "2026-08-31")
-    start = cli._prompt_plan_date("Semester start", "2026-08-31")
-
-    feed(monkeypatch, "2026-08-01", "2026-11-28")
-    end = cli._prompt_plan_date(
-        "Semester end",
-        "2026-11-28",
-        minimum=start,
-    )
-
-    assert start.isoformat() == "2026-08-31"
-    assert end.isoformat() == "2026-11-28"
-    output = capsys.readouterr().out
-    assert "valid date in YYYY-MM-DD format" in output
-    assert "Semester end must be on or after semester start." in output
-
-
-def test_plan_ask_reprompts_invalid_choices_and_output_path(
-    monkeypatch,
-    capsys,
-    tmp_path,
-):
-    output_path = tmp_path / "chosen.ics"
-    feed(
-        monkeypatch,
-        "1,99",
-        "1",
-        "999999",
-        "1",
-        str(tmp_path),
-        "",
-        "",
-        str(output_path),
-    )
+def test_plan_ask_reprompts_invalid_save_choices(monkeypatch, capsys):
+    feed(monkeypatch, "1,99", "1")
     saved = []
     monkeypatch.setattr(cli, "_load_saved_bundles", list)
     monkeypatch.setattr(cli, "_save_bundles_to_disk", saved.extend)
@@ -387,22 +376,20 @@ def test_plan_ask_reprompts_invalid_choices_and_output_path(
     plan("--ask", "--no-travel-check")
 
     output = capsys.readouterr().out
-    assert output_path.is_file()
     assert saved
     assert "Enter plan numbers from 1 to" in output
-    assert "Enter a plan number from 1 to" in output
-    assert "Could not export plan:" in output
+    assert "Export a plan" not in output
 
 
 def test_menu_runs_plan_generator(monkeypatch, capsys, tmp_path):
-    """Option 8 asks for a semester along with the AIMS timetable and courses."""
+    """Option 6 asks for a semester along with AIMS timetable and courses."""
     html = tmp_path / "aims.html"
     html.write_text(AIMS_HTML, encoding="utf-8")
-    feed(monkeypatch, "8", "2627B", "GE1102", "", "0")
+    feed(monkeypatch, "6", "2627B", "GE1102", "", "0")
     monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: str(html))
     cli.interactive_menu()
     output = capsys.readouterr().out
-    assert "8. Generate timetable plans" in output
+    assert "6. Generate timetable plans" in output
     assert "11." not in output
     assert "JSON" not in output
     assert "GE1102 has 2 timeslots that fit your timetable" in output
@@ -453,7 +440,7 @@ CLASH_HTML = AIMS_HTML.replace(
 
 
 def test_ge1102_against_saved_timetable(tmp_path, capsys):
-    """GE1102 (menu option 6 data) fits or clashes with the saved timetable."""
+    """GE1102 (menu option 5 data) fits or clashes with the saved timetable."""
     html = tmp_path / "aims.html"
     html.write_text(AIMS_HTML, encoding="utf-8")
     cli.main(["--aims-html", str(html), "--courses", "GE1102", "--term", "2627B"])
@@ -469,10 +456,10 @@ def test_ge1102_against_saved_timetable(tmp_path, capsys):
     assert "GE1102 has no timeslot that fits your timetable" in output
 
 
-def test_menu_option_8_q_returns_to_menu(monkeypatch):
+def test_menu_option_6_q_returns_to_menu(monkeypatch):
     feed(monkeypatch, "q")
     with pytest.raises(cli._ReturnToMenu):
-        cli._menu_command("8", None, cli.BasicSettings())
+        cli._menu_command("6", None, cli.BasicSettings())
 
 
 # --- the examples from the group chat ---------------------------------------

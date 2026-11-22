@@ -427,20 +427,6 @@ def test_example_catalogue_plans():
     assert best.score.days_on_campus == 1
 
 
-@pytest.mark.skipif(not EXAMPLE.is_file(), reason="example catalogue missing")
-def test_command_line_runs_and_exports(tmp_path, capsys):
-    output = tmp_path / "out" / "plan.ics"
-    cli.main([
-        "--timetable-catalog", str(EXAMPLE), "--required", "TEST101",
-        "--avoid-days", "R", "--export-plan", "1", "--output", str(output),
-        "--term", "2627A",
-        "--semester-start", "2027-01-11", "--semester-end", "2027-01-31",
-    ])
-    text = capsys.readouterr().out
-    assert "Plan 1" in text and "Thu" not in text.split("Plan 1", 1)[1].split("\n\n")[0]
-    assert output.is_file()
-
-
 def test_bundles_come_from_the_aims_table_rule():
     """The planner uses ParsedAimsTable.registration_bundles, so menu
     option 4 and the plan generator always agree."""

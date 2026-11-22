@@ -1,9 +1,9 @@
 """Generate ranked, clash-free course plans that follow CityU registration rules.
 
-This is the only plan search in the package. Menu option 8 and the
+This is the only plan search in the package. Menu option 6 and the
 ``--courses`` / ``--add-ge`` command use it: course sections come from the
-GE course details (menu option 6) and are fitted around the saved AIMS
-timetable (menu option 3), so the user never writes a JSON file. It reuses the
+GE course details (menu option 5) and are fitted around the saved AIMS
+timetable (menu option 2), so the user never writes a JSON file. It reuses the
 project's existing building blocks instead of repeating them:
 
 ==============================  =============================================
@@ -22,8 +22,6 @@ Time parsing and clash check    ``schedule_conflicts.time_to_minutes``,
 Walking time between buildings  ``travel_time.load_travel_times``,
                                 ``walking_minutes``
 GE areas and terms              ``ge_courses.load_ge_courses``
-Calendar export                 ``planner.planned_sections_to_sessions``,
-                                ``calendar_export.export_ics``
 ==============================  =============================================
 
 What this module adds is the search itself and the CityU course
@@ -65,7 +63,6 @@ from pathlib import Path
 
 from .aims_fit import DAY_NAMES
 from .aims_table_parser import AimsSession, ParsedAimsTable
-from .calendar_export import export_ics
 from .course_catalog import DEFAULT_CREDIT_CATALOGS, CatalogCourse, catalogue_dir
 from .course_planner import (
     PlannedSection,
@@ -560,7 +557,7 @@ class CoursePlan:
         )
 
     def to_dict(self) -> dict:
-        """Plain data for saving the plan (menu option 10 shows saved plans)."""
+        """Plain data for saving the plan (menu option 7 shows saved plans)."""
         sessions = self.to_sessions()
         return {
             "total_credits": self.total_credits,
@@ -741,7 +738,7 @@ def build_course_options(
 
     Bundles come from ``ParsedAimsTable.registration_bundles`` (one section
     of each activity type from the same section family, the same rule as
-    menu option 4), or from ``bundle_definitions`` checked with
+    menu option 3), or from ``bundle_definitions`` checked with
     ``build_course_bundle``.
     """
     code = course.code.upper()
@@ -1312,18 +1309,3 @@ def format_plan(plan: CoursePlan, number: int | None = None, steps: bool = True)
         lines.append("  Registration steps:")
         lines.extend(f"    {step}" for step in plan.registration_steps())
     return "\n".join(lines)
-
-
-def export_plan(
-    plan: CoursePlan,
-    output: str | Path,
-    semester_start: str,
-    semester_end: str,
-    exclusions_path: str | None = None,
-) -> str:
-    """Write the plan, including kept AIMS classes, to an .ics calendar."""
-    Path(output).parent.mkdir(parents=True, exist_ok=True)
-    return export_ics(
-        plan.to_sessions(), str(output), semester_start, semester_end,
-        exclusions_path=exclusions_path,
-    )

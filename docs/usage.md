@@ -47,22 +47,22 @@ values, join their names with `and`, such as `delete max and min` or
 `delete AIMS and max`. Type `delete plan1` or `delete plan 1` to delete a saved
 plan by its number.
 
-Choose **10. Saved timetable plan** to review saved plans, including their timetable and
+Choose **7. Saved timetable plan** to review saved plans, including their timetable and
 Web Add/Drop sections with CRNs.
 
-The other numbered options check a CSV or AIMS timetable, paste an AIMS
-offering, search or inspect GE courses, export a calendar, generate course
-plans, or import GE course HTML. The menu asks for the required file paths and
-then runs the selected task. The AIMS HTML path is remembered across launches
-and reused by other AIMS menu options. Choose option `3` and enter a different
-path to change the saved one; press Enter to keep using it. Press `0` to exit.
+The other numbered options check or change the saved AIMS timetable, paste an
+AIMS offering, search or inspect GE courses, or generate course plans. The menu
+asks for the required file paths and then runs the selected task. The AIMS HTML
+path is remembered across launches and reused by other AIMS menu options.
+Choose option `2` and enter a different path to
+change the saved one; press Enter to keep using it. Press `0` to exit.
 If a task reports an error, the menu stays open so you can choose another
 option or correct the input; the saved AIMS path is updated only after a
 successful task.
 
 For advanced options, use `cityuschedule --help` or run a command directly.
 
-In menu option 5, GE search repeats until you enter `q` to return to the main
+In menu option 4, GE search repeats until you enter `q` to return to the main
 menu or `0` to exit the package. Search is case-insensitive. Enter
 `without exam` or `with exam` to filter by exam status, `cross` or `not cross`
 to filter cross-institutional courses, or `Area 1`, `Area 2`, or `Area 3` to
@@ -76,87 +76,24 @@ matching all three conditions. Spaces inside filter labels are optional:
 semester availability with `2627A` (Sem A), `2627B` (Sem B), or `2627S`
 (Summer); spaces and capitalization do not matter.
 
-\## Check a timetable
+\## CSV timetable for planning
 
-
-
-Provide a CSV file containing the class sessions you want to check:
-
-
-
-```bash
-
-cityuschedule examples/sample\_courses.csv
-
-```
-
-
-
-The package displays:
-
-
-
-\- A weekly timetable
-
-\- The number of class sessions
-
-\- The number of clashes
-
-\## Export a calendar
-
-
-
-Create an `.ics` calendar file:
+You can provide a CSV timetable as the fixed schedule when generating a course
+plan:
 
 
 
 ```bash
 
-cityuschedule examples/sample\_courses.csv --export
+cityuschedule examples/sample\_courses.csv --courses GE1102 --term 2627B
 
 ```
 
 
-
-By default, the output file is `cityu\_timetable.ics`.
-
-
-
-To choose a different output file:
-
-
-
-```bash
-
-cityuschedule examples/sample\_courses.csv --export --output my\_timetable.ics
-
-```
-
-
-
-\## Set semester dates
-
-
-
-Use the first and last teaching days of the semester:
-
-
-
-```bash
-
-cityuschedule examples/sample\_courses.csv --export --semester-start 2026-08-31 --semester-end 2026-11-28
-
-```
-
-
-
-\## CSV format
-
+## CSV format
 
 
 Each row represents one class session.
-
-
 
 ```csv
 
@@ -197,18 +134,8 @@ Use 24-hour time in the `start\_time` and `end\_time` columns, for example
 \## Troubleshooting
 
 
-
-If the CSV file cannot be found, check the file path.
-
-
-
-If the CSV contains no class sessions, add at least one row beneath the header
-
-row.
-
-
-
-If a class time is invalid, ensure that `end\_time` is later than `start\_time`.
+If a CSV timetable cannot be found or contains invalid class times, check the
+file path and ensure that `end_time` is later than `start_time`.
 
 \## AIMS course paste and credit totals
 

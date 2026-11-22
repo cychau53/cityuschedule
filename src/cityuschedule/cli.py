@@ -5,7 +5,6 @@ import os
 import re
 import sys
 from dataclasses import dataclass, replace
-from datetime import date
 from pathlib import Path
 from typing import TextIO
 
@@ -18,26 +17,23 @@ from .aims_fit import (
     registration_bundle_conflicts,
 )
 from .aims_table_parser import parse_aims_table
-from .calendar_export import export_ics
 from .conflicts import find_conflicts
 from .course_catalog import (
     load_course_catalog,
     load_credit_catalogs,
     load_ge_section_catalog,
 )
-from .ge_courses import (
-    get_ge_course_info,
-    load_ge_courses,
-    search_ge_courses,
-    SECTION_DATA_PATH,
-)
-from .ge_importer import update_ge_courses_from_html
 from .ge_course_information_importer import (
     merge_ge_course_information_from_web,
 )
+from .ge_courses import (
+    SECTION_DATA_PATH,
+    get_ge_course_info,
+    load_ge_courses,
+    search_ge_courses,
+)
 from .planner import calculate_course_credits
 from .timetable import WEEKDAYS, format_timetable
-
 
 
 @dataclass(frozen=True)
@@ -975,10 +971,6 @@ def _menu_command(
     settings = settings or BasicSettings()
 
     if choice == "2":
-        path = _prompt_path("CSV timetable path")
-        return ([path], None) if path else (None, None)
-
-    if choice == "3":
         path = _prompt_path(
             "AIMS timetable HTML path (enter a new path to change it)",
             saved_aims_path,
@@ -989,7 +981,7 @@ def _menu_command(
             else (None, None)
         )
 
-    if choice == "4":
+    if choice == "3":
         path = saved_aims_path or _prompt_path(
             "Saved AIMS timetable HTML path"
         )
@@ -999,7 +991,7 @@ def _menu_command(
         command.extend(_basic_settings_arguments(settings))
         return command, path
 
-    if choice == "6":
+    if choice == "5":
         while True:
             course_code = input("GE course code: ").strip().upper()
             _exit_if_requested(course_code)
@@ -1008,60 +1000,8 @@ def _menu_command(
             _print_red("Enter a GE course code such as GE1102.")
         return ["--ge-info", course_code], None
 
-    if choice == "7":
-        while True:
-            source_type = input("Export source (CSV or AIMS): ").strip().upper()
-            _exit_if_requested(source_type)
-            if source_type in {"CSV", "AIMS"}:
-                break
-            _print_red("Choose CSV or AIMS.")
-
-        if source_type == "AIMS":
-            path = saved_aims_path or _prompt_path("AIMS timetable HTML path")
-        else:
-            path = _prompt_path("CSV file path")
-        if not path:
-            return None, None
-
-        command = [path] if source_type == "CSV" else [
-            "--aims-html",
-            path,
-        ]
-        command.append("--export")
-
-        output = _prompt_path("Output .ics path", "cityu_timetable.ics")
-        if output:
-            command.extend(["--output", output])
-
-        start = _prompt_optional_date("Semester start", "2026-08-31")
-        if start:
-            command.extend(["--semester-start", start])
-
-        end = _prompt_optional_date(
-            "Semester end",
-            "2026-11-28",
-            minimum=date.fromisoformat(start or "2026-08-31"),
-        )
-        if end:
-            command.extend(["--semester-end", end])
-
-        return command, path if source_type == "AIMS" else None
-
-    if choice == "8":
+    if choice == "6":
         return _plan_menu_command(saved_aims_path, settings)
-
-    if choice == "9":
-        html_path = _prompt_path("Saved GE course HTML path")
-        if not html_path:
-            return None, None
-        output_path = _prompt_path(
-            "Output JSON path",
-            "data/ge_courses.json",
-        )
-        command = ["--ge-html", html_path]
-        if output_path:
-            command.extend(["--ge-output", output_path])
-        return command, None
 
     return None, None
 
@@ -1161,86 +1101,6 @@ def _prompt_plan_save_choices(plan_count: int) -> list[int]:
         )
 
 
-def _prompt_plan_export_number(plan_count: int) -> int | None:
-    while True:
-        response = input(
-            f"Export a plan to .ics? Enter 1-{plan_count}, or Enter to skip: "
-        ).strip()
-        _exit_if_requested(response)
-        if not response:
-            return None
-        if re.fullmatch(r"[0-9]+", response):
-            try:
-                number = int(response)
-            except ValueError:
-                number = 0
-            if 1 <= number <= plan_count:
-                return number
-        _print_red(
-            f"Enter a plan number from 1 to {plan_count}, or press Enter to skip."
-        )
-
-
-def _prompt_plan_date(
-    label: str,
-    default: str,
-    *,
-    minimum: date | None = None,
-) -> date:
-    while True:
-        value = input(f"{label} [{default}]: ").strip()
-        _exit_if_requested(value)
-        value = value or default
-        try:
-            parsed = date.fromisoformat(value)
-        except ValueError:
-            _print_red(f"Enter a valid date in YYYY-MM-DD format for {label.lower()}.")
-            continue
-        if parsed.isoformat() != value:
-            _print_red(f"Enter a valid date in YYYY-MM-DD format for {label.lower()}.")
-            continue
-        if minimum and parsed < minimum:
-            _print_red("Semester end must be on or after semester start.")
-            continue
-        return parsed
-
-
-def _prompt_optional_date(
-    label: str,
-    default: str,
-    *,
-    minimum: date | None = None,
-) -> str | None:
-    while True:
-        value = input(f"{label} [{default}]: ").strip()
-        _exit_if_requested(value)
-        if not value:
-            return None
-        try:
-            parsed = date.fromisoformat(value)
-        except ValueError:
-            _print_red(f"Enter a valid date in YYYY-MM-DD format for {label.lower()}.")
-            continue
-        if parsed.isoformat() != value:
-            _print_red(f"Enter a valid date in YYYY-MM-DD format for {label.lower()}.")
-            continue
-        if minimum and parsed < minimum:
-            _print_red("Semester end must be on or after semester start.")
-            continue
-        return value
-
-
-def _prompt_plan_output_path(default: str) -> str:
-    while True:
-        output = _prompt_path("Output .ics path", default)
-        if not output:
-            _print_red("Enter a non-empty output path.")
-            continue
-        if "\0" not in output:
-            return output
-        _print_red("Output path cannot contain a null character.")
-
-
 def _prompt_plan_term() -> str:
     """Require a valid CityU semester for course-plan generation."""
     from .plan_generator import term_key
@@ -1272,7 +1132,7 @@ def _plan_menu_command(
     saved_aims_path: str | None,
     settings: BasicSettings,
 ) -> tuple[list[str] | None, str | None]:
-    """Ask for course plan generator inputs (menu option 8)."""
+    """Ask for course plan generator inputs (menu option 6)."""
     from .plan_generator import term_key
 
     semester = _ask_menu("Semester to check, e.g. 2627A, 2627B, or 2627S")
@@ -1326,15 +1186,12 @@ def interactive_menu() -> None:
         _print_yellow(
             "\nCityU Schedule\n"
             "1. Basic settings\n"
-            "2. Check a CSV timetable\n"
-            "3. Check or change saved AIMS timetable\n"
-            "4. Paste and check an AIMS course offering\n"
-            "5. Search GE courses\n"
-            "6. Show GE course details\n"
-            "7. Export a timetable calendar\n"
-            "8. Generate timetable plans\n"
-            "9. Import GE courses from HTML\n"
-            "10. Saved timetable plan\n"
+            "2. Check or change saved AIMS timetable\n"
+            "3. Paste and check an AIMS course offering\n"
+            "4. Search GE courses\n"
+            "5. Show GE course details\n"
+            "6. Generate timetable plans\n"
+            "7. Saved timetable plan\n"
             "0. Exit\n"
             "Type q to return to the menu, or 0 to exit the package.\n"
             "Type delete all or delete names joined by 'and' to clear data."
@@ -1346,7 +1203,7 @@ def interactive_menu() -> None:
             if choice.casefold() == "0":
                 return
 
-            if choice == "5":
+            if choice == "4":
                 while True:
                     try:
                         keyword = input(
@@ -1514,13 +1371,13 @@ def interactive_menu() -> None:
                 else:
                     _print_green("Basic settings saved.")
                 continue
-            if choice == "10":
+            if choice == "7":
                 _show_saved_plans()
                 continue
 
-            task_options = {"2", "3", "4", "6", "7", "8", "9"}
+            task_options = {"2", "3", "5", "6"}
             if choice not in task_options:
-                _print_red("Choose an option from 0 to 10.")
+                _print_red("Choose an option from 0 to 7.")
                 continue
 
             while True:
@@ -1575,11 +1432,10 @@ def _required_section_pairs(values: list[str] | None) -> dict[str, list[str]]:
 
 
 def _run_course_planner(args: argparse.Namespace, parser) -> None:
-    """List course plans from the plan generator, then save or export."""
+    """List course plans from the plan generator, then optionally save."""
     from .plan_generator import (
         PLANNING_ONLY_NOTICE,
         PlanOptions,
-        export_plan,
         format_plan,
         generate_course_plans,
         load_course_requirements,
@@ -1601,7 +1457,7 @@ def _run_course_planner(args: argparse.Namespace, parser) -> None:
         if args.add_ge < 0:
             raise ValueError("--add-ge cannot be negative")
         if wanted or args.add_ge:
-            # Course details shown by menu option 6 (data/ge_course_information.json).
+            # Course details shown by menu option 5 (data/ge_course_information.json).
             ge_term = _ge_catalog_term(args.term) if args.term else None
             known = {course.code.upper() for course in courses}
             courses.extend(
@@ -1617,7 +1473,7 @@ def _run_course_planner(args: argparse.Namespace, parser) -> None:
             if missing:
                 _print_yellow(
                     "Note: no section details for " + ", ".join(missing)
-                    + " (menu option 6 has none), so they cannot be "
+                    + " (menu option 5 has none), so they cannot be "
                     "planned yet. Import them with the 'Import GE course "
                     "information' GitHub workflow."
                 )
@@ -1714,30 +1570,6 @@ def _run_course_planner(args: argparse.Namespace, parser) -> None:
         print()
     _print_blue(PLANNING_ONLY_NOTICE)
 
-    def export(number: int, output: str, start: str, end: str) -> None:
-        if not 1 <= number <= len(plans):
-            raise ValueError(
-                f"Plan {number} does not exist. "
-                f"Choose a plan from 1 to {len(plans)}."
-            )
-        try:
-            export_plan(plans[number - 1], output, start, end, args.exclusions)
-        except OSError as error:
-            raise OSError(f"Could not export plan: {error}") from error
-        except ValueError as error:
-            raise ValueError(f"Could not export plan: {error}") from error
-        _print_green(f"Exported plan {number} to {output}")
-
-    if args.export_plan is not None:
-        try:
-            export(
-                args.export_plan,
-                args.output,
-                args.semester_start,
-                args.semester_end,
-            )
-        except (OSError, ValueError) as error:
-            parser.error(str(error))
     if not args.ask:
         return
 
@@ -1765,28 +1597,6 @@ def _run_course_planner(args: argparse.Namespace, parser) -> None:
                     _print_green(f"Saved {len(new_plans)} plan(s).")
                 except OSError as error:
                     _print_red(f"Could not save plans: {error}")
-
-        number = _prompt_plan_export_number(len(plans))
-        if number is None:
-            return
-        output = _prompt_plan_output_path(args.output)
-        start = _prompt_plan_date("Semester start", args.semester_start)
-        end = _prompt_plan_date(
-            "Semester end",
-            args.semester_end,
-            minimum=start,
-        )
-        while True:
-            try:
-                export(number, output, start.isoformat(), end.isoformat())
-            except OSError as error:
-                _print_red(str(error))
-                output = _prompt_plan_output_path(args.output)
-                continue
-            except ValueError as error:
-                _print_red(str(error))
-                return
-            break
     except (EOFError, _ReturnToMenu):
         return
 
@@ -1800,30 +1610,20 @@ def main(argv: list[str] | None = None) -> None:
 
     parser = _CityUScheduleArgumentParser(
         prog="cityuschedule",
-        description="Check CityU course timetables for clashes and export them as calendar events.",
+        description="Check CityU course timetables and generate course plans.",
         epilog=(
             "Course plans: give --courses and/or --add-ge with your saved "
-            "AIMS timetable (--aims-html), or choose option 8 in the menu."
+            "AIMS timetable (--aims-html), or choose option 6 in the menu."
         ),
     )
     parser.add_argument(
         "csv_file",
         nargs="?",
-        help="Path to a course timetable CSV file",
+        help="CSV timetable to use as the fixed schedule for course planning",
     )
     parser.add_argument(
         "--aims-html",
         help="Path to a saved AIMS weekly timetable HTML page",
-    )
-    parser.add_argument(
-        "--export",
-        action="store_true",
-        help="Export the timetable as an .ics calendar file",
-    )
-
-    parser.add_argument(
-        "--exclusions",
-        help="JSON file containing holidays and teaching breaks to exclude",
     )
     parser.add_argument(
         "--timetable-catalog",
@@ -1899,18 +1699,13 @@ def main(argv: list[str] | None = None) -> None:
         ),
     )
 
-    parser.add_argument(
-        "--export-plan",
-        type=int,
-        help="Export the selected plan number as an ICS calendar, starting from 1",
-    )
     planning = parser.add_argument_group(
         "course plan generator (with --courses or --add-ge)"
     )
     planning.add_argument(
         "--courses", nargs="+", metavar="CODE",
         help="Course codes you are interested in, e.g. GE1102 GE1401; "
-        "their sections come from the GE course details (menu option 6)",
+        "their sections come from the GE course details (menu option 5)",
     )
     planning.add_argument(
         "--exclude", nargs="+", default=[], metavar="CODE",
@@ -1987,36 +1782,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     planning.add_argument(
         "--ask", action="store_true",
-        help="After listing plans, ask which to save and export",
-    )
-    parser.add_argument(
-        "--output",
-        default="cityu_timetable.ics",
-        help="Output .ics file path",
-    )
-
-    parser.add_argument(
-        "--semester-start",
-        default="2026-08-31",
-        help="First day of the semester in YYYY-MM-DD format",
-    )
-
-    parser.add_argument(
-        "--semester-end",
-        default="2026-11-28",
-        help="Last day of the semester in YYYY-MM-DD format",
-    )
-
-    parser.add_argument(
-        "--ge-html",
-        nargs="+",
-        help="GE course HTML files to import.",
-    )
-
-    parser.add_argument(
-        "--ge-output",
-        default="data/ge_courses.json",
-        help="Path for the imported GE course JSON file.",
+        help="After listing plans, ask which to save",
     )
 
     parser.add_argument(
@@ -2037,6 +1803,17 @@ def main(argv: list[str] | None = None) -> None:
     )
 
     args = parser.parse_args(command_line)
+
+    if args.csv_file and not (
+        args.aims_html
+        or args.courses
+        or args.timetable_catalog
+        or args.add_ge
+        or args.paste_aims
+    ):
+        parser.error(
+            "A CSV timetable can only be used with course-planning options."
+        )
 
     if (
         args.min_credits is not None
@@ -2089,15 +1866,12 @@ def main(argv: list[str] | None = None) -> None:
             args.timetable_catalog
             or args.add_ge
             or args.ge_bundles
-            or args.export
-            or args.export_plan is not None
-            or args.ge_html
             or args.ge_info
             or args.ge_search
         ):
             parser.error(
                 "Run --paste-aims separately from timetable catalogue planning, "
-                "GE lookup/import, and export."
+                "and GE lookup."
             )
 
         try:
@@ -2486,15 +2260,6 @@ def main(argv: list[str] | None = None) -> None:
         )
         return
 
-    if args.ge_html:
-        count = update_ge_courses_from_html(
-            args.ge_html,
-            args.ge_output,
-        )
-
-        print(f"Imported {count} Gateway Education course(s).")
-        return
-
     if args.ge_info:
         course_code = args.ge_info.strip().upper()
 
@@ -2682,18 +2447,15 @@ def main(argv: list[str] | None = None) -> None:
         _run_course_planner(args, parser)
         return
 
-    if not args.csv_file and not args.aims_html:
+    if not args.aims_html:
         parser.print_help()
         return
     try:
-        if args.aims_html:
-            sessions = load_aims_html(args.aims_html)
-            print(
-                "AIMS import: only scheduled grid classes are included. "
-                "Sections without dates/times are not exported."
-            )
-        else:
-            sessions = load_sessions(args.csv_file)
+        sessions = load_aims_html(args.aims_html)
+        print(
+            "AIMS import: only scheduled grid classes are included. "
+            "Sections without dates/times are not included."
+        )
     except (OSError, ValueError) as error:
         parser.error(str(error))
 
@@ -2710,17 +2472,6 @@ def main(argv: list[str] | None = None) -> None:
             f"{second['course_code']} {second['type']} "
             f"({second['day']} {second['start_time']}-{second['end_time']})"
         )
-
-    if args.export:
-        output = export_ics(
-            sessions,
-            args.output,
-            args.semester_start,
-            args.semester_end,
-            exclusions_path=args.exclusions,
-        )
-        print(f"Calendar exported to {output}")
-
 
 if __name__ == "__main__":
     main()

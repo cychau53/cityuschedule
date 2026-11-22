@@ -2,19 +2,13 @@
 
 # 
 
-# `cityuschedule` helps CityU students check a proposed course timetable for
+# `cityuschedule` helps CityU students check AIMS course timetables for clashes
 
-# clashes and export it as a calendar file.
+# and generate course plans.
 
 # 
 
-# It reads a simple CSV file containing lectures, tutorials, and laboratory
-
-# sessions, detects overlapping classes, and creates an
-
-# `.ics` calendar file that can be imported into Google Calendar, Apple Calendar,
-
-# or Outlook.
+# Course-planning timetables can be loaded from CSV or AIMS HTML.
 
 # 
 
@@ -22,14 +16,13 @@
 
 # 
 
-# \- Load a CityU course timetable from CSV
+# \- Use a CSV or AIMS timetable as the fixed schedule for course planning
 
 # \- Detect overlapping class sessions
 
 # \- Display a weekly timetable
 
 
-# \- Export the timetable as an `.ics` calendar file
 
 # 
 
@@ -49,39 +42,27 @@
 
 # 
 
-# Check a timetable:
+# Generate a course plan:
 
 # 
 
 # ```bash
 
-# cityuschedule examples/sample\_courses.csv
+# cityuschedule --courses GE1102 --term 2627B
 
 # ```
 
 # 
 
-# Export a calendar file:
 
 # 
 
-# ```bash
-
-# cityuschedule examples/sample\_courses.csv --export
-
-# ```
 
 # 
 
-# Use a custom output file and semester dates:
 
 # 
 
-# ```bash
-
-# cityuschedule examples/sample\_courses.csv --export --output my\_timetable.ics --semester-start 2026-08-31 --semester-end 2026-11-28
-
-# ```
 
 ## Generate course plans
 
@@ -94,33 +75,12 @@ cityuschedule --courses GE1102 --term 2627B
 
 Accepted semester codes include `2627A`, `2627B`, and `2627S`.
 
-## Exclude holidays and teaching breaks
 
-Create a JSON file, for example `exclusions.json`:
 
-```json
-{
-  "holidays": [
-    "2026-10-01"
-  ],
-  "breaks": [
-    {
-      "start": "2026-10-19",
-      "end": "2026-10-25"
-    }
-  ]
-}
-```
 
-Then export the timetable:
 
-```bash
-cityuschedule --aims-html aims_schedule.html --export --output timetable.ics --semester-start 2026-08-31 --semester-end 2026-11-28 --exclusions exclusions.json
-```
 
-Class occurrences on listed holidays or within a break date range are not exported.
 
-The exported calendar uses `Asia/Hong_Kong` by default.
 
 # 
 
@@ -177,43 +137,6 @@ The exported calendar uses `Asia/Hong_Kong` by default.
 # Use `Mon`, `Tue`, `Wed`, `Thu`, `Fri`, `Sat`, or `Sun` for the `day` column.
 
 # 
-
-# \## Example output
-
-# 
-
-# ```text
-
-# Weekly timetable
-
-# 
-
-# Mon
-
-# &#x20; 09:00-10:50  CS1103 LEC  AC LT-1
-
-# 
-
-# Tue
-
-# &#x20; 11:00-12:50  MA1200 LEC  AC LT-2
-
-# 
-
-# Wed
-
-# &#x20; 14:00-14:50  CS1103 TUT  AC Room-1
-
-# &#x20; 15:00-16:50  GE1401 SEM  CM Room-3
-
-# 
-
-# Loaded 4 class sessions.
-
-# Found 0 clash(es).
-
-
-# ```
 
 # 
 

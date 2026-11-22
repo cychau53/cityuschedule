@@ -1,10 +1,10 @@
 # Course plan generator
 
-The plan generator (menu option 8, or `cityuschedule --courses ...`) works like this:
+The plan generator (menu option 6, or `cityuschedule --courses ...`) works like this:
 
 1. You type the course codes you are interested in, for example `GE1102 GE1401 GE2410`.
-2. It takes their sections from the GE course details (the data shown by menu option 6, `data/ge_course_information.json`). You never need to write a JSON file.
-3. It fits them around the AIMS timetable you saved in menu option 3, which stays fixed.
+2. It takes their sections from the GE course details (the data shown by menu option 5, `data/ge_course_information.json`). You never need to write a JSON file.
+3. It fits them around the AIMS timetable you saved in menu option 2, which stays fixed.
 4. It says how many timeslots of each course fit your timetable, for example "GE1111 has one timeslot that fits your timetable".
 5. It prints one weekly timetable per plan. If GE1234 can be taken on Tuesday 15:00-17:50 or Friday 09:00-11:50, plan 1 puts it on Tuesday and plan 2 on Friday (or the other way round, by ranking).
 
@@ -18,12 +18,12 @@ It is built on the project's existing modules, so it gives the same answers as t
 | Job | Module reused |
 |---|---|
 | Read GE sections (`--add-ge`) | `course_catalog.load_ge_section_catalog` (from `data/ge_course_information.json`) |
-| Lecture/tutorial/lab bundles | `aims_table_parser.ParsedAimsTable.registration_bundles` (same rule as menu option 4) |
+| Lecture/tutorial/lab bundles | `aims_table_parser.ParsedAimsTable.registration_bundles` (same rule as menu option 3) |
 | Clash test and time parsing | `schedule_conflicts.slots_overlap`, `time_to_minutes` |
 | Walking time between buildings | `travel_time.walking_minutes` (`data/travel_time.json`) |
 | Credits of your AIMS courses | `planner.calculate_course_credits` and `data/catalogue/*_credits.json` |
 | GE areas and terms | `ge_courses.load_ge_courses` (`data/ge_courses.json`) |
-| Plan to timetable rows / `.ics` | `planner.planned_sections_to_sessions`, `calendar_export.export_ics` |
+| Plan sections to timetable rows | `planner.planned_sections_to_sessions` |
 
 ## What it does
 
@@ -57,10 +57,10 @@ The search uses branch and bound: it stops following a partial plan as soon as i
 
 ## Menu
 
-Run `cityuschedule` with no arguments and choose **8. Generate course plans**. You will be asked for:
+Run `cityuschedule` with no arguments and choose **6. Generate timetable plans**. You will be asked for:
 
 1. The semester to check, e.g. `2627A`, `2627B`, or `2627S`
-2. Your AIMS timetable HTML: the one saved in option 3 is used if you have one; otherwise type a path, or press Enter to plan without one
+2. Your AIMS timetable HTML: the one saved in option 2 is used if you have one; otherwise type a path, or press Enter to plan without one
 3. The course codes you are interested in, e.g. `GE1102 GE1401 GE2410`
 4. How many GE courses the generator should add (a positive integer; Enter uses the number of course codes entered)
 
@@ -69,7 +69,7 @@ details for the selected semester are rejected and must be re-entered. The GE
 count must be at least 1 and no greater than the number of course codes entered;
 otherwise, you will be asked for the count again.
 
-Your **Basic settings** (option 1) are applied automatically to newly planned courses: preferred and avoided days, lunch duration and window, minimum gap, and earliest/latest class times. Minimum and maximum credits include the courses in your AIMS timetable. AIMS classes are used for clash and walking-time checks, but are not rejected for violating the day or timing settings. Advanced planner filters remain available when running the planner directly from the command line. After the plans are listed you can save one to **10. Saved timetable plan** and export one to an `.ics` file. Saved plans show their timetable and Web Add/Drop sections with CRNs. Delete a saved plan from the main menu with `delete plan1` or `delete plan 1`. The AIMS path you use is remembered for next time.
+Your **Basic settings** (option 1) are applied automatically to newly planned courses: preferred and avoided days, lunch duration and window, minimum gap, and earliest/latest class times. Minimum and maximum credits include the courses in your AIMS timetable. AIMS classes are used for clash and walking-time checks, but are not rejected for violating the day or timing settings. Advanced planner filters remain available when running the planner directly from the command line. After the plans are listed you can save one to **7. Saved timetable plan**. Saved plans show their timetable and Web Add/Drop sections with CRNs. Delete a saved plan from the main menu with `delete plan1` or `delete plan 1`. The AIMS path you use is remembered for next time.
 
 ## Command line
 
@@ -111,23 +111,21 @@ No plan satisfies all settings.
        2 option(s) rejected: classes clash
 ```
 
-Plan around a saved AIMS timetable, add one GE course for Semester B 2026/27, and export plan 1:
+Plan around a saved AIMS timetable and add one GE course for Semester B 2026/27:
 
 ```bash
 cityuschedule --aims-html aims_schedule.html \
   --courses GE1102 --add-ge 1 --term 2627B \
-  --prefer-days Mon Tue Wed \
-  --export-plan 1 --output exports/plan.ics \
-  --semester-start 2027-01-11 --semester-end 2027-04-24
+  --prefer-days Mon Tue Wed
 ```
 
-The semester dates default to the project's current values (2026-08-31 to 2026-11-28). Replace them with the official CityU teaching dates for the semester you are planning. A CSV timetable such as `examples/sample_courses.csv` can be given instead of `--aims-html` for the fixed timetable: `cityuschedule examples/sample_courses.csv --courses GE1102`.
+A CSV timetable such as `examples/sample_courses.csv` can be given instead of `--aims-html` for the fixed timetable: `cityuschedule examples/sample_courses.csv --courses GE1102 --term 2627B`.
 
 Days accept `Mon`, `M`, `Thu`, `R`, `Thursday` and so on.
 
 | Option | Meaning |
 |---|---|
-| `--courses CODE ...` | Course codes you are interested in; sections come from the GE course details (option 6) |
+| `--courses CODE ...` | Course codes you are interested in; sections come from the GE course details (option 5) |
 | `--add-ge N` | Add exactly N GE courses: from your `--courses`, or from all GE section data if no codes are given |
 | `--ge-bundles FILE` | Valid section combinations listed by hand, e.g. `{"GE1102": [["C01", "T01"]]}` |
 | `--aims-html FILE` | Your current timetable; its classes are kept fixed |
@@ -144,9 +142,7 @@ Days accept `Mon`, `M`, `Thu`, `R`, `Thursday` and so on.
 | `--max-daily-hours 6` | Maximum class hours per day |
 | `--no-travel-check` | Skip walking-time checks |
 | `--max-results N` | Number of plans to show (default 5) |
-| `--export-plan N` | Export plan N as `.ics` |
-| `--ask` | After listing plans, ask which one to save and which to export |
-| `--output`, `--semester-start`, `--semester-end`, `--exclusions` | Export settings |
+| `--ask` | After listing plans, ask which ones to save |
 | `--study-load full-time\|part-time\|summer\|none` | CityU study-load credit limit (default `none`: no credit limit) |
 | `--allow-overload` | Allow more credits than the study-load maximum |
 | `--allow-section-change` | Let pre-registered courses move to other sections |
@@ -183,7 +179,7 @@ Copy these from the Master Class Schedule to get the registration checks ([Perso
  "restrictions": "only for College: CB"}
 ```
 
-- `crn`: shown in the registration steps and the calendar export.
+- `crn`: shown in the registration steps.
 - `availability`: seats left, or `Full`.
 - `waitlist`: `Y`, `N` or `Full`, from the Waitlist Avail column.
 - `web`: `N` if the course is not web-enabled.
@@ -218,7 +214,7 @@ if not report.plans:
 
 for number, plan in enumerate(report.plans, start=1):
     print(format_plan(plan, number))
-    sessions = plan.to_sessions()  # ready for timetable.format_timetable or export_ics
+    sessions = plan.to_sessions()  # ready for timetable.format_timetable
 ```
 
 Use `PlanOptions(bundle_definitions={"GE1102": [["C01", "T01"], ["C01", "T02"]]})` when a course's valid section combinations are listed separately, as with `--ge-bundles`.
