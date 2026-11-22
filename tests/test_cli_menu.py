@@ -380,6 +380,18 @@ def test_saved_plan_is_displayed_in_readable_format(monkeypatch, capsys):
     assert "waiting between classes" not in output
 
 
+def test_saved_plans_are_separated_by_dashed_line(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "_load_saved_bundles", lambda: [
+        {"plan": {"courses": ["GE1234 CA1"], "sections": []}},
+        {"plan": {"courses": ["GE1409 C01"], "sections": []}},
+    ])
+
+    cli._show_saved_plans()
+
+    output = capsys.readouterr().out
+    assert f"Web Add/Drop:\n  None.\n\n{'-' * 40}\nPlan 2" in output
+
+
 def test_saved_plan_colors_added_course_and_timetable_slot(monkeypatch):
     class TerminalOutput(StringIO):
         def isatty(self):
@@ -524,7 +536,11 @@ def test_menu_dispatches_paste_aims_command(monkeypatch, capsys, tmp_path):
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
     monkeypatch.setattr(cli, "_load_basic_settings", lambda: cli.BasicSettings())
     commands = []
-    monkeypatch.setattr(cli, "main", lambda argv=None: commands.append(argv))
+    monkeypatch.setattr(
+        cli,
+        "main",
+        lambda argv=None, **kwargs: commands.append(argv),
+    )
     monkeypatch.setattr(
         cli,
         "_aims_path_config_file",
@@ -558,7 +574,11 @@ def test_menu_saves_aims_path_and_reuses_it(monkeypatch, tmp_path):
         lambda: config_file,
     )
     commands = []
-    monkeypatch.setattr(cli, "main", lambda argv=None: commands.append(argv))
+    monkeypatch.setattr(
+        cli,
+        "main",
+        lambda argv=None, **kwargs: commands.append(argv),
+    )
 
     cli.interactive_menu()
     cli.interactive_menu()
@@ -591,7 +611,7 @@ def test_menu_reprompts_same_option_after_task_error(monkeypatch, tmp_path, caps
     )
     commands = []
 
-    def run_command(argv=None):
+    def run_command(argv=None, **kwargs):
         commands.append(argv)
         if argv == ["--aims-html", r"C:\Schedules\missing.html"]:
             raise SystemExit(2)
@@ -615,7 +635,11 @@ def test_menu_reprompts_required_input_without_returning_to_menu(monkeypatch):
     monkeypatch.setattr(cli, "_load_basic_settings", lambda: cli.BasicSettings())
     monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: None)
     commands = []
-    monkeypatch.setattr(cli, "main", lambda argv=None: commands.append(argv))
+    monkeypatch.setattr(
+        cli,
+        "main",
+        lambda argv=None, **kwargs: commands.append(argv),
+    )
 
     cli.interactive_menu()
 
@@ -633,7 +657,7 @@ def test_menu_exits_when_task_requests_exit(monkeypatch):
     )
     commands = []
 
-    def exit_task(argv=None):
+    def exit_task(argv=None, **kwargs):
         commands.append(argv)
         raise SystemExit(0)
 
@@ -677,6 +701,7 @@ def test_basic_settings_persist_and_apply_to_paste_and_planning(
             "2627A",
             "ge1105",
             "1",
+            "q",
             "0",
         ]
     )
@@ -689,7 +714,11 @@ def test_basic_settings_persist_and_apply_to_paste_and_planning(
     monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: saved_path)
     monkeypatch.setattr(cli, "_save_aims_path", lambda path: None)
     commands = []
-    monkeypatch.setattr(cli, "main", lambda argv=None: commands.append(argv))
+    monkeypatch.setattr(
+        cli,
+        "main",
+        lambda argv=None, **kwargs: commands.append(argv),
+    )
 
     cli.interactive_menu()
     cli.interactive_menu()
@@ -991,7 +1020,7 @@ def test_plan_menu_clears_missing_saved_aims_path_when_skipped(
 ):
     config_file = tmp_path / "aims_html_path.txt"
     config_file.write_text("courses.html", encoding="utf-8")
-    inputs = iter(["7", "2627B", "", "GE1102", "1", "0"])
+    inputs = iter(["7", "2627B", "", "GE1102", "1", "q", "0"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
     monkeypatch.setattr(cli, "_aims_path_config_file", lambda: config_file)
     monkeypatch.setattr(cli, "_load_basic_settings", lambda: cli.BasicSettings())
@@ -999,7 +1028,7 @@ def test_plan_menu_clears_missing_saved_aims_path_when_skipped(
     monkeypatch.setattr(
         cli,
         "main",
-        lambda argv=None: commands.append(argv),
+        lambda argv=None, **kwargs: commands.append(argv),
     )
 
     cli.interactive_menu()

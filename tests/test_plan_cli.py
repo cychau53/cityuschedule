@@ -270,7 +270,7 @@ def test_menu_option_7_ge_count_must_be_one_through_code_count(
     capsys,
 ):
     prompts = []
-    answers = iter(["0", "2", "1"])
+    answers = iter(["2", "invalid", "1"])
     monkeypatch.setattr(
         "builtins.input",
         lambda prompt="": prompts.append(prompt) or next(answers),
@@ -279,6 +279,15 @@ def test_menu_option_7_ge_count_must_be_one_through_code_count(
     assert cli._prompt_plan_ge_count(1) == "1"
     assert all("(enter a positive integer)" in prompt for prompt in prompts)
     assert "whole number of GE courses from 1 to 1" in capsys.readouterr().out
+
+
+def test_menu_option_7_zero_exits_during_ge_count_prompt(monkeypatch):
+    feed(monkeypatch, "0")
+
+    with pytest.raises(SystemExit) as error:
+        cli._prompt_plan_ge_count(1)
+
+    assert error.value.code == 0
 
 
 def test_menu_option_7_blank_ge_count_uses_course_count(monkeypatch):
@@ -351,11 +360,16 @@ def test_invalid_plan_course_reprompts_without_returning_to_menu(
         "1",
         "",
         "GE1105",
+        "q",
         "0",
     )
     monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: None)
     commands = []
-    monkeypatch.setattr(cli, "main", lambda argv=None: commands.append(argv))
+    monkeypatch.setattr(
+        cli,
+        "main",
+        lambda argv=None, **kwargs: commands.append(argv),
+    )
 
     cli.interactive_menu()
 
@@ -413,6 +427,76 @@ def test_menu_runs_plan_generator(monkeypatch, capsys, tmp_path):
     assert "GE1102 has 2 timeslots that fit your timetable" in output
     assert "Kept from your AIMS timetable: CS2311" in output
     assert "GE1102 C01+T01  (3 cr)" in output
+
+
+def test_menu_plan_generator_repeats_until_q(monkeypatch, capsys, tmp_path):
+    aims = tmp_path / "aims.html"
+    aims.write_text(AIMS_HTML, encoding="utf-8")
+    commands = []
+    feed(
+        monkeypatch,
+        "7",
+        "2627B",
+        "GE1102",
+        "",
+        "2627B",
+        "GE1102",
+        "",
+        "q",
+        "0",
+    )
+    monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: str(aims))
+    monkeypatch.setattr(
+        cli,
+        "main",
+        lambda argv=None, **kwargs: commands.append(argv),
+    )
+
+    cli.interactive_menu()
+
+    output = capsys.readouterr().out
+    assert len(commands) == 2
+    assert output.count("Generate timetable plans") == 2
+    assert output.count("CityU Schedule") == 2
+
+
+def test_menu_plan_return_signal_returns_to_menu(monkeypatch, capsys, tmp_path):
+    html = tmp_path / "aims.html"
+    html.write_text(AIMS_HTML, encoding="utf-8")
+    feed(monkeypatch, "7", "2627B", "GE1102", "", "0")
+    monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: str(html))
+    commands = []
+    monkeypatch.setattr(
+        cli,
+        "main",
+        lambda argv=None, **kwargs: commands.append(argv) or True,
+    )
+
+    cli.interactive_menu()
+
+    output = capsys.readouterr().out
+    assert len(commands) == 1
+    assert output.count("CityU Schedule") == 2
+
+
+def test_plan_save_prompt_return_signal_propagates(monkeypatch):
+    def return_to_menu(_):
+        raise cli._ReturnToMenu
+
+    monkeypatch.setattr(cli, "_prompt_plan_save_choices", return_to_menu)
+
+    arguments = [
+        "--timetable-catalog",
+        str(EXAMPLE),
+        "--term",
+        "2627A",
+        "--required",
+        "TEST101",
+        "--ask",
+    ]
+
+    assert cli.main(arguments) is None
+    assert cli.main(arguments, _from_menu=True) is True
 
 
 def test_basic_setting_plan_rejections_are_purple(monkeypatch):

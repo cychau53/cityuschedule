@@ -409,6 +409,8 @@ def _show_saved_plans() -> None:
     print(f"Found {len(saved_plans)} saved plan(s).\n")
 
     for number, entry in enumerate(saved_plans, start=1):
+        if number > 1:
+            print("-" * 40)
         _print_saved_plan(_saved_plan_data(entry), number)
         print()
 
@@ -1256,8 +1258,7 @@ def _prompt_plan_ge_count(maximum: int) -> str:
             "How many GE courses should the generator add? "
             "(enter a positive integer): "
         ).strip()
-        if count.casefold() == "q":
-            raise _ReturnToMenu
+        _exit_if_requested(count)
         if not count:
             return str(maximum)
         if re.fullmatch(r"[0-9]+", count):
@@ -1631,7 +1632,7 @@ def interactive_menu() -> None:
                     continue
 
                 try:
-                    main(command)
+                    return_to_menu = main(command, _from_menu=True)
                 except SystemExit as error:
                     if error.code == 0:
                         return
@@ -1657,6 +1658,10 @@ def interactive_menu() -> None:
                         )
                     else:
                         saved_aims_path = None
+                if choice == "7":
+                    if return_to_menu:
+                        break
+                    continue
                 break
         except EOFError:
             return
@@ -1677,7 +1682,10 @@ def _required_section_pairs(values: list[str] | None) -> dict[str, list[str]]:
     return pairs
 
 
-def _run_course_planner(args: argparse.Namespace, parser) -> None:
+def _run_course_planner(
+    args: argparse.Namespace,
+    parser,
+) -> bool | None:
     """List course plans from the plan generator, then optionally save."""
     from .plan_generator import (
         PLANNING_ONLY_NOTICE,
@@ -1878,11 +1886,17 @@ def _run_course_planner(args: argparse.Namespace, parser) -> None:
                     _print_green(f"Saved {len(new_plans)} plan(s).")
                 except OSError as error:
                     _print_red(f"Could not save plans: {error}")
-    except (EOFError, _ReturnToMenu):
+    except EOFError:
         return
+    except _ReturnToMenu:
+        return True
 
 
-def main(argv: list[str] | None = None) -> None:
+def main(
+    argv: list[str] | None = None,
+    *,
+    _from_menu: bool = False,
+) -> bool | None:
     command_line = sys.argv[1:] if argv is None else argv
 
     if not command_line:
@@ -2738,8 +2752,8 @@ def main(argv: list[str] | None = None) -> None:
         parser.error("Choose either a CSV file or --aims-html, not both.")
 
     if args.courses or args.timetable_catalog or args.add_ge:
-        _run_course_planner(args, parser)
-        return
+        return_to_menu = _run_course_planner(args, parser)
+        return return_to_menu if _from_menu else None
 
     if not args.aims_html:
         parser.print_help()

@@ -68,6 +68,9 @@ Run `cityuschedule` with no arguments and choose **7. Generate timetable plans**
 3. The course codes you are interested in, e.g. `GE1102 GE1401 GE2410`
 4. How many GE courses the generator should add (a positive integer; Enter uses the number of course codes entered)
 
+Option 7 stays in the plan generator after each result so you can generate
+another set. Enter `q` at a prompt to return to the menu, or `0` to exit.
+
 At least one course code is required in the menu. If the package has no GE
 section data for the selected semester, it asks you to enter another semester.
 Course codes without section details for a semester that does have data must be
