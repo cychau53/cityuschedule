@@ -1,93 +1,219 @@
 # cityuschedule
+CityUSchedule is a Python package designed for undergraduate Computer Science students at City University of Hong Kong.
 
-`cityuschedule` is a Python command-line tool for City University of Hong Kong (CityU) students who want to make course-registration decisions with fewer timetable surprises. It checks existing AIMS timetables for clashes, tests possible course sections against a fixed schedule, and generates course-plan suggestions from the project’s course data.
+It saves CS course information and helps students:
 
-The project is motivated by a practical problem: a course list does not show whether its lectures, tutorials, or other scheduled sessions fit together as a usable week. Comparing section combinations by hand is tedious, and an overlooked overlap—or an impractical gap or trip between buildings—can make a plan difficult to follow. `cityuschedule` turns timetable data into checks and candidate plans students can review before registering.
+Check whether course sessions clash
+Identify gaps in a timetable
+Review course details and requirements
+Export compatible sessions as calendar events
+CityUSchedule is a planning tool. Students should always verify final timetables and registration details through official CityU systems.
+Features
 
-## What it does
+Save and organise CS course information
+Store course titles and catalogue data locally
+Identify timetable clashes
+Find gaps between scheduled sessions
+Support CS course requirement processing
+Export timetable events to calendar-compatible formats
+Validate and maintain the course catalogue
+How It Works
 
-- Reads a saved AIMS weekly timetable and reports overlapping scheduled sessions.
-- Checks a pasted AIMS course offering and suggests complete section bundles that fit an existing timetable.
-- Generates course-plan suggestions from the bundled course catalogues, with optional constraints such as credit limits, preferred or avoided days, earliest start, latest end, minimum gaps, lunch breaks, and travel-time checks between known buildings.
-- Searches and displays Gateway Education (GE) course information available to the project.
-- Accepts a CSV timetable as a fixed schedule for course planning.
-- Provides an interactive menu as well as command-line options.
+CityUSchedule processes course and session information into structured local data.
 
-The output is for planning—not registration. It does not confirm eligibility, current seat availability, or that a suggested plan will be approved. See [limitations and data notes](docs/usage.md#limitations-and-data-notes).
+A typical workflow is:
 
-## Example use cases
+Load or update course information.
+Select the courses you want to take.
+Check session combinations for clashes.
+Find gaps and unavailable periods.
+Export the selected timetable to a calendar.
+Installation
 
-1. **Check a timetable already in AIMS:** save the weekly timetable as HTML, then ask the tool to find overlaps.
-2. **Compare sections for a new course:** paste its complete AIMS offering table and see which complete section combinations fit your saved schedule.
-3. **Explore alternative plans:** ask the planner for combinations of courses and GE courses that meet your day, time, credit, break, and travel preferences.
-4. **Try the planner with your own schedule:** create a CSV of fixed class sessions and use it as the starting timetable.
+Python 3.11 or later is required.
 
-## Quick start
+bash
+git clone https://github.com/cychau53/cityuschedule.git
+cd cityuschedule
+python -m pip install .
+For development:
 
-Requires Python 3.10 or later. From a clone of this repository, install the package and its development tools in editable mode:
+bash
+python -m pip install -e .
+python -m pip install -r requirements.txt
+Quick Start
 
-```bash
-python -m venv .venv
-# macOS/Linux
-source .venv/bin/activate
-# Windows PowerShell: .venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -e ".[dev]"
-```
+Run the package from the project directory:
 
-Start the interactive menu:
+bash
+python -m cityuschedule
+``>
 
-```bash
-cityuschedule
-```
+## Course Data
 
-Or inspect the command-line options:
+CityUSchedule includes structured course information such as:
 
-```bash
-cityuschedule --help
-```
+- Course code
+- Course title
+- Required credits
+- Available sessions
+- Session times and locations
+- Course exclusions
+- CS programme requirements
 
-For example, use the included sample timetable as the fixed schedule while exploring a course for semester `2627B`:
+The primary catalogue file is:
 
-```bash
-cityuschedule examples/sample_courses.csv --courses GE1102 --term 2627B
-```
+```text
+course_catalog.json
+Example Course Record
 
-To check clashes in a saved AIMS weekly timetable:
+JSON
+{
+  "course_code": "CS3334",
+  "title": "Data Structures",
+  "credits": 3
+}
+The exact fields may vary depending on the course and the data source.
 
-```bash
-cityuschedule --aims-html path/to/your_aims_timetable.html
-```
+Data Utilities
 
-See the [setup and usage guide](docs/usage.md) for installation details, CSV format, AIMS workflows, planner options, and troubleshooting.
+The repository provides scripts for building, enriching, and validating CS course data.
 
-## How the project is different
+Extract CS Courses
 
-Rather than being only a timetable display, `cityuschedule` connects timetable checking with course exploration. It can parse a saved AIMS timetable, reason about complete registration section bundles, and use one set of schedule constraints to filter candidate plans. Its CLI and local-file inputs keep the basic checks straightforward to run; some data lookups and course-information updates do require network access.
+bash
+python extract_cs_courses.py
+Build CS Requirements
 
-## Documentation
+bash
+python build_cs_requirements.py
+Fill Missing Course Titles
 
-- [Setup and usage](docs/usage.md)
-- [Motivation](docs/motivation.md)
-- [Innovation and design](docs/innovation.md)
-- [Planning notes](docs/planning.md)
+bash
+python fill_course_titles.py
+Validate the CS Catalogue
 
-The documentation organization takes inspiration from student-developed package examples linked in the [CS1302 agentic-coding course material](https://ccha23.github.io/cs1302ai26a/#agentic-coding).
+bash
+python validate_cs_catalogue.py
+Checking a Timetable
+
+Use the package APIs or an example script to inspect course combinations and identify scheduling conflicts.
+
+Python
+selected_courses = [
+    {
+        "code": "CS3334",
+        "sessions": [
+            {"day": "Monday", "start": "10:00", "end": "11:50"}
+        ],
+    },
+    {
+        "code": "CS4336",
+        "sessions": [
+            {"day": "Monday", "start": "11:30", "end": "13:20"}
+        ],
+    },
+]
+
+print("Selected courses:", [course["code"] for course in selected_courses])
+The timetable calculation should compare session dates and times before the courses are added to the saved schedule.
+
+Example API names may change while the package is under active development.
+Exporting Calendar Events
+
+CityUSchedule can export compatible timetable information as calendar events.
+
+A calendar export allows students to:
+
+View lectures and tutorials in Google Calendar, Apple Calendar, or Outlook
+Receive timetable reminders
+Keep course locations alongside scheduled sessions
+Save a course timetable for later reference
+The exported format is designed to be imported into a calendar application.
+
+Project Structure
+
+Text
+cityuschedule/
+├── src/cityuschedule/       Package source code
+├── tests/                   Unit and integration tests
+├── data/                    Generated and source course data
+├── docs/                    Documentation
+├── examples/                Example usage
+├── scripts/                 Maintenance utilities
+├── course_catalog.json      CS course catalogue
+├── exclusions.json          Course exclusions
+├── requirements.txt         Python dependencies
+├── pyproject.toml           Package configuration
+├── README.md                Project documentation
+└── LICENSE                  MIT licence
+``>
 
 ## Development
 
-Run the test suite with:
+Create a virtual environment:
 
 ```bash
-python -m pytest
-```
+python -m venv .venv
+Activate it on macOS or Linux:
 
-Run lint checks with:
+bash
+source .venv/bin/activate
+Activate it on Windows:
 
-```bash
+PowerShell
+.venv\Scripts\Activate.ps1
+Install the package and dependencies:
+
+bash
+python -m pip install -e .
+python -m pip install pytest ruff
+Run tests:
+
+bash
+pytest
+Run lint checks:
+
+bash
 ruff check .
-```
+``>
+
+## Contributing
+
+Contributions are welcome.
+
+1. Fork the repository.
+2. Create a feature branch.
+3. Add or update course-processing functionality.
+4. Add tests for timetable or catalogue changes.
+5. Submit a pull request.
+
+Please include the source or reason for updates to course data.
+
+## Data Accuracy
+
+Course information can change between semesters.
+
+Before registering or exporting a final timetable, verify:
+
+- Course availability
+- Timetable times and locations
+- Credits
+- Prerequisites
+- Exclusions
+- Registration restrictions
+- Semester-specific sessions
+
+Use the official CityU course catalogue and timetable systems as the source of truth.
+
+## Limitations
+
+- Course information may require manual updating.
+- Some sessions may not contain complete historical or future data.
+- Calendar applications may interpret recurring events differently.
+- The package does not guarantee real-time course availability.
+- Scheduling suggestions must be checked against official registration systems.
 
 ## License
 
-This project is distributed under the MIT License; see [LICENSE](LICENSE).
+This project is licensed under the [MIT License](LICENSE).
