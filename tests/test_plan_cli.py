@@ -114,13 +114,13 @@ def test_ask_saves_and_exports(monkeypatch, tmp_path):
     assert saved[0]["plan"]["registration_steps"]
 
 
-def test_add_ge_uses_ge_section_data(capsys):
+def test_course_plan_uses_ge_section_data(capsys):
     cli.main([
-        "--add-ge", "1", "--term", "2627B",
+        "--courses", "GE1102", "--term", "2627B",
         "--no-travel-check", "--study-load", "none",
     ])
     output = capsys.readouterr().out
-    assert "GE1102 C01+T0" in output
+    assert "GE1102 C01+T01  (3 cr)" in output
     assert "CRN 15453" in output
 
 
