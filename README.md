@@ -3,65 +3,81 @@
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**CityUSchedule** helps undergraduate Computer Science students at City University of Hong Kong organise course information and plan their timetables. It can check for schedule clashes and gaps, generate course plans, and export course sessions as calendar events.
+CityUSchedule is a Python package for undergraduate Computer Science students at City University of Hong Kong. It helps students save, organise, and review CS course information when planning their timetables.
 
-> Use CityUSchedule as a planning aid. Always verify course details, availability, and registration requirements using official CityU systems.
+> CityUSchedule is a planning aid. Always verify course details and registration requirements through official CityU systems.
 
-## What you can do
+## Features
 
-- Organise and review course catalogue information, including CS requirements and course exclusions.
-- Import course and timetable information from AIMS.
-- Check whether course sessions clash and examine gaps between classes.
-- Generate possible course plans.
-- Account for travel time between campus locations where location data is available.
+- Store and review CS course information
+- Browse course codes, titles, and credits
+- Support CS programme requirements and course exclusions
+- Check whether course sessions clash
+- Identify gaps in a timetable
+- Generate possible course plans
+- Import timetable information from AIMS
+- Consider travel time between campus locations
+- Validate and maintain course catalogue data
 
 ## Requirements
 
 - Python 3.10 or later
-- `beautifulsoup4`
-- `pypdf`
+- Beautiful Soup 4
+- pypdf
 
-## Install
+## Installation
 
-Clone the repository and install the package:
+Clone the repository:
 
 ```bash
 git clone https://github.com/cychau53/cityuschedule.git
 cd cityuschedule
+```
+
+Install the package:
+
+```bash
 python -m pip install .
 ```
 
-To install an editable development copy with development tools:
+For development:
 
 ```bash
 python -m pip install -e ".[dev]"
 ```
 
-## Start CityUSchedule
+## Quick Start
 
-Run the command-line application:
+Start the interactive command-line application:
 
 ```bash
 cityuschedule
 ```
 
-Follow the interactive prompts to import or review course information and work with course plans. The command is installed by the package; if your shell cannot find it, check that your Python environment's scripts directory is on your `PATH`.
+Follow the prompts to load course information and generate a timetable plan.
 
-## Typical workflow
+## Typical Workflow
 
-1. Start CityUSchedule and import or load your course information.
-2. Select courses and available sections.
-3. Generate possible course plans.
-4. Review clashes, free periods, and travel time.
-5. Export your chosen timetable to a calendar.
+1. Start CityUSchedule.
+2. Import or load course and timetable information.
+3. Select CS courses and available sections.
+4. Generate possible course plans.
+5. Review clashes, gaps, and travel time.
+6. Choose a timetable plan that meets your study requirements.
 
-The repository also includes `examples/sample_courses.csv` as a sample input file. Import options and accepted formats may depend on the workflow you choose in the application.
+## Course Data
 
-## Course data
+CityUSchedule uses structured JSON course catalogue and requirement data, including:
 
-CityUSchedule works with structured course and timetable information. The repository includes data and catalogue files for CS requirements, GE requirements, other course requirements, course information, and travel times. Course information can change from semester to semester, so check the source and freshness of the data before relying on it.
+- Course codes and titles
+- Credits
+- Course requirements
+- Course exclusions
+- Available sessions
+- Session times and locations
+- Travel-time information
 
-Data-maintenance scripts in the repository include:
+The data-maintenance scripts include:
 
 ```bash
 python extract_cs_courses.py
@@ -70,36 +86,39 @@ python fill_course_titles.py
 python validate_cs_catalogue.py
 ```
 
-These scripts support extracting CS courses, building requirement data, filling course titles, and validating the CS catalogue.
-
 ## Development
 
-Create and activate a virtual environment:
+Create a virtual environment:
 
 ```bash
 python -m venv .venv
 ```
 
-On macOS or Linux:
+Activate it on macOS or Linux:
 
 ```bash
 source .venv/bin/activate
 ```
 
-On Windows PowerShell:
+Activate it on Windows PowerShell:
 
 ```powershell
 .venv\Scripts\Activate.ps1
 ```
 
-Install the package with development dependencies and run the tests:
+Install development dependencies:
 
 ```bash
 python -m pip install -e ".[dev]"
+```
+
+Run the tests:
+
+```bash
 pytest
 ```
 
-Run lint checks with:
+Run lint checks:
 
 ```bash
 ruff check .
@@ -107,12 +126,38 @@ ruff check .
 
 ## Contributing
 
-Contributions are welcome. Please open an issue to discuss a substantial change, and include tests for changes to course parsing, timetable planning, or conflict detection. When updating course data, please document its source and semester.
+Contributions are welcome.
 
-## Important information
+1. Fork the repository.
+2. Create a feature branch.
+3. Add or update course-processing functionality.
+4. Add tests for parsing, planning, or timetable changes.
+5. Submit a pull request.
 
-Course availability, timetable sessions, prerequisites, credits, exclusions, and registration restrictions may change. CityUSchedule does not guarantee real-time accuracy or course registration. Confirm all decisions with official CityU sources before registering.
+Please document the source and semester when updating course data.
+
+## Data Accuracy
+
+Course information can change between semesters. Before registering, verify:
+
+- Course availability
+- Timetable times and locations
+- Credits
+- Prerequisites
+- Exclusions
+- Registration restrictions
+- Semester-specific sessions
+
+Use official CityU course catalogue and timetable systems as the source of truth.
+
+## Limitations
+
+- Course information may require periodic updates.
+- Session availability is not guaranteed in real time.
+- Imported timetable formats may change.
+- Travel-time estimates depend on packaged location data.
+- Scheduling suggestions must be checked against official registration systems.
 
 ## License
 
-CityUSchedule is released under the [MIT License](LICENSE).
+This project is licensed under the [MIT License](LICENSE).
