@@ -429,7 +429,7 @@ def test_example_catalogue_plans():
 
 def test_bundles_come_from_the_aims_table_rule():
     """The planner uses ParsedAimsTable.registration_bundles, so menu
-    option 4 and the plan generator always agree."""
+    option 3 and the plan generator always agree."""
     from cityuschedule.aims_table_parser import AimsSession, ParsedAimsTable
 
     sections = [

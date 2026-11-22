@@ -12,7 +12,7 @@ def test_running_without_arguments_opens_menu_and_searches_ge(
     capsys,
 ):
     monkeypatch.setattr(sys, "argv", ["cityuschedule"])
-    inputs = iter(["4", "environment", "AREA1", "q", "0"])
+    inputs = iter(["5", "environment", "AREA1", "q", "0"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
     searches = []
 
@@ -33,7 +33,7 @@ def test_running_without_arguments_opens_menu_and_searches_ge(
 
 def test_ge_search_zero_exits_package(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["cityuschedule"])
-    inputs = iter(["4", "0"])
+    inputs = iter(["5", "0"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
     searches = []
     monkeypatch.setattr(
@@ -118,6 +118,31 @@ def test_basic_settings_current_values_are_purple(monkeypatch):
         assert f"\033[95m{current}\033[0m" in prompts.pop(0)
 
 
+def test_saved_aims_path_default_is_purple(monkeypatch):
+    class TerminalOutput(StringIO):
+        def isatty(self):
+            return True
+
+    prompts = []
+    monkeypatch.setattr(cli.sys, "stdout", TerminalOutput())
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setattr(
+        "builtins.input",
+        lambda prompt="": prompts.append(prompt) or "",
+    )
+
+    path = r"C:\Users\Starry\Downloads\aims_semB_test.html"
+    assert cli._prompt_path(
+        "AIMS timetable HTML path (enter a new path to change it)",
+        path,
+    ) == path
+    expected_prompt = (
+        "AIMS timetable HTML path (enter a new path to change it) "
+        + f"\033[95m[{path}]\033[0m: "
+    )
+    assert prompts == [expected_prompt]
+
+
 def test_invalid_day_format_reprompts_same_setting_in_red(monkeypatch):
     class TerminalOutput(StringIO):
         def isatty(self):
@@ -153,7 +178,7 @@ def test_invalid_ge_details_code_reprompts_in_red(monkeypatch):
         lambda prompt="": prompts.append(prompt) or next(answers),
     )
 
-    assert cli._menu_command("5") == (["--ge-info", "GE1102"], None)
+    assert cli._menu_command("6") == (["--ge-info", "GE1102"], None)
     assert len(prompts) == 2
     assert "\033[31mEnter a GE course code" in output.getvalue()
 
@@ -207,28 +232,94 @@ def test_menu_and_choice_prompt_are_yellow(monkeypatch):
     cli.interactive_menu()
 
     assert "\033[33m\nCityU Schedule\n1. Basic settings" in output.text
-    assert "7. Saved timetable plan" in output.text
+    assert "8. Saved timetable plan" in output.text
+    assert "4. Saved course bundles" in output.text
     assert "Bundles saved" not in output.text
-    assert "6. Generate timetable plans" in output.text
+    assert "7. Generate timetable plans" in output.text
+    assert "9." not in output.text
     assert "Check a CSV timetable" not in output.text
     assert "Import GE courses from HTML" not in output.text
-    assert "8." not in output.text
     assert "calendar" not in output.text.lower()
     assert "Type delete plan" not in output.text
     assert "Type q to return to the menu, or 0 to exit the package." in output.text
     assert prompts == ["\033[33mChoose an option: \033[0m"]
 
 
-def test_menu_option_7_shows_saved_plans(monkeypatch, capsys):
+def test_menu_option_8_shows_saved_plans(monkeypatch, capsys):
     monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: None)
     monkeypatch.setattr(cli, "_load_basic_settings", lambda: cli.BasicSettings())
     monkeypatch.setattr(cli, "_load_saved_bundles", lambda: [])
-    answers = iter(["7", "0"])
+    answers = iter(["8", "0"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
 
     cli.interactive_menu()
 
     assert "No saved plans were found." in capsys.readouterr().out
+
+
+def test_menu_option_4_shows_saved_course_bundles(monkeypatch, capsys):
+    bundles = [
+        {
+            "course_code": "GE1409",
+            "sections": [
+                {
+                    "section": "C01",
+                    "crn": "12443",
+                    "day": "W",
+                    "start_time": "09:00",
+                    "end_time": "12:00",
+                },
+                {
+                    "section": "L01",
+                    "crn": "12324",
+                    "day": "F",
+                    "start_time": "09:00",
+                    "end_time": "13:00",
+                },
+            ],
+        },
+        {
+            "course_code": "GE1234",
+            "sections": [{
+                "section": "CA1",
+                "crn": "12494",
+                "day": "R",
+                "start_time": "09:00",
+                "end_time": "11:50",
+            }],
+        },
+        {
+            "course_code": "GE1234",
+            "sections": [{
+                "section": "CA2",
+                "crn": "14222",
+                "day": "R",
+                "start_time": "09:00",
+                "end_time": "11:50",
+            }],
+        },
+    ]
+    monkeypatch.setattr(cli, "_load_saved_course_bundles", lambda: bundles)
+    monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: None)
+    monkeypatch.setattr(cli, "_load_basic_settings", lambda: cli.BasicSettings())
+    answers = iter(["4", "0"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
+
+    cli.interactive_menu()
+
+    output = capsys.readouterr().out
+    expected_bundles = (
+        "Saved course bundles:\n\n"
+        "1. GE1234 CA1\n"
+        "   CRN 12494: CA1 R 09:00-11:50\n\n"
+        "2. GE1234 CA2\n"
+        "   CRN 14222: CA2 R 09:00-11:50\n\n"
+        + "-" * 40
+        + "\n3. GE1409 C01+L01\n"
+        "   CRN 12443: C01 W 09:00-12:00\n"
+        "   CRN 12324: L01 F 09:00-13:00"
+    )
+    assert expected_bundles in output
 
 
 def test_saved_plan_is_displayed_in_readable_format(monkeypatch, capsys):
@@ -486,7 +577,7 @@ def test_menu_reprompts_same_option_after_task_error(monkeypatch, tmp_path, caps
             "2",
             r"C:\Schedules\missing.html",
             r"C:\Schedules\current.html",
-            "4",
+            "5",
             "environment",
             "q",
             "0",
@@ -582,7 +673,7 @@ def test_basic_settings_persist_and_apply_to_paste_and_planning(
             "0",
             "3",
             "0",
-            "6",
+            "7",
             "2627A",
             "ge1105",
             "1",
@@ -827,7 +918,7 @@ def test_plan_menu_option_reuses_saved_aims_path(monkeypatch, tmp_path):
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
 
     plan_command, plan_path = cli._menu_command(
-        "6",
+        "7",
         saved_path,
         cli.BasicSettings(
             prefer_days=("Thu",),
@@ -880,7 +971,7 @@ def test_plan_menu_prompts_when_saved_aims_path_is_missing(monkeypatch, capsys):
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
 
     plan_command, plan_path = cli._menu_command(
-        "6",
+        "7",
         "courses.html",
         cli.BasicSettings(),
     )
@@ -900,7 +991,7 @@ def test_plan_menu_clears_missing_saved_aims_path_when_skipped(
 ):
     config_file = tmp_path / "aims_html_path.txt"
     config_file.write_text("courses.html", encoding="utf-8")
-    inputs = iter(["6", "2627B", "", "GE1102", "1", "0"])
+    inputs = iter(["7", "2627B", "", "GE1102", "1", "0"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
     monkeypatch.setattr(cli, "_aims_path_config_file", lambda: config_file)
     monkeypatch.setattr(cli, "_load_basic_settings", lambda: cli.BasicSettings())

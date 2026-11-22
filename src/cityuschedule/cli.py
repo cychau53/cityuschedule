@@ -17,7 +17,7 @@ from .aims_fit import (
     fitting_registration_bundles,
     registration_bundle_conflicts,
 )
-from .aims_table_parser import parse_aims_table
+from .aims_table_parser import AimsSession, parse_aims_table
 from .conflicts import find_conflicts
 from .course_catalog import (
     load_course_catalog,
@@ -86,6 +86,10 @@ def _saved_bundles_file() -> Path:
     return _cityuschedule_config_dir() / "saved_bundles.json"
 
 
+def _saved_course_bundles_file() -> Path:
+    return _cityuschedule_config_dir() / "saved_course_bundles.json"
+
+
 def _load_saved_bundles() -> list[dict]:
     path = _saved_bundles_file()
     if not path.exists():
@@ -95,6 +99,53 @@ def _load_saved_bundles() -> list[dict]:
         return data if isinstance(data, list) else []
     except (OSError, json.JSONDecodeError):
         return []
+
+
+def _load_saved_course_bundles() -> list[dict]:
+    path = _saved_course_bundles_file()
+    if not path.exists():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise ValueError(
+            f"Saved course bundles are not valid JSON: {error}"
+        ) from error
+    if not isinstance(data, list) or not all(
+        isinstance(bundle, dict)
+        and isinstance(bundle.get("course_code"), str)
+        and isinstance(bundle.get("sections"), list)
+        for bundle in data
+    ):
+        raise ValueError("Saved course bundles have an invalid format.")
+    return data
+
+
+def _save_saved_course_bundles(bundles: list[dict]) -> None:
+    path = _saved_course_bundles_file()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(bundles, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _saved_course_bundle_signature(bundle: dict) -> tuple:
+    sections = bundle.get("sections", [])
+    return (
+        str(bundle.get("course_code", "")).strip().upper(),
+        tuple(sorted(
+            (
+                str(section.get("section", "")).strip().upper(),
+                str(section.get("crn", "")).strip(),
+                str(section.get("day", "")).strip().upper(),
+                str(section.get("start_time", "")).strip(),
+                str(section.get("end_time", "")).strip(),
+            )
+            for section in sections
+            if isinstance(section, dict)
+        )),
+    )
 
 
 def _saved_plan_data(entry: object) -> dict:
@@ -360,6 +411,126 @@ def _show_saved_plans() -> None:
     for number, entry in enumerate(saved_plans, start=1):
         _print_saved_plan(_saved_plan_data(entry), number)
         print()
+
+
+def _course_bundle_sort_key(bundle: dict) -> tuple:
+    course_code = str(bundle.get("course_code", "")).strip().upper()
+    match = re.fullmatch(r"([A-Z]+)\s*(\d+)([A-Z]?)", course_code)
+    if match:
+        return (
+            0,
+            int(match.group(2)),
+            match.group(1),
+            match.group(3),
+            course_code,
+        )
+    return (1, 0, course_code, "", course_code)
+
+
+def _show_saved_course_bundles() -> None:
+    try:
+        bundles = _load_saved_course_bundles()
+    except (OSError, ValueError) as error:
+        _print_red(f"Could not load saved course bundles: {error}")
+        return
+
+    if not bundles:
+        print("No saved course bundles were found.")
+        return
+
+    print("Saved course bundles:\n")
+    bundles = sorted(bundles, key=_course_bundle_sort_key)
+    previous_course = None
+    for number, bundle in enumerate(bundles, start=1):
+        course_code = str(bundle.get("course_code", "")).strip().upper()
+        if previous_course is not None and course_code != previous_course:
+            print("-" * 40)
+        sections = [
+            section
+            for section in bundle.get("sections", [])
+            if isinstance(section, dict)
+        ]
+        section_names = [
+            str(section.get("section", "")).strip()
+            for section in sections
+            if str(section.get("section", "")).strip()
+        ]
+        heading = course_code
+        if section_names:
+            heading += " " + "+".join(section_names)
+        print(f"{number}. {heading}")
+        for section in sections:
+            crn = str(section.get("crn", "")).strip()
+            section_name = str(section.get("section", "")).strip()
+            day = str(section.get("day", "")).strip()
+            start_time = str(section.get("start_time", "")).strip()
+            end_time = str(section.get("end_time", "")).strip()
+            print(
+                f"   CRN {crn}: {section_name} {day} "
+                f"{start_time}-{end_time}"
+            )
+        print()
+        previous_course = course_code
+
+
+def _save_suggested_course_bundles(
+    course_code: str,
+    fitting: list[tuple[str, ...]],
+    choices: list[int],
+    sessions_by_section: dict[str, AimsSession],
+) -> None:
+    try:
+        saved_bundles = _load_saved_course_bundles()
+    except (OSError, ValueError) as error:
+        _print_red(f"Could not load saved course bundles: {error}")
+        return
+
+    signatures = {
+        _saved_course_bundle_signature(bundle)
+        for bundle in saved_bundles
+    }
+    new_bundles = []
+    for index in choices:
+        sections = [
+            sessions_by_section[section]
+            for section in fitting[index]
+        ]
+        bundle = {
+            "course_code": course_code.upper(),
+            "sections": [
+                {
+                    "section": session.section,
+                    "crn": session.crn,
+                    "day": session.day or "",
+                    "start_time": session.start_time or "",
+                    "end_time": session.end_time or "",
+                }
+                for session in sections
+            ],
+        }
+        signature = _saved_course_bundle_signature(bundle)
+        if signature in signatures:
+            _print_red(
+                "Course bundle "
+                + course_code.upper()
+                + " "
+                + "+".join(
+                    section["section"] for section in bundle["sections"]
+                )
+                + " is already saved."
+            )
+            continue
+        signatures.add(signature)
+        new_bundles.append(bundle)
+
+    if not new_bundles:
+        return
+    try:
+        _save_saved_course_bundles(saved_bundles + new_bundles)
+    except OSError as error:
+        _print_red(f"Could not save course bundles: {error}")
+        return
+    _print_green(f"Saved {len(new_bundles)} course bundle(s).")
 
 
 def _delete_saved_plan(number: int) -> None:
@@ -839,7 +1010,11 @@ def _save_aims_path(path: str) -> None:
 
 
 def _prompt_path(label: str, default: str | None = None) -> str | None:
-    default_text = f" [{default}]" if default else ""
+    default_text = (
+        " " + _colorize(f"[{default}]", "95")
+        if default
+        else ""
+    )
     value = input(f"{label}{default_text}: ").strip()
     _exit_if_requested(value)
     if not value:
@@ -1010,7 +1185,7 @@ def _menu_command(
         command.extend(_basic_settings_arguments(settings))
         return command, path
 
-    if choice == "5":
+    if choice == "6":
         while True:
             course_code = input("GE course code: ").strip().upper()
             _exit_if_requested(course_code)
@@ -1019,7 +1194,7 @@ def _menu_command(
             _print_red("Enter a GE course code such as GE1102.")
         return ["--ge-info", course_code], None
 
-    if choice == "6":
+    if choice == "7":
         return _plan_menu_command(saved_aims_path, settings)
 
     return None, None
@@ -1098,26 +1273,46 @@ def _prompt_plan_ge_count(maximum: int) -> str:
         )
 
 
-def _prompt_plan_save_choices(plan_count: int) -> list[int]:
+def _prompt_numbered_save_choices(
+    item_count: int,
+    prompt_label: str,
+    item_label: str,
+) -> list[int]:
     while True:
         response = input(
-            "Save plans (e.g. 1 or 1,2, or Enter to skip): "
+            f"Save {prompt_label} "
+            "(e.g. 1 or 1 2, or Enter to skip): "
         ).strip()
         _exit_if_requested(response)
         if not response:
             return []
-        choices = [item.strip() for item in response.split(",")]
+        choices = response.replace(",", " ").split()
         if all(re.fullmatch(r"[0-9]+", item) for item in choices):
             try:
                 numbers = [int(item) for item in choices]
             except ValueError:
                 numbers = []
-            if numbers and all(1 <= number <= plan_count for number in numbers):
+            if numbers and all(
+                1 <= number <= item_count
+                for number in numbers
+            ):
                 return sorted({number - 1 for number in numbers})
         _print_red(
-            f"Enter plan numbers from 1 to {plan_count}, separated by commas, "
-            "or press Enter to skip."
+            f"Enter {item_label} numbers from 1 to {item_count}, "
+            "separated by spaces or commas, or press Enter to skip."
         )
+
+
+def _prompt_plan_save_choices(plan_count: int) -> list[int]:
+    return _prompt_numbered_save_choices(plan_count, "plans", "plan")
+
+
+def _prompt_course_bundle_save_choices(bundle_count: int) -> list[int]:
+    return _prompt_numbered_save_choices(
+        bundle_count,
+        "suggested bundles",
+        "bundle",
+    )
 
 
 def _prompt_plan_term() -> str:
@@ -1151,7 +1346,7 @@ def _plan_menu_command(
     saved_aims_path: str | None,
     settings: BasicSettings,
 ) -> tuple[list[str] | None, str | None]:
-    """Ask for course plan generator inputs (menu option 6)."""
+    """Ask for course plan generator inputs (menu option 7)."""
     from .plan_generator import term_key
 
     while True:
@@ -1225,10 +1420,11 @@ def interactive_menu() -> None:
             "1. Basic settings\n"
             "2. Check or change saved AIMS timetable\n"
             "3. Paste and check an AIMS course offering\n"
-            "4. Search GE courses\n"
-            "5. Show GE course details\n"
-            "6. Generate timetable plans\n"
-            "7. Saved timetable plan\n"
+            "4. Saved course bundles\n"
+            "5. Search GE courses\n"
+            "6. Show GE course details\n"
+            "7. Generate timetable plans\n"
+            "8. Saved timetable plan\n"
             "0. Exit\n"
             "Type q to return to the menu, or 0 to exit the package.\n"
             "Type delete all or delete names joined by 'and' to clear data."
@@ -1241,6 +1437,10 @@ def interactive_menu() -> None:
                 return
 
             if choice == "4":
+                _show_saved_course_bundles()
+                continue
+
+            if choice == "5":
                 while True:
                     try:
                         keyword = input(
@@ -1408,13 +1608,13 @@ def interactive_menu() -> None:
                 else:
                     _print_green("Basic settings saved.")
                 continue
-            if choice == "7":
+            if choice == "8":
                 _show_saved_plans()
                 continue
 
-            task_options = {"2", "3", "5", "6"}
+            task_options = {"2", "3", "6", "7"}
             if choice not in task_options:
-                _print_red("Choose an option from 0 to 7.")
+                _print_red("Choose an option from 0 to 8.")
                 continue
 
             while True:
@@ -1448,7 +1648,7 @@ def interactive_menu() -> None:
                         _save_aims_path(aims_path_to_save)
                     except OSError as error:
                         _print_red(f"Could not save AIMS path: {error}")
-                elif choice == "6" and saved_aims_path:
+                elif choice == "7" and saved_aims_path:
                     try:
                         _aims_path_config_file().unlink(missing_ok=True)
                     except OSError as error:
@@ -1503,7 +1703,7 @@ def _run_course_planner(args: argparse.Namespace, parser) -> None:
         if args.add_ge < 0:
             raise ValueError("--add-ge cannot be negative")
         if wanted or args.add_ge:
-            # Course details shown by menu option 5 (data/ge_course_information.json).
+            # Course details shown by menu option 6 (data/ge_course_information.json).
             ge_term = _ge_catalog_term(args.term) if args.term else None
             ge_courses = load_ge_section_catalog(term=ge_term)
             custom_ge_codes = {
@@ -1537,7 +1737,7 @@ def _run_course_planner(args: argparse.Namespace, parser) -> None:
             if missing:
                 _print_yellow(
                     "Note: no section details for " + ", ".join(missing)
-                    + " (menu option 5 has none), so they cannot be "
+                    + " (menu option 6 has none), so they cannot be "
                     "planned yet. Import them with the 'Import GE course "
                     "information' GitHub workflow."
                 )
@@ -1694,7 +1894,7 @@ def main(argv: list[str] | None = None) -> None:
         description="Check CityU course timetables and generate course plans.",
         epilog=(
             "Course plans: give --courses and/or --add-ge with your saved "
-            "AIMS timetable (--aims-html), or choose option 6 in the menu."
+            "AIMS timetable (--aims-html), or choose option 7 in the menu."
         ),
     )
     parser.add_argument(
@@ -1786,7 +1986,7 @@ def main(argv: list[str] | None = None) -> None:
     planning.add_argument(
         "--courses", nargs="+", metavar="CODE",
         help="Course codes you are interested in, e.g. GE1102 GE1401; "
-        "their sections come from the GE course details (menu option 5)",
+        "their sections come from the GE course details (menu option 6)",
     )
     planning.add_argument(
         "--exclude", nargs="+", default=[], metavar="CODE",
@@ -2340,6 +2540,18 @@ def main(argv: list[str] | None = None) -> None:
             "Seat availability is checked when present; eligibility, date "
             "ranges, and multiple meeting rows are not validated."
         )
+        if fitting:
+            try:
+                choices = _prompt_course_bundle_save_choices(len(fitting))
+            except (EOFError, _ReturnToMenu):
+                return
+            if choices:
+                _save_suggested_course_bundles(
+                    table.course_code,
+                    fitting,
+                    choices,
+                    by_section,
+                )
         return
 
     if args.ge_info:

@@ -1,8 +1,8 @@
 """Generate ranked, clash-free course plans that follow CityU registration rules.
 
-This is the only plan search in the package. Menu option 6 and the
+This is the only plan search in the package. Menu option 7 and the
 ``--courses`` / ``--add-ge`` command use it: course sections come from the
-GE course details (menu option 5) and are fitted around the saved AIMS
+GE course details (menu option 6) and are fitted around the saved AIMS
 timetable (menu option 2), so the user never writes a JSON file. It reuses the
 project's existing building blocks instead of repeating them:
 
@@ -557,7 +557,7 @@ class CoursePlan:
         )
 
     def to_dict(self) -> dict:
-        """Plain data for saving the plan (menu option 7 shows saved plans)."""
+        """Plain data for saving the plan (menu option 8 shows saved plans)."""
         sessions = self.to_sessions()
         return {
             "total_credits": self.total_credits,

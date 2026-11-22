@@ -87,6 +87,39 @@ WONG Sung Ching Sam
 English
 """
 
+MULTIPLE_BUNDLE_TABLE = """GE1234
+12494
+CA1
+3
+Main Campus
+Y
+B
+20
+30
+N
+11/01/2027 - 17/04/2027
+R
+09:00 - 11:50
+LI
+2310
+English
+14222
+CA2
+3
+Main Campus
+Y
+B
+20
+30
+N
+11/01/2027 - 17/04/2027
+R
+09:00 - 11:50
+LI
+2310
+English
+"""
+
 
 def prepare_cli(
     monkeypatch,
@@ -95,6 +128,8 @@ def prepare_cli(
     unavailable_sections="",
     course_code="",
     pasted_table=PASTED_TABLE,
+    save_choices="",
+    input_prompts=None,
 ):
     monkeypatch.setattr(
         sys,
@@ -115,12 +150,14 @@ def prepare_cli(
 
     lines = iter(
         pasted_table.splitlines()
-        + ["END", course_code, unavailable_sections]
+        + ["END", course_code, unavailable_sections, save_choices]
     )
-    monkeypatch.setattr(
-        "builtins.input",
-        lambda: next(lines),
-    )
+    def read_input(prompt=""):
+        if input_prompts is not None:
+            input_prompts.append(prompt)
+        return next(lines)
+
+    monkeypatch.setattr("builtins.input", read_input)
 
 
 def test_paste_cli_reports_fitting_bundle(monkeypatch, capsys):
@@ -150,6 +187,45 @@ def test_paste_cli_reports_fitting_bundle(monkeypatch, capsys):
         "Pasted course credits: 3\n"
     ) in output
     assert "1. C01 + T01" in output
+
+
+def test_paste_cli_saves_multiple_selected_suggested_bundles(
+    monkeypatch,
+    capsys,
+    tmp_path,
+):
+    prompts = []
+    saved_file = tmp_path / "saved_course_bundles.json"
+    monkeypatch.setattr(
+        cli,
+        "_saved_course_bundles_file",
+        lambda: saved_file,
+    )
+    prepare_cli(
+        monkeypatch,
+        [],
+        pasted_table=MULTIPLE_BUNDLE_TABLE,
+        save_choices="1 2",
+        input_prompts=prompts,
+    )
+
+    cli.main()
+
+    output = capsys.readouterr().out
+    saved = cli._load_saved_course_bundles()
+    assert prompts[-1].startswith("Save suggested bundles")
+    assert "Saved 2 course bundle(s)." in output
+    assert [
+        (
+            bundle["course_code"],
+            bundle["sections"][0]["section"],
+            bundle["sections"][0]["crn"],
+        )
+        for bundle in saved
+    ] == [
+        ("GE1234", "CA1", "12494"),
+        ("GE1234", "CA2", "14222"),
+    ]
 
 
 @pytest.mark.parametrize(
@@ -229,9 +305,12 @@ English
 def test_paste_cli_reprompts_after_empty_enter(monkeypatch, capsys):
     prepare_cli(monkeypatch, [])
     inputs = iter(
-        ["", *PASTED_TABLE.splitlines(), "END", "", ""]
+        ["", *PASTED_TABLE.splitlines(), "END", "", "", ""]
     )
-    monkeypatch.setattr("builtins.input", lambda: next(inputs))
+    monkeypatch.setattr(
+        "builtins.input",
+        lambda prompt="": next(inputs),
+    )
 
     cli.main()
 
@@ -251,9 +330,13 @@ def test_paste_cli_reprompts_for_missing_course_code(monkeypatch, capsys):
             "",
             "TEST1001",
             "",
+            "",
         ]
     )
-    monkeypatch.setattr("builtins.input", lambda: next(inputs))
+    monkeypatch.setattr(
+        "builtins.input",
+        lambda prompt="": next(inputs),
+    )
 
     cli.main()
 
@@ -278,9 +361,13 @@ def test_paste_cli_reprompts_after_wrong_table(monkeypatch, capsys):
             "END",
             "",
             "",
+            "",
         ]
     )
-    monkeypatch.setattr("builtins.input", lambda: next(inputs))
+    monkeypatch.setattr(
+        "builtins.input",
+        lambda prompt="": next(inputs),
+    )
 
     cli.main()
 
@@ -296,7 +383,10 @@ def test_paste_cli_reprompts_after_wrong_table(monkeypatch, capsys):
 def test_paste_cli_exits_from_retry_prompt(monkeypatch):
     prepare_cli(monkeypatch, [], pasted_table="")
     inputs = iter(["q"])
-    monkeypatch.setattr("builtins.input", lambda: next(inputs))
+    monkeypatch.setattr(
+        "builtins.input",
+        lambda prompt="": next(inputs),
+    )
 
     cli.main()
 
@@ -304,7 +394,10 @@ def test_paste_cli_exits_from_retry_prompt(monkeypatch):
 def test_paste_cli_exits_package_when_user_enters_zero(monkeypatch):
     prepare_cli(monkeypatch, [], pasted_table="")
     inputs = iter(["0"])
-    monkeypatch.setattr("builtins.input", lambda: next(inputs))
+    monkeypatch.setattr(
+        "builtins.input",
+        lambda prompt="": next(inputs),
+    )
 
     try:
         cli.main()

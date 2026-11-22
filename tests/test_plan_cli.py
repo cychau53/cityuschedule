@@ -220,7 +220,7 @@ def test_added_plan_courses_are_green_in_terminal(monkeypatch):
     assert "waiting between classes" not in output.getvalue()
 
 
-def test_menu_option_6_builds_plan_command(monkeypatch, tmp_path):
+def test_menu_option_7_builds_plan_command(monkeypatch, tmp_path):
     aims_file = tmp_path / "saved.html"
     aims_file.write_text("<html></html>", encoding="utf-8")
     saved_path = str(aims_file)
@@ -231,7 +231,7 @@ def test_menu_option_6_builds_plan_command(monkeypatch, tmp_path):
         lambda prompt="": prompts.append(prompt) or next(answers),
     )
     settings = cli.BasicSettings(prefer_days=("Mon",), avoid_days=("Fri",), max_credits=18)
-    command, aims_path = cli._menu_command("6", saved_path, settings)
+    command, aims_path = cli._menu_command("7", saved_path, settings)
     assert prompts[0].startswith("Semester to check")
     assert prompts[1].startswith("Course codes")
     assert prompts[2].startswith("How many GE courses")
@@ -248,16 +248,16 @@ def test_menu_option_6_builds_plan_command(monkeypatch, tmp_path):
     assert aims_path == saved_path
 
 
-def test_menu_option_6_without_aims_or_courses(monkeypatch, capsys):
+def test_menu_option_7_without_aims_or_courses(monkeypatch, capsys):
     feed(monkeypatch, "2627A", "", "", "GE1105", "")
-    command, path = cli._menu_command("6", None, cli.BasicSettings())
+    command, path = cli._menu_command("7", None, cli.BasicSettings())
     assert command is not None
     assert "--courses" in command
     assert path is None
     assert "at least one course code" in capsys.readouterr().out
 
     feed(monkeypatch, "2627B", "", "GE1102", "two", "2", "1")
-    command, _ = cli._menu_command("6", None, cli.BasicSettings())
+    command, _ = cli._menu_command("7", None, cli.BasicSettings())
     assert command is not None
     term_index = command.index("--term")
     assert command[term_index : term_index + 2] == ["--term", "2627B"]
@@ -265,7 +265,7 @@ def test_menu_option_6_without_aims_or_courses(monkeypatch, capsys):
     assert "whole number of GE courses from 1 to 1" in capsys.readouterr().out
 
 
-def test_menu_option_6_ge_count_must_be_one_through_code_count(
+def test_menu_option_7_ge_count_must_be_one_through_code_count(
     monkeypatch,
     capsys,
 ):
@@ -281,15 +281,15 @@ def test_menu_option_6_ge_count_must_be_one_through_code_count(
     assert "whole number of GE courses from 1 to 1" in capsys.readouterr().out
 
 
-def test_menu_option_6_blank_ge_count_uses_course_count(monkeypatch):
+def test_menu_option_7_blank_ge_count_uses_course_count(monkeypatch):
     feed(monkeypatch, "")
     assert cli._prompt_plan_ge_count(3) == "3"
 
 
-def test_menu_option_6_reprompts_invalid_course_code(monkeypatch, capsys):
+def test_menu_option_7_reprompts_invalid_course_code(monkeypatch, capsys):
     feed(monkeypatch, "2627B", "", "GE-1102", "GE1102", "1")
 
-    command, _ = cli._menu_command("6", None, cli.BasicSettings())
+    command, _ = cli._menu_command("7", None, cli.BasicSettings())
 
     assert command is not None
     assert command[-7:] == [
@@ -304,7 +304,7 @@ def test_menu_option_6_reprompts_invalid_course_code(monkeypatch, capsys):
     assert "Invalid course code" in capsys.readouterr().out
 
 
-def test_menu_option_6_reprompts_course_unavailable_in_term(
+def test_menu_option_7_reprompts_course_unavailable_in_term(
     monkeypatch,
     tmp_path,
 ):
@@ -320,7 +320,7 @@ def test_menu_option_6_reprompts_course_unavailable_in_term(
     feed(monkeypatch, "2627A", "GE1102", "1", "GE1105")
 
     command, _ = cli._menu_command(
-        "6",
+        "7",
         str(aims_file),
         cli.BasicSettings(),
     )
@@ -344,7 +344,7 @@ def test_invalid_plan_course_reprompts_without_returning_to_menu(
 ):
     feed(
         monkeypatch,
-        "6",
+        "7",
         "2627A",
         "",
         "GE1102",
@@ -366,7 +366,7 @@ def test_invalid_plan_course_reprompts_without_returning_to_menu(
     assert "No section details for GE1102 in 2627A" in output
 
 
-def test_menu_option_6_reprompts_invalid_aims_path(monkeypatch, tmp_path, capsys):
+def test_menu_option_7_reprompts_invalid_aims_path(monkeypatch, tmp_path, capsys):
     aims = tmp_path / "aims.html"
     aims.write_text(AIMS_HTML, encoding="utf-8")
     feed(
@@ -378,7 +378,7 @@ def test_menu_option_6_reprompts_invalid_aims_path(monkeypatch, tmp_path, capsys
         "1",
     )
 
-    command, path = cli._menu_command("6", None, cli.BasicSettings())
+    command, path = cli._menu_command("7", None, cli.BasicSettings())
 
     assert command is not None
     assert path == str(aims)
@@ -400,14 +400,14 @@ def test_plan_ask_reprompts_invalid_save_choices(monkeypatch, capsys):
 
 
 def test_menu_runs_plan_generator(monkeypatch, capsys, tmp_path):
-    """Option 6 asks for a semester along with AIMS timetable and courses."""
+    """Option 7 asks for a semester along with AIMS timetable and courses."""
     html = tmp_path / "aims.html"
     html.write_text(AIMS_HTML, encoding="utf-8")
-    feed(monkeypatch, "6", "2627B", "GE1102", "", "0")
+    feed(monkeypatch, "7", "2627B", "GE1102", "", "0")
     monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: str(html))
     cli.interactive_menu()
     output = capsys.readouterr().out
-    assert "6. Generate timetable plans" in output
+    assert "7. Generate timetable plans" in output
     assert "11." not in output
     assert "JSON" not in output
     assert "GE1102 has 2 timeslots that fit your timetable" in output
@@ -458,7 +458,7 @@ CLASH_HTML = AIMS_HTML.replace(
 
 
 def test_ge1102_against_saved_timetable(tmp_path, capsys):
-    """GE1102 (menu option 5 data) fits or clashes with the saved timetable."""
+    """GE1102 (menu option 6 data) fits or clashes with the saved timetable."""
     html = tmp_path / "aims.html"
     html.write_text(AIMS_HTML, encoding="utf-8")
     cli.main(["--aims-html", str(html), "--courses", "GE1102", "--term", "2627B"])
@@ -474,10 +474,10 @@ def test_ge1102_against_saved_timetable(tmp_path, capsys):
     assert "GE1102 has no timeslot that fits your timetable" in output
 
 
-def test_menu_option_6_q_returns_to_menu(monkeypatch):
+def test_menu_option_7_q_returns_to_menu(monkeypatch):
     feed(monkeypatch, "q")
     with pytest.raises(cli._ReturnToMenu):
-        cli._menu_command("6", None, cli.BasicSettings())
+        cli._menu_command("7", None, cli.BasicSettings())
 
 
 # --- the examples from the group chat ---------------------------------------
@@ -627,7 +627,7 @@ def test_menu_reprompts_when_semester_has_no_ge_data(
 
     monkeypatch.setattr(cli, "load_ge_section_catalog", section_catalog)
 
-    command, _ = cli._menu_command("6", None, cli.BasicSettings())
+    command, _ = cli._menu_command("7", None, cli.BasicSettings())
 
     assert command is not None
     assert command[command.index("--term") + 1] == "2627A"

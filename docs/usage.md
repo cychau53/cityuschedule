@@ -40,7 +40,9 @@ Run the command without arguments to open the menu:
 cityuschedule
 ```
 
-The menu can check or change a saved AIMS timetable, accept a pasted AIMS course offering, search or inspect GE course information, generate course plans, and show saved plans. Choose **1. Basic settings** to configure preferences including preferred/avoided days, credit limits, lunch duration and window, a minimum gap between classes, and earliest/latest class times. Settings and the remembered AIMS path are stored locally in the application's configuration directory. The menu shows how to clear individual settings or saved data.
+The menu can check or change a saved AIMS timetable, accept a pasted AIMS course offering, show saved course bundles, search or inspect GE course information, generate course plans, and show saved plans. Choose **1. Basic settings** to configure preferences including preferred/avoided days, credit limits, lunch duration and window, a minimum gap between classes, and earliest/latest class times. Settings and the remembered AIMS path are stored locally in the application's configuration directory. The menu shows how to clear individual settings or saved data.
+
+After option **3. Paste and check an AIMS course offering** shows suggested bundles, enter one or more bundle numbers separated by spaces or commas to save them, or press Enter to skip. View saved bundles in **4. Saved course bundles**; bundles are grouped by course number in ascending order.
 
 Type `cityuschedule --help` for all command-line flags. `q` returns to the menu at supported prompts; `0` exits.
 
