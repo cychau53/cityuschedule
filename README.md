@@ -13,7 +13,6 @@
 - Import course and timetable information from AIMS.
 - Check whether course sessions clash and examine gaps between classes.
 - Generate possible course plans.
-- Export timetable sessions as calendar events.
 - Account for travel time between campus locations where location data is available.
 
 ## Requirements
