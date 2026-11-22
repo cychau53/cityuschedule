@@ -2125,17 +2125,6 @@ def main(argv: list[str] | None = None) -> None:
         course_code = args.ge_info.strip().upper()
 
         try:
-            merge_ge_course_information_from_web(
-                [course_code],
-                output_path=SECTION_DATA_PATH,
-            )
-        except (OSError, ValueError, RuntimeError) as error:
-            parser.error(
-                f"Could not update section information for "
-                f"{course_code}: {error}"
-            )
-
-        try:
             with SECTION_DATA_PATH.open(
                 "r",
                 encoding="utf-8-sig",
@@ -2156,10 +2145,7 @@ def main(argv: list[str] | None = None) -> None:
                 )
 
         except FileNotFoundError:
-            parser.error(
-                "GE section information file not found: "
-                f"{SECTION_DATA_PATH}"
-            )
+            section_records = []
         except (OSError, ValueError) as error:
             parser.error(
                 f"Could not read GE section information: {error}"
@@ -2174,9 +2160,57 @@ def main(argv: list[str] | None = None) -> None:
         ]
 
         if not matching_sections:
+            try:
+                merge_ge_course_information_from_web(
+                    [course_code],
+                    output_path=SECTION_DATA_PATH,
+                )
+            except ValueError as error:
+                if (
+                    "No recognizable Course Section table found"
+                    in str(error)
+                    or "no section rows were extracted"
+                    in str(error)
+                ):
+                    print(
+                        f"No published section information is "
+                        f"available for '{course_code}'. CityU may "
+                        "not currently offer sections for this course."
+                    )
+                    return
+
+                parser.error(
+                    f"Could not update section information for "
+                    f"{course_code}: {error}"
+                )
+            except (OSError, RuntimeError) as error:
+                parser.error(
+                    f"Could not update section information for "
+                    f"{course_code}: {error}"
+                )
+
+            try:
+                with SECTION_DATA_PATH.open(
+                    "r",
+                    encoding="utf-8-sig",
+                ) as file:
+                    section_records = json.load(file)
+            except (OSError, ValueError) as error:
+                parser.error(
+                    f"Could not read GE section information: {error}"
+                )
+
+            matching_sections = [
+                record
+                for record in section_records
+                if str(record.get("course_code") or "")
+                .strip()
+                .upper() == course_code
+            ]
+
+        if not matching_sections:
             print(
-                "No section information found for "
-                f"'{course_code}'."
+                f"No section information found for '{course_code}'."
             )
             return
 
