@@ -2680,11 +2680,29 @@ def main(
             ("instructor", "Instructor"),
         )
 
-        for number, record in enumerate(
-            matching_sections,
-            start=1,
-        ):
-            print(f"Meeting {number}")
+        meeting_type_order = {
+            "lecture": 0,
+            "tutorial": 1,
+            "laboratory": 2,
+        }
+        matching_sections.sort(
+            key=lambda record: meeting_type_order.get(
+                str(record.get("type") or "").strip().casefold(),
+                len(meeting_type_order),
+            )
+        )
+        meeting_numbers: dict[str, int] = {}
+
+        for record in matching_sections:
+            raw_type = record.get("type")
+            meeting_type = (
+                " ".join(raw_type.split())
+                if isinstance(raw_type, str) and raw_type.strip()
+                else "Meeting"
+            )
+            type_key = meeting_type.casefold()
+            meeting_numbers[type_key] = meeting_numbers.get(type_key, 0) + 1
+            print(f"{meeting_type} {meeting_numbers[type_key]}")
 
             for field, label in section_fields:
                 value = record.get(field)

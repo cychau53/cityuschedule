@@ -183,6 +183,55 @@ def test_invalid_ge_details_code_reprompts_in_red(monkeypatch):
     assert "\033[31mEnter a GE course code" in output.getvalue()
 
 
+def test_ge_details_order_and_number_meetings_by_type(
+    monkeypatch,
+    tmp_path,
+    capsys,
+):
+    section_data = tmp_path / "ge_course_information.json"
+    section_data.write_text(
+        json.dumps(
+            [
+                {"course_code": "GE1357", "type": "Laboratory", "crn": "11668"},
+                {"course_code": "GE1357", "type": "Lecture", "crn": "11667"},
+                {"course_code": "GE1357", "type": "Tutorial", "crn": "11669"},
+                {"course_code": "GE1357", "type": "Laboratory", "crn": "11671"},
+                {"course_code": "GE1357", "type": "Lecture", "crn": "11670"},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(cli, "SECTION_DATA_PATH", section_data)
+
+    cli.main(["--ge-info", "GE1357"])
+
+    output = capsys.readouterr().out
+    titles = [
+        line
+        for line in output.splitlines()
+        if line.startswith(("Lecture ", "Tutorial ", "Laboratory "))
+    ]
+    crns = [
+        line.strip()
+        for line in output.splitlines()
+        if line.startswith("  CRN:")
+    ]
+    assert titles == [
+        "Lecture 1",
+        "Lecture 2",
+        "Tutorial 1",
+        "Laboratory 1",
+        "Laboratory 2",
+    ]
+    assert crns == [
+        "CRN: 11667",
+        "CRN: 11670",
+        "CRN: 11669",
+        "CRN: 11668",
+        "CRN: 11671",
+    ]
+
+
 def test_basic_settings_requires_lunch_length_to_fit_window(
     monkeypatch,
     capsys,
