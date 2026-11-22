@@ -94,18 +94,6 @@ cityuschedule examples/sample_courses.csv --courses GE1102 --term 2627B
 
 Useful planning constraints include `--min-credits`, `--max-credits`, `--prefer-days`, `--avoid-days`, `--earliest`, `--latest`, `--min-gap`, `--lunch`, `--max-daily-hours`, `--no-travel-check`, `--study-load`, and `--seats`. See `cityuschedule --help` for the full option list and defaults.
 
-## CSV timetable format
-
-Each CSV row represents one class session. The header must contain these columns:
-
-```csv
-course_code,course_title,crn,section,type,day,start_time,end_time,building,room
-CS1103,Introduction to Programming,12345,A,LEC,Mon,09:00,10:50,AC,LT-1
-CS1103,Introduction to Programming,12346,A1,TUT,Wed,14:00,14:50,AC,Room-1
-```
-
-Use a 24-hour time such as `09:00` and a day name such as `Mon`, `Tue`, `Wed`, `Thu`, `Fri`, `Sat`, or `Sun`. The repository includes [`examples/sample_courses.csv`](../examples/sample_courses.csv).
-
 ## Find GE courses
 
 Search by keyword or supported filters:
