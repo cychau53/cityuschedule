@@ -15,31 +15,52 @@ def parse_ge_html(html_path: str | Path) -> list[dict]:
     courses = []
 
     table = soup.find("table", id="id0mobileTableRegion")
+    if table is None:
+        table = soup.select_one("table.ax-mobile-table")
 
     if table is None:
         raise ValueError(
             f"Could not find the GE course table in {html_path}."
         )
 
-    for row in table.find("tbody").find_all("tr"):
+    tbody = table.find("tbody")
+    if tbody is None:
+        raise ValueError(
+            f"Could not find the GE course table body in {html_path}."
+        )
+
+    for row in tbody.find_all("tr"):
         cells = row.find_all("td")
 
-        if len(cells) < 7:
+        if len(cells) < 6:
             continue
 
-        course_link = cells[1].find("a")
+        course_cell = next(
+            (
+                cell
+                for cell in cells
+                if cell.find("a")
+                and " - " in cell.find("a").get_text(strip=True)
+            ),
+            None,
+        )
+        if course_cell is None:
+            continue
+
+        course_index = cells.index(course_cell)
+        if course_index + 4 >= len(cells) - 1:
+            continue
+
+        course_link = course_cell.find("a")
         course_text = course_link.get_text(strip=True) if course_link else ""
-
-        if " - " not in course_text:
-            continue
 
         course_code, course_title = course_text.split(" - ", 1)
 
-        area_text = cells[2].get_text(strip=True)
-        offering_unit = cells[3].get_text(strip=True)
-        level = cells[4].get_text(strip=True)
+        area_text = cells[course_index + 1].get_text(strip=True)
+        offering_unit = cells[course_index + 2].get_text(strip=True)
+        level = cells[course_index + 3].get_text(strip=True)
 
-        term_elements = cells[5].find_all(
+        term_elements = cells[course_index + 4].find_all(
             "div",
             class_="label-icon",
         )
@@ -50,9 +71,10 @@ def parse_ge_html(html_path: str | Path) -> list[dict]:
             if term.get_text(strip=True)
         ]
 
-        with_exam_text = cells[6].get_text(strip=True).lower()
+        final_cell = cells[-1]
+        with_exam_text = final_cell.get_text(strip=True).lower()
 
-        partner_institution_elements = cells[6].find_all("a") if len(cells) > 6 else []
+        partner_institution_elements = final_cell.find_all("a")
         partner_institutions = [
             link.get_text(strip=True)
             for link in partner_institution_elements

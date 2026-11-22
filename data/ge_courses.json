@@ -924,6 +924,63 @@
     "partner_institutions": []
   },
   {
+    "course_code": "GE1356",
+    "course_title": "Introduction to Data Science",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "DS",
+    "level": "B1",
+    "terms": [
+      "2026-27 Sem A"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE1357",
+    "course_title": "Introduction to Chemistry",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "CHEM",
+    "level": "B1",
+    "terms": [
+      "2026-27 Sem B"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE1358",
+    "course_title": "Coordinate Geometry",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "MA",
+    "level": "B1",
+    "terms": [
+      "2026-27 Sem B"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE1359",
+    "course_title": "Algebra",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "MA",
+    "level": "B1",
+    "terms": [
+      "2026-27 Sem A",
+      "2026-27 Summer"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
     "course_code": "GE1361",
     "course_title": "Digital Literacy: New Technologies, Society, and You",
     "area": "Area 3",
@@ -1111,10 +1168,90 @@
       "2026-27 Sem B"
     ],
     "with_exam": false,
-    "cross_institutional": true,
-    "partner_institutions": [
-      "HKBU"
-    ]
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2124",
+    "course_title": "The World through Languages",
+    "area": "Area 1",
+    "category": "Area 1",
+    "offering_unit": "LT",
+    "level": "B2, A2",
+    "terms": [],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2125",
+    "course_title": "The Bible: Its History, Literature, and Influence",
+    "area": "Area 1",
+    "category": "Area 1",
+    "offering_unit": "LT",
+    "level": "B2",
+    "terms": [],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2128",
+    "course_title": "The Sounds of the World’s Languages",
+    "area": "Area 1",
+    "category": "Area 1",
+    "offering_unit": "LT",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem B"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2129",
+    "course_title": "Psychology for Young Professionals",
+    "area": "Area 1",
+    "category": "Area 1",
+    "offering_unit": "SS",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem A",
+      "2026-27 Sem B",
+      "2026-27 Summer"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2130",
+    "course_title": "Happiness：An Interdisciplinary Perspective",
+    "area": "Area 1",
+    "category": "Area 1",
+    "offering_unit": "SS",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem B"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2132",
+    "course_title": "Discovering the Dynamics of Contemporary Cities and Architecture in China",
+    "area": "Area 1",
+    "category": "Area 1",
+    "offering_unit": "CAH",
+    "level": "B2, A2",
+    "terms": [
+      "2026-27 Sem A"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE2133",
@@ -1127,10 +1264,133 @@
       "2026-27 Sem B"
     ],
     "with_exam": false,
-    "cross_institutional": true,
-    "partner_institutions": [
-      "HKBU"
-    ]
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2134",
+    "course_title": "Critical and Creative Thinking",
+    "area": "Area 1",
+    "category": "Area 1",
+    "offering_unit": "PIA",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem A",
+      "2026-27 Sem B"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2135",
+    "course_title": "World Religions",
+    "area": "Area 1",
+    "category": "Area 1",
+    "offering_unit": "PIA",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem A"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2136",
+    "course_title": "Sources of Chinese Tradition",
+    "area": "Area 1",
+    "category": "Area 1",
+    "offering_unit": "CAH",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem A"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2137",
+    "course_title": "Sources of Literature, Cultural Heritage and History",
+    "area": "Area 1",
+    "category": "Area 1",
+    "offering_unit": "CAH",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem B"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2138",
+    "course_title": "Introduction to Ethics and Public Policy",
+    "area": "Area 1",
+    "category": "Area 1",
+    "offering_unit": "PIA",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem B"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2139",
+    "course_title": "Animal Welfare and Ethics",
+    "area": "Area 1",
+    "category": "Area 1",
+    "offering_unit": "PH",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem B"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2140",
+    "course_title": "Language and Voice in Marginalized Communities",
+    "area": "Area 1",
+    "category": "Area 1",
+    "offering_unit": "LT",
+    "level": "B2",
+    "terms": [],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2141",
+    "course_title": "Narratives of Health and Healing",
+    "area": "Area 1",
+    "category": "Area 1",
+    "offering_unit": "EN",
+    "level": "B1, B2, B3, B4",
+    "terms": [
+      "2026-27 Sem B"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2142",
+    "course_title": "Network Analysis for the Humanities and Social Sciences",
+    "area": "Area 1",
+    "category": "Area 1",
+    "offering_unit": "LT",
+    "level": "B1, B2, B3, B4",
+    "terms": [
+      "2026-27 Sem A"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE2204",
@@ -1335,6 +1595,174 @@
     ]
   },
   {
+    "course_code": "GE2248",
+    "course_title": "Persuasion in Everyday Life",
+    "area": "Area 2",
+    "category": "Area 2",
+    "offering_unit": "MKT",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem B"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2256",
+    "course_title": "Applications of Game Theory to Business",
+    "area": "Area 2",
+    "category": "Area 2",
+    "offering_unit": "EF",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem A"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2258",
+    "course_title": "Introduction to Economics",
+    "area": "Area 2",
+    "category": "Area 2",
+    "offering_unit": "EF",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem A"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2260",
+    "course_title": "Introduction to Finance",
+    "area": "Area 2",
+    "category": "Area 2",
+    "offering_unit": "EF",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem A",
+      "2026-27 Sem B"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2262",
+    "course_title": "Business Statistics",
+    "area": "Area 2",
+    "category": "Area 2",
+    "offering_unit": "DAO",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem A",
+      "2026-27 Sem B"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2263",
+    "course_title": "Information Management",
+    "area": "Area 2",
+    "category": "Area 2",
+    "offering_unit": "IS",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem A"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2266",
+    "course_title": "Health Communication",
+    "area": "Area 2",
+    "category": "Area 2",
+    "offering_unit": "COM",
+    "level": "B2, A2",
+    "terms": [
+      "2026-27 Sem A"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2267",
+    "course_title": "Exploring Public Affairs in Globalised Cities",
+    "area": "Area 2",
+    "category": "Area 2",
+    "offering_unit": "PIA",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem A"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2334",
+    "course_title": "Science Versus Crime",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "CHEM",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem B"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2335",
+    "course_title": "Business Programming with Spreadsheet",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "IS",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem A"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2338",
+    "course_title": "Everyday Security – Protecting yourself in the digital age",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "CS",
+    "level": "B2, A2",
+    "terms": [],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2339",
+    "course_title": "Smart City - a Systems Engineering Perspective",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "SYE",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem B"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
     "course_code": "GE2401",
     "course_title": "English for Science",
     "area": "University Req.",
@@ -1428,311 +1856,13 @@
     "partner_institutions": []
   },
   {
-    "course_code": "GE3110",
-    "course_title": "English in Society",
+    "course_code": "GE3104",
+    "course_title": "Data is Beautiful: Visualization in the Humanities",
     "area": "Area 1",
     "category": "Area 1",
-    "offering_unit": "EN",
+    "offering_unit": "LT",
     "level": "B3",
     "terms": [],
-    "with_exam": false,
-    "cross_institutional": true,
-    "partner_institutions": [
-      "HKBU"
-    ]
-  },
-  {
-    "course_code": "GE3202",
-    "course_title": "Citizen Journalism and Civil Society",
-    "area": "Area 2",
-    "category": "Area 2",
-    "offering_unit": "COM",
-    "level": "B3, A2",
-    "terms": [
-      "2026-27 Sem B"
-    ],
-    "with_exam": false,
-    "cross_institutional": true,
-    "partner_institutions": [
-      "HKBU"
-    ]
-  },
-  {
-    "course_code": "GE3206",
-    "course_title": "China in World Affairs",
-    "area": "Area 2",
-    "category": "Area 2",
-    "offering_unit": "PIA",
-    "level": "B3",
-    "terms": [
-      "2026-27 Sem B"
-    ],
-    "with_exam": false,
-    "cross_institutional": true,
-    "partner_institutions": [
-      "HKBU"
-    ]
-  },
-  {
-    "course_code": "GE1356",
-    "course_title": "Introduction to Data Science",
-    "area": "Area 3",
-    "category": "Area 3",
-    "offering_unit": "DS",
-    "level": "B1",
-    "terms": ["2026-27 Sem A"],
-    "with_exam": true,
-    "cross_institutional": false,
-    "partner_institutions": []
-  },
-  {
-    "course_code": "GE1357",
-    "course_title": "Introduction to Chemistry",
-    "area": "Area 3",
-    "category": "Area 3",
-    "offering_unit": "CHEM",
-    "level": "B1",
-    "terms": ["2026-27 Sem B"],
-    "with_exam": true,
-    "cross_institutional": false,
-    "partner_institutions": []
-  },
-  {
-    "course_code": "GE1358",
-    "course_title": "Coordinate Geometry",
-    "area": "Area 3",
-    "category": "Area 3",
-    "offering_unit": "MA",
-    "level": "B1",
-    "terms": ["2026-27 Sem B"],
-    "with_exam": true,
-    "cross_institutional": false,
-    "partner_institutions": []
-  },
-  {
-    "course_code": "GE1359",
-    "course_title": "Algebra",
-    "area": "Area 3",
-    "category": "Area 3",
-    "offering_unit": "MA",
-    "level": "B1",
-    "terms": ["2026-27 Sem A", "2026-27 Summer"],
-    "with_exam": true,
-    "cross_institutional": false,
-    "partner_institutions": []
-  },
-  {
-    "course_code": "GE2129",
-    "course_title": "Psychology for Young Professionals",
-    "area": "Area 1",
-    "category": "Area 1",
-    "offering_unit": "SS",
-    "level": "B2",
-    "terms": ["2026-27 Sem A", "2026-27 Sem B", "2026-27 Summer"],
-    "with_exam": false,
-    "cross_institutional": false,
-    "partner_institutions": []
-  },
-  {
-    "course_code": "GE2134",
-    "course_title": "Critical and Creative Thinking",
-    "area": "Area 1",
-    "category": "Area 1",
-    "offering_unit": "PIA",
-    "level": "B2",
-    "terms": ["2026-27 Sem A", "2026-27 Sem B"],
-    "with_exam": false,
-    "cross_institutional": false,
-    "partner_institutions": []
-  },
-  {
-    "course_code": "GE2135",
-    "course_title": "World Religions",
-    "area": "Area 1",
-    "category": "Area 1",
-    "offering_unit": "PIA",
-    "level": "B2",
-    "terms": ["2026-27 Sem A"],
-    "with_exam": false,
-    "cross_institutional": false,
-    "partner_institutions": []
-  },
-  {
-    "course_code": "GE2136",
-    "course_title": "Sources of Chinese Tradition",
-    "area": "Area 1",
-    "category": "Area 1",
-    "offering_unit": "CAH",
-    "level": "B2",
-    "terms": ["2026-27 Sem A"],
-    "with_exam": false,
-    "cross_institutional": false,
-    "partner_institutions": []
-  },
-  {
-    "course_code": "GE2137",
-    "course_title": "Sources of Literature, Cultural Heritage and History",
-    "area": "Area 1",
-    "category": "Area 1",
-    "offering_unit": "CAH",
-    "level": "B2",
-    "terms": ["2026-27 Sem B"],
-    "with_exam": false,
-    "cross_institutional": false,
-    "partner_institutions": []
-  },
-  {
-    "course_code": "GE2138",
-    "course_title": "Introduction to Ethics and Public Policy",
-    "area": "Area 1",
-    "category": "Area 1",
-    "offering_unit": "PIA",
-    "level": "B2",
-    "terms": ["2026-27 Sem B"],
-    "with_exam": false,
-    "cross_institutional": false,
-    "partner_institutions": []
-  },
-  {
-    "course_code": "GE2248",
-    "course_title": "Persuasion in Everyday Life",
-    "area": "Area 2",
-    "category": "Area 2",
-    "offering_unit": "MKT",
-    "level": "B2",
-    "terms": ["2026-27 Sem B"],
-    "with_exam": true,
-    "cross_institutional": false,
-    "partner_institutions": []
-  },
-  {
-    "course_code": "GE2256",
-    "course_title": "Applications of Game Theory to Business",
-    "area": "Area 2",
-    "category": "Area 2",
-    "offering_unit": "EF",
-    "level": "B2",
-    "terms": ["2026-27 Sem A"],
-    "with_exam": true,
-    "cross_institutional": false,
-    "partner_institutions": []
-  },
-  {
-    "course_code": "GE2258",
-    "course_title": "Introduction to Economics",
-    "area": "Area 2",
-    "category": "Area 2",
-    "offering_unit": "EF",
-    "level": "B2",
-    "terms": ["2026-27 Sem A"],
-    "with_exam": false,
-    "cross_institutional": false,
-    "partner_institutions": []
-  },
-  {
-    "course_code": "GE2260",
-    "course_title": "Introduction to Finance",
-    "area": "Area 2",
-    "category": "Area 2",
-    "offering_unit": "EF",
-    "level": "B2",
-    "terms": ["2026-27 Sem A", "2026-27 Sem B"],
-    "with_exam": true,
-    "cross_institutional": false,
-    "partner_institutions": []
-  },
-  {
-    "course_code": "GE2262",
-    "course_title": "Business Statistics",
-    "area": "Area 2",
-    "category": "Area 2",
-    "offering_unit": "DAO",
-    "level": "B2",
-    "terms": ["2026-27 Sem A", "2026-27 Sem B"],
-    "with_exam": true,
-    "cross_institutional": false,
-    "partner_institutions": []
-  },
-  {
-    "course_code": "GE2263",
-    "course_title": "Information Management",
-    "area": "Area 2",
-    "category": "Area 2",
-    "offering_unit": "IS",
-    "level": "B2",
-    "terms": ["2026-27 Sem A"],
-    "with_exam": true,
-    "cross_institutional": false,
-    "partner_institutions": []
-  },
-  {
-    "course_code": "GE2266",
-    "course_title": "Health Communication",
-    "area": "Area 2",
-    "category": "Area 2",
-    "offering_unit": "COM",
-    "level": "B2, A2",
-    "terms": ["2026-27 Sem A"],
-    "with_exam": false,
-    "cross_institutional": false,
-    "partner_institutions": []
-  },
-  {
-    "course_code": "GE2267",
-    "course_title": "Exploring Public Affairs in Globalised Cities",
-    "area": "Area 2",
-    "category": "Area 2",
-    "offering_unit": "PIA",
-    "level": "B2",
-    "terms": ["2026-27 Sem A"],
-    "with_exam": false,
-    "cross_institutional": false,
-    "partner_institutions": []
-  },
-  {
-    "course_code": "GE2334",
-    "course_title": "Science Versus Crime",
-    "area": "Area 3",
-    "category": "Area 3",
-    "offering_unit": "CHEM",
-    "level": "B2",
-    "terms": ["2026-27 Sem B"],
-    "with_exam": true,
-    "cross_institutional": false,
-    "partner_institutions": []
-  },
-  {
-    "course_code": "GE2335",
-    "course_title": "Business Programming with Spreadsheet",
-    "area": "Area 3",
-    "category": "Area 3",
-    "offering_unit": "IS",
-    "level": "B2",
-    "terms": ["2026-27 Sem A"],
-    "with_exam": true,
-    "cross_institutional": false,
-    "partner_institutions": []
-  },
-  {
-    "course_code": "GE2338",
-    "course_title": "Everyday Security – Protecting yourself in the digital age",
-    "area": "Area 3",
-    "category": "Area 3",
-    "offering_unit": "CS",
-    "level": "B2, A2",
-    "terms": [],
-    "with_exam": true,
-    "cross_institutional": false,
-    "partner_institutions": []
-  },
-  {
-    "course_code": "GE2339",
-    "course_title": "Smart City - a Systems Engineering Perspective",
-    "area": "Area 3",
-    "category": "Area 3",
-    "offering_unit": "SYE",
-    "level": "B2",
-    "terms": ["2026-27 Sem B"],
     "with_exam": true,
     "cross_institutional": false,
     "partner_institutions": []
@@ -1756,10 +1886,40 @@
     "category": "Area 1",
     "offering_unit": "SLW",
     "level": "B3",
-    "terms": ["2026-27 Sem B"],
+    "terms": [
+      "2026-27 Sem B"
+    ],
     "with_exam": true,
     "cross_institutional": false,
     "partner_institutions": []
+  },
+  {
+    "course_code": "GE3110",
+    "course_title": "English in Society",
+    "area": "Area 1",
+    "category": "Area 1",
+    "offering_unit": "EN",
+    "level": "B3",
+    "terms": [],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE3202",
+    "course_title": "Citizen Journalism and Civil Society",
+    "area": "Area 2",
+    "category": "Area 2",
+    "offering_unit": "COM",
+    "level": "B3, A2",
+    "terms": [
+      "2026-27 Sem B"
+    ],
+    "with_exam": false,
+    "cross_institutional": true,
+    "partner_institutions": [
+      "HKBU"
+    ]
   },
   {
     "course_code": "GE3204",
@@ -1768,10 +1928,29 @@
     "category": "Area 2",
     "offering_unit": "MGT",
     "level": "B3",
-    "terms": ["2026-27 Sem A", "2026-27 Sem B"],
+    "terms": [
+      "2026-27 Sem A",
+      "2026-27 Sem B"
+    ],
     "with_exam": false,
     "cross_institutional": false,
     "partner_institutions": []
+  },
+  {
+    "course_code": "GE3206",
+    "course_title": "China in World Affairs",
+    "area": "Area 2",
+    "category": "Area 2",
+    "offering_unit": "PIA",
+    "level": "B3",
+    "terms": [
+      "2026-27 Sem B"
+    ],
+    "with_exam": false,
+    "cross_institutional": true,
+    "partner_institutions": [
+      "HKBU"
+    ]
   },
   {
     "course_code": "GE3207",
@@ -1780,7 +1959,10 @@
     "category": "Area 2",
     "offering_unit": "PIA",
     "level": "B3",
-    "terms": ["2026-27 Sem A", "2026-27 Sem B"],
+    "terms": [
+      "2026-27 Sem A",
+      "2026-27 Sem B"
+    ],
     "with_exam": false,
     "cross_institutional": false,
     "partner_institutions": []
@@ -1804,7 +1986,23 @@
     "category": "Area 2",
     "offering_unit": "PIA",
     "level": "B3",
-    "terms": ["2026-27 Sem B"],
+    "terms": [
+      "2026-27 Sem B"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE4102",
+    "course_title": "Video Game: History, Industry, Society, and Creativity",
+    "area": "Area 1",
+    "category": "Area 1",
+    "offering_unit": "SCM",
+    "level": "B4",
+    "terms": [
+      "2026-27 Sem B"
+    ],
     "with_exam": false,
     "cross_institutional": false,
     "partner_institutions": []
@@ -1816,7 +2014,9 @@
     "category": "Area 1",
     "offering_unit": "SCM",
     "level": "B4",
-    "terms": ["2026-27 Sem A"],
+    "terms": [
+      "2026-27 Sem A"
+    ],
     "with_exam": false,
     "cross_institutional": false,
     "partner_institutions": []
