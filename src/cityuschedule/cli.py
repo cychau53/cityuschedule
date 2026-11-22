@@ -2552,7 +2552,7 @@ def main(
         print(
             "Weekly time-fit and travel between known buildings are checked. "
             "Seat availability is checked when present; eligibility, date "
-            "ranges, and multiple meeting rows are not validated."
+            "ranges are not validated."
         )
         if fitting:
             try:

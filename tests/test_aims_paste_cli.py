@@ -187,6 +187,11 @@ def test_paste_cli_reports_fitting_bundle(monkeypatch, capsys):
         "Pasted course credits: 3\n"
     ) in output
     assert "1. C01 + T01" in output
+    assert (
+        "Weekly time-fit and travel between known buildings are checked. "
+        "Seat availability is checked when present; eligibility, date "
+        "ranges are not validated."
+    ) in output
 
 
 def test_paste_cli_saves_multiple_selected_suggested_bundles(
