@@ -92,7 +92,7 @@ def test_ge_events_are_exported_in_green(tmp_path):
     assert "X-APPLE-CALENDAR-COLOR:#008000" in content
     assert "X-GOOGLE-COLOR:10" in content
 
-    
+
 def test_is_excluded_detects_holidays_and_breaks():
     holidays = {date(2026, 10, 1)}
     breaks = [

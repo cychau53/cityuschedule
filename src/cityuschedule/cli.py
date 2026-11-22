@@ -347,76 +347,90 @@ def _save_basic_settings(settings: BasicSettings) -> None:
 
 
 def _prompt_days(label: str, current: tuple[str, ...]) -> tuple[str, ...]:
-    current_value = ", ".join(current) or "none"
-    response = input(
-        f"{label} {_colorize(f'[{current_value}]', '95')} "
-        "(blank keeps, none clears): "
-    ).strip()
-    _exit_if_requested(response)
-    if not response:
-        return current
-    if response.casefold() in {"none", "clear"}:
-        return ()
-    return _parse_day_list(response)
+    while True:
+        current_value = ", ".join(current) or "none"
+        response = input(
+            f"{label} {_colorize(f'[{current_value}]', '95')} "
+            "(blank keeps, none clears): "
+        ).strip()
+        _exit_if_requested(response)
+        if not response:
+            return current
+        if response.casefold() in {"none", "clear"}:
+            return ()
+        try:
+            return _parse_day_list(response)
+        except ValueError as error:
+            _print_red(str(error))
 
 
 def _prompt_credit_limit(
     label: str,
     current: int | None,
 ) -> int | None:
-    current_value = str(current) if current is not None else "none"
-    response = input(
-        f"{label} {_colorize(f'[{current_value}]', '95')} "
-        "(blank keeps, none clears): "
-    ).strip()
-    _exit_if_requested(response)
-    if not response:
-        return current
-    if response.casefold() in {"none", "clear"}:
-        return None
-    try:
-        credits = int(response)
-    except ValueError:
-        raise ValueError(f"{label} must be a non-negative integer.") from None
-    if credits < 0:
-        raise ValueError(f"{label} must be a non-negative integer.")
-    return credits
+    while True:
+        current_value = str(current) if current is not None else "none"
+        response = input(
+            f"{label} {_colorize(f'[{current_value}]', '95')} "
+            "(blank keeps, none clears): "
+        ).strip()
+        _exit_if_requested(response)
+        if not response:
+            return current
+        if response.casefold() in {"none", "clear"}:
+            return None
+        try:
+            credits = int(response)
+        except ValueError:
+            _print_red(f"{label} must be a non-negative integer.")
+            continue
+        if credits < 0:
+            _print_red(f"{label} must be a non-negative integer.")
+            continue
+        return credits
 
 
 def _prompt_minutes(label: str, current: int) -> int:
-    response = input(
-        f"{label} {_colorize(f'[{current}]', '95')} "
-        "(blank keeps, none clears): "
-    ).strip()
-    _exit_if_requested(response)
-    if not response:
-        return current
-    if response.casefold() in {"none", "clear"}:
-        return 0
-    try:
-        minutes = int(response)
-    except ValueError:
-        raise ValueError(f"{label} must be a non-negative integer.") from None
-    if minutes < 0:
-        raise ValueError(f"{label} must be a non-negative integer.")
-    return minutes
+    while True:
+        response = input(
+            f"{label} {_colorize(f'[{current}]', '95')} "
+            "(blank keeps, none clears): "
+        ).strip()
+        _exit_if_requested(response)
+        if not response:
+            return current
+        if response.casefold() in {"none", "clear"}:
+            return 0
+        try:
+            minutes = int(response)
+        except ValueError:
+            _print_red(f"{label} must be a non-negative integer.")
+            continue
+        if minutes < 0:
+            _print_red(f"{label} must be a non-negative integer.")
+            continue
+        return minutes
 
 
 def _prompt_lunch_window(
     current: tuple[str, str],
 ) -> tuple[str, str]:
-    current_value = f"{current[0]}-{current[1]}"
-    response = input(
-        "Lunch time window (e.g. 1200-1400) "
-        f"{_colorize(f'[{current_value}]', '95')} "
-        "(blank keeps, none resets): "
-    ).strip()
-    _exit_if_requested(response)
-    if not response:
-        return current
-    if response.casefold() in {"none", "clear"}:
-        return ("11:30", "14:30")
-    return _parse_lunch_window(response)
+    while True:
+        current_value = f"{current[0]}-{current[1]}"
+        response = input(
+            "Lunch time window (e.g. 1200-1400) "
+            f"{_colorize(f'[{current_value}]', '95')} "
+            "(blank keeps, none resets): "
+        ).strip()
+        _exit_if_requested(response)
+        if not response:
+            return current
+        if response.casefold() in {"none", "clear"}:
+            return ("11:30", "14:30")
+        try:
+            return _parse_lunch_window(response)
+        except ValueError as error:
+            _print_red(str(error))
 
 
 def _prompt_clock_limit(
@@ -425,18 +439,22 @@ def _prompt_clock_limit(
     *,
     allow_24: bool = False,
 ) -> str | None:
-    current_value = current or "none"
-    response = input(
-        f"{label} (HHMM or HH:MM) "
-        f"{_colorize(f'[{current_value}]', '95')} "
-        "(blank keeps, none clears): "
-    ).strip()
-    _exit_if_requested(response)
-    if not response:
-        return current
-    if response.casefold() in {"none", "clear"}:
-        return None
-    return _parse_clock_time(response, label, allow_24=allow_24)
+    while True:
+        current_value = current or "none"
+        response = input(
+            f"{label} (HHMM or HH:MM) "
+            f"{_colorize(f'[{current_value}]', '95')} "
+            "(blank keeps, none clears): "
+        ).strip()
+        _exit_if_requested(response)
+        if not response:
+            return current
+        if response.casefold() in {"none", "clear"}:
+            return None
+        try:
+            return _parse_clock_time(response, label, allow_24=allow_24)
+        except ValueError as error:
+            _print_red(str(error))
 
 
 def _prompt_basic_settings(current: BasicSettings) -> BasicSettings:
@@ -588,6 +606,25 @@ def _colorize(
     return text
 
 
+def _colorize_added_course_lines(text: str, course_codes: set[str]) -> str:
+    codes = {code.upper() for code in course_codes}
+    lines = []
+    for line in text.splitlines():
+        for code in codes:
+            escaped = re.escape(code)
+            if (
+                re.match(rf"^\s+{escaped}\s", line)
+                or re.match(
+                    rf"^\s+\d{{2}}:\d{{2}}-\d{{2}}:\d{{2}}\s+{escaped}\s",
+                    line,
+                )
+            ):
+                line = _colorize(line, "32")
+                break
+        lines.append(line)
+    return "\n".join(lines)
+
+
 def _print_color(
     text: str,
     color: str,
@@ -694,20 +731,21 @@ def _menu_command(
         return command, path
 
     if choice == "6":
-        course_code = input("GE course code: ").strip()
-        _exit_if_requested(course_code)
-        return (
-            (["--ge-info", course_code], None)
-            if course_code
-            else (None, None)
-        )
+        while True:
+            course_code = input("GE course code: ").strip().upper()
+            _exit_if_requested(course_code)
+            if re.fullmatch(r"GE\d{4}[A-Z]?", course_code):
+                break
+            _print_red("Enter a GE course code such as GE1102.")
+        return ["--ge-info", course_code], None
 
     if choice == "7":
-        source_type = input("Export source (CSV or AIMS): ").strip().upper()
-        _exit_if_requested(source_type)
-        if source_type not in {"CSV", "AIMS"}:
+        while True:
+            source_type = input("Export source (CSV or AIMS): ").strip().upper()
+            _exit_if_requested(source_type)
+            if source_type in {"CSV", "AIMS"}:
+                break
             _print_red("Choose CSV or AIMS.")
-            return None, None
 
         if source_type == "AIMS":
             path = saved_aims_path or _prompt_path("AIMS timetable HTML path")
@@ -726,17 +764,15 @@ def _menu_command(
         if output:
             command.extend(["--output", output])
 
-        start = input(
-            "Semester start [2026-08-31]: "
-        ).strip()
-        _exit_if_requested(start)
+        start = _prompt_optional_date("Semester start", "2026-08-31")
         if start:
             command.extend(["--semester-start", start])
 
-        end = input(
-            "Semester end [2026-11-28]: "
-        ).strip()
-        _exit_if_requested(end)
+        end = _prompt_optional_date(
+            "Semester end",
+            "2026-11-28",
+            minimum=date.fromisoformat(start or "2026-08-31"),
+        )
         if end:
             command.extend(["--semester-end", end])
 
@@ -815,7 +851,7 @@ def _prompt_plan_ge_count(maximum: int) -> str:
     while True:
         count = input(
             "How many GE courses should the generator add? "
-            f"(1-{maximum}; Enter for {maximum}, q = menu): "
+            "(enter a positive integer): "
         ).strip()
         if count.casefold() == "q":
             raise _ReturnToMenu
@@ -900,6 +936,31 @@ def _prompt_plan_date(
         return parsed
 
 
+def _prompt_optional_date(
+    label: str,
+    default: str,
+    *,
+    minimum: date | None = None,
+) -> str | None:
+    while True:
+        value = input(f"{label} [{default}]: ").strip()
+        _exit_if_requested(value)
+        if not value:
+            return None
+        try:
+            parsed = date.fromisoformat(value)
+        except ValueError:
+            _print_red(f"Enter a valid date in YYYY-MM-DD format for {label.lower()}.")
+            continue
+        if parsed.isoformat() != value:
+            _print_red(f"Enter a valid date in YYYY-MM-DD format for {label.lower()}.")
+            continue
+        if minimum and parsed < minimum:
+            _print_red("Semester end must be on or after semester start.")
+            continue
+        return value
+
+
 def _prompt_plan_output_path(default: str) -> str:
     while True:
         output = _prompt_path("Output .ics path", default)
@@ -943,16 +1004,16 @@ def _plan_menu_command(
     settings: BasicSettings,
 ) -> tuple[list[str] | None, str | None]:
     """Ask for course plan generator inputs (menu option 8)."""
-    aims_path = saved_aims_path or _prompt_plan_aims_path()
-    codes = _prompt_required_plan_course_codes()
-    ge_count = _prompt_plan_ge_count(len(codes))
-
     from .plan_generator import term_key
 
     semester = _ask_menu("Semester to check, e.g. 2627A, 2627B, or 2627S")
     while not term_key(semester):
         _print_red("Enter a valid semester, e.g. 2627A, 2627B, or 2627S.")
         semester = _ask_menu("Semester to check, e.g. 2627A, 2627B, or 2627S")
+
+    aims_path = saved_aims_path or _prompt_plan_aims_path()
+    codes = _prompt_required_plan_course_codes()
+    ge_count = _prompt_plan_ge_count(len(codes))
 
     ge_term = _ge_catalog_term(semester)
     available_codes = {
@@ -1334,7 +1395,7 @@ def _run_course_planner(args: argparse.Namespace, parser) -> None:
     if fit_lines:
         print("\nTimeslots that fit your timetable:")
         for line in fit_lines:
-            print(f"  {line}")
+            _print_green(f"  {line}")
         print()
     if not report.plans:
         _print_plan_rejections(report, no_plans=True)
@@ -1350,7 +1411,20 @@ def _run_course_planner(args: argparse.Namespace, parser) -> None:
         f"(checked {report.explored} combinations):\n"
     )
     for number, plan in enumerate(plans, start=1):
-        print(format_plan(plan, number, steps=not args.no_steps))
+        plan_lines = format_plan(plan, number, steps=not args.no_steps).splitlines()
+        _print_yellow(plan_lines[0])
+        added_courses = {
+            option.course_code
+            for option in plan.chosen
+            if not option.preregistered
+        }
+        if len(plan_lines) > 1:
+            print(
+                _colorize_added_course_lines(
+                    "\n".join(plan_lines[1:]),
+                    added_courses,
+                )
+            )
         print()
     _print_blue(PLANNING_ONLY_NOTICE)
 

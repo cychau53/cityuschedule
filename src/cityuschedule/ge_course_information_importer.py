@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import sys
 import tempfile
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -18,6 +20,14 @@ DATA_PATH = (
 )
 
 COURSE_CODE_PATTERN = re.compile(r"GE\d{4}[A-Z]?")
+
+
+def _print_prompt_error(message: str) -> None:
+    if sys.stdout.isatty() and "NO_COLOR" not in os.environ:
+        print(f"\033[31m{message}\033[0m")
+    else:
+        print(message)
+
 
 COLUMNS = (
     "crn",
@@ -485,23 +495,41 @@ def main() -> None:
 
             if not course_codes:
                 try:
-                    entered = input(
-                        "Enter GE course codes separated by spaces "
-                        "or commas: "
-                    )
+                    while True:
+                        entered = input(
+                            "Enter GE course codes separated by spaces "
+                            "or commas: "
+                        )
+                        if entered.strip().casefold() == "q":
+                            return
+                        if entered.strip() == "0":
+                            raise SystemExit(0)
+                        course_codes = [
+                            code.upper()
+                            for code in entered.replace(",", " ").split()
+                        ]
+                        if not course_codes:
+                            _print_prompt_error(
+                                "Enter at least one GE course code."
+                            )
+                            continue
+                        invalid = [
+                            code for code in course_codes
+                            if not COURSE_CODE_PATTERN.fullmatch(code)
+                        ]
+                        if invalid:
+                            _print_prompt_error(
+                                "Invalid GE course code(s): "
+                                + ", ".join(invalid)
+                                + ". Enter codes such as GE1102."
+                            )
+                            continue
+                        break
                 except EOFError:
                     parser.error(
                         "No interactive input available. "
                         "Pass course codes as command-line arguments."
                     )
-
-                entered = entered.strip()
-                if entered.casefold() == "q":
-                    return
-                if entered == "0":
-                    raise SystemExit(0)
-
-                course_codes = entered.replace(",", " ").split()
 
             records = update_ge_course_information_from_web(
                 course_codes,

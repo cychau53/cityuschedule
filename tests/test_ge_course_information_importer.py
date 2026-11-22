@@ -1,9 +1,11 @@
 import json
+from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
+from cityuschedule import ge_course_information_importer
 from cityuschedule.ge_course_information_importer import _write_records
 
 
@@ -41,6 +43,39 @@ def test_writes_records_to_json(tmp_path, records):
 
     # No temporary files should remain.
     assert set(tmp_path.iterdir()) == {output_path}
+
+
+def test_interactive_import_reprompts_for_invalid_course_code(
+    monkeypatch,
+    tmp_path,
+):
+    class TerminalOutput(StringIO):
+        def isatty(self):
+            return True
+
+    output = TerminalOutput()
+    monkeypatch.setattr(ge_course_information_importer.sys, "stdout", output)
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setattr(
+        ge_course_information_importer.sys,
+        "argv",
+        ["cityuschedule-ge-info", "--output", str(tmp_path / "courses.json")],
+    )
+    answers = iter(["GE-1102", "GE1102"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
+    requested = []
+    monkeypatch.setattr(
+        ge_course_information_importer,
+        "update_ge_course_information_from_web",
+        lambda course_codes, output_path, *, timeout: (
+            requested.append(course_codes) or []
+        ),
+    )
+
+    ge_course_information_importer.main()
+
+    assert requested == [["GE1102"]]
+    assert "\033[31mInvalid GE course code(s): GE-1102" in output.getvalue()
 
 
 def test_creates_missing_parent_directories(tmp_path, records):

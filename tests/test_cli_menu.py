@@ -102,6 +102,80 @@ def test_basic_settings_current_values_are_purple(monkeypatch):
         assert f"\033[95m{current}\033[0m" in prompts.pop(0)
 
 
+def test_invalid_day_format_reprompts_same_setting_in_red(monkeypatch):
+    class TerminalOutput(StringIO):
+        def isatty(self):
+            return True
+
+    prompts = []
+    answers = iter(["Munday", "Mon"])
+    output = TerminalOutput()
+    monkeypatch.setattr(cli.sys, "stdout", output)
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setattr(
+        "builtins.input",
+        lambda prompt="": prompts.append(prompt) or next(answers),
+    )
+
+    assert cli._prompt_days("Prefer days", ()) == ("Mon",)
+    assert len(prompts) == 2
+    assert "\033[31mUnrecognized day" in output.getvalue()
+
+
+def test_export_prompts_reject_bad_source_and_dates(monkeypatch):
+    class TerminalOutput(StringIO):
+        def isatty(self):
+            return True
+
+    prompts = []
+    answers = iter([
+        "WRONG", "CSV", "courses.csv", "", "not-a-date",
+        "2026-08-31", "2026-11-28",
+    ])
+    output = TerminalOutput()
+    monkeypatch.setattr(cli.sys, "stdout", output)
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setattr(
+        "builtins.input",
+        lambda prompt="": prompts.append(prompt) or next(answers),
+    )
+
+    command, _ = cli._menu_command("7")
+
+    assert command == [
+        "courses.csv", "--export",
+        "--output", "cityu_timetable.ics",
+        "--semester-start", "2026-08-31",
+        "--semester-end", "2026-11-28",
+    ]
+    assert prompts[0].startswith("Export source")
+    assert prompts[1].startswith("Export source")
+    assert prompts[4].startswith("Semester start")
+    assert prompts[5].startswith("Semester start")
+    assert "\033[31mChoose CSV or AIMS." in output.getvalue()
+    assert "\033[31mEnter a valid date" in output.getvalue()
+
+
+def test_invalid_ge_details_code_reprompts_in_red(monkeypatch):
+    class TerminalOutput(StringIO):
+        def isatty(self):
+            return True
+
+    prompts = []
+    answers = iter(["CS1102", "GE1102"])
+    output = TerminalOutput()
+    monkeypatch.setattr(cli.sys, "stdout", output)
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setattr(
+        "builtins.input",
+        lambda prompt="": prompts.append(prompt) or next(answers),
+    )
+
+    assert cli._menu_command("6") == (["--ge-info", "GE1102"], None)
+    assert len(prompts) == 2
+    assert "\033[31mEnter a GE course code" in output.getvalue()
+
+
 def test_basic_settings_requires_lunch_length_to_fit_window(
     monkeypatch,
     capsys,
@@ -304,9 +378,9 @@ def test_basic_settings_persist_and_apply_to_paste_and_planning(
             "4",
             "0",
             "8",
+            "2627A",
             "ge1105",
             "1",
-            "2627A",
             "0",
         ]
     )
@@ -542,7 +616,7 @@ def test_menu_reports_unknown_delete_command(monkeypatch, capsys):
 
 def test_export_and_plan_menu_options_reuse_saved_aims_path(monkeypatch):
     saved_path = r"C:\Schedules\current AIMS.html"
-    inputs = iter(["AIMS", "", "", "", "ge1102", "1", "2627B"])
+    inputs = iter(["AIMS", "", "", "", "2627B", "ge1102", "1"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
 
     export_command, export_path = cli._menu_command("7", saved_path)
