@@ -1,156 +1,93 @@
-# \# cityuschedule
+# cityuschedule
 
-# 
+`cityuschedule` is a Python command-line tool for City University of Hong Kong (CityU) students who want to make course-registration decisions with fewer timetable surprises. It checks existing AIMS timetables for clashes, tests possible course sections against a fixed schedule, and generates course-plan suggestions from the project’s course data.
 
-# `cityuschedule` helps CityU students check AIMS course timetables for clashes
+The project is motivated by a practical problem: a course list does not show whether its lectures, tutorials, or other scheduled sessions fit together as a usable week. Comparing section combinations by hand is tedious, and an overlooked overlap—or an impractical gap or trip between buildings—can make a plan difficult to follow. `cityuschedule` turns timetable data into checks and candidate plans students can review before registering.
 
-# and generate course plans.
+## What it does
 
-# 
+- Reads a saved AIMS weekly timetable and reports overlapping scheduled sessions.
+- Checks a pasted AIMS course offering and suggests complete section bundles that fit an existing timetable.
+- Generates course-plan suggestions from the bundled course catalogues, with optional constraints such as credit limits, preferred or avoided days, earliest start, latest end, minimum gaps, lunch breaks, and travel-time checks between known buildings.
+- Searches and displays Gateway Education (GE) course information available to the project.
+- Accepts a CSV timetable as a fixed schedule for course planning.
+- Provides an interactive menu as well as command-line options.
 
-# Course-planning timetables can be loaded from CSV or AIMS HTML.
+The output is for planning—not registration. It does not confirm eligibility, current seat availability, or that a suggested plan will be approved. See [limitations and data notes](docs/usage.md#limitations-and-data-notes).
 
-# 
+## Example use cases
 
-# \## Features
+1. **Check a timetable already in AIMS:** save the weekly timetable as HTML, then ask the tool to find overlaps.
+2. **Compare sections for a new course:** paste its complete AIMS offering table and see which complete section combinations fit your saved schedule.
+3. **Explore alternative plans:** ask the planner for combinations of courses and GE courses that meet your day, time, credit, break, and travel preferences.
+4. **Try the planner with your own schedule:** create a CSV of fixed class sessions and use it as the starting timetable.
 
-# 
+## Quick start
 
-# \- Use a CSV or AIMS timetable as the fixed schedule for course planning
-
-# \- Detect overlapping class sessions
-
-# \- Display a weekly timetable
-
-
-
-# 
-
-# \## Installation
-
-# 
-
-# ```bash
-
-# pip install cityuschedule
-
-# ```
-
-# 
-
-# \## Quick start
-
-# 
-
-# Generate a course plan:
-
-# 
-
-# ```bash
-
-# cityuschedule --courses GE1102 --term 2627B
-
-# ```
-
-# 
-
-
-# 
-
-
-# 
-
-
-# 
-
-
-## Generate course plans
-
-The plan generator asks for a semester if `--term` is omitted. You can also
-provide it directly:
+Requires Python 3.10 or later. From a clone of this repository, install the package and its development tools in editable mode:
 
 ```bash
-cityuschedule --courses GE1102 --term 2627B
+python -m venv .venv
+# macOS/Linux
+source .venv/bin/activate
+# Windows PowerShell: .venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
 ```
 
-Accepted semester codes include `2627A`, `2627B`, and `2627S`.
+Start the interactive menu:
 
+```bash
+cityuschedule
+```
 
+Or inspect the command-line options:
 
+```bash
+cityuschedule --help
+```
 
+For example, use the included sample timetable as the fixed schedule while exploring a course for semester `2627B`:
 
+```bash
+cityuschedule examples/sample_courses.csv --courses GE1102 --term 2627B
+```
 
+To check clashes in a saved AIMS weekly timetable:
 
+```bash
+cityuschedule --aims-html path/to/your_aims_timetable.html
+```
 
-# 
+See the [setup and usage guide](docs/usage.md) for installation details, CSV format, AIMS workflows, planner options, and troubleshooting.
 
-# \## CSV format
+## How the project is different
 
-# 
+Rather than being only a timetable display, `cityuschedule` connects timetable checking with course exploration. It can parse a saved AIMS timetable, reason about complete registration section bundles, and use one set of schedule constraints to filter candidate plans. Its CLI and local-file inputs keep the basic checks straightforward to run; some data lookups and course-information updates do require network access.
 
-# Create a CSV file with one row for each class session:
+## Documentation
 
-# 
+- [Setup and usage](docs/usage.md)
+- [Motivation](docs/motivation.md)
+- [Innovation and design](docs/innovation.md)
+- [Planning notes](docs/planning.md)
 
-# ```csv
+The documentation organization takes inspiration from student-developed package examples linked in the [CS1302 agentic-coding course material](https://ccha23.github.io/cs1302ai26a/#agentic-coding).
 
-# course\_code,course\_title,crn,section,type,day,start\_time,end\_time,building,room
+## Development
 
-# CS1103,Introduction to Programming,12345,A,LEC,Mon,09:00,10:50,AC,LT-1
+Run the test suite with:
 
-# CS1103,Introduction to Programming,12346,A1,TUT,Wed,14:00,14:50,AC,Room-1
+```bash
+python -m pytest
+```
 
-# MA1200,Calculus and Linear Algebra,23456,B,LEC,Tue,11:00,12:50,AC,LT-2
+Run lint checks with:
 
-# GE1401,University English,34567,C1,SEM,Wed,15:00,16:50,CM,Room-3
+```bash
+ruff check .
+```
 
-# ```
+## License
 
-# 
-
-# The required columns are:
-
-# 
-
-# \- `course\_code`
-
-# \- `course\_title`
-
-# \- `crn`
-
-# \- `section`
-
-# \- `type`
-
-# \- `day`
-
-# \- `start\_time`
-
-# \- `end\_time`
-
-# \- `building`
-
-# \- `room`
-
-# 
-
-# Use `Mon`, `Tue`, `Wed`, `Thu`, `Fri`, `Sat`, or `Sun` for the `day` column.
-
-# 
-
-# 
-
-# \## Documentation
-
-# 
-
-# Documentation will be added in the `docs/` folder.
-
-# 
-
-# \## License
-
-# 
-
-# This project is licensed under the MIT License.
-
+This project is distributed under the MIT License; see [LICENSE](LICENSE).

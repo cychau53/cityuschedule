@@ -1,201 +1,129 @@
-\# Usage guide
+# Setup and usage
 
+This guide explains how to install `cityuschedule` from its source repository and use its interactive menu and command-line workflows. It requires Python 3.10 or later.
 
+## Install from source
 
-\## Installation
-
-
-
-Install `cityuschedule` from PyPI:
-
-
+Clone the repository, create and activate a virtual environment, and install the project with its development dependencies:
 
 ```bash
-
-pip install cityuschedule
-
+git clone https://github.com/cychau53/cityuschedule.git
+cd cityuschedule
+python -m venv .venv
 ```
 
-\## Interactive menu
+Activate the environment:
 
-Run the command without arguments to open a menu:
+```bash
+# macOS/Linux
+source .venv/bin/activate
+
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+```
+
+Then install and verify the command:
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+cityuschedule --help
+```
+
+The editable install is convenient for development: changes in the checkout are immediately available. To install runtime dependencies only, use `python -m pip install -e .` instead. The project requires `beautifulsoup4` and `pypdf`; the `dev` extra adds pytest, pytest-cov, and Ruff.
+
+## Interactive menu
+
+Run the command without arguments to open the menu:
 
 ```bash
 cityuschedule
 ```
 
-Choose option `1` to set preferred and avoided days, minimum and maximum
-credits, lunch duration and time window, minimum minutes between classes,
-earliest class start, and latest class end. These settings are saved across
-launches and apply to newly pasted or planned courses. Saved AIMS classes are
-used for clash and walking-time checks and for combined credit totals; day,
-lunch, gap, and time settings do not reject a schedule because of those fixed
-classes. Enter day names as `Mon`, `Tue`, `Wed`, `Thu`, `Fri`, `Sat`, or `Sun`,
-or use `M`, `T`, `W`, `R`, `F`, `S`, or `U`. Enter times as `HHMM` or
-`HH:MM`; for example, set the lunch duration to `30` and the lunch window to
-`1200-1400` to require a 30-minute break between noon and 2:00 pm. Press Enter
-at a setting prompt to keep its current value; enter `none` to clear it (or
-reset the lunch window). The lunch duration cannot exceed the window length.
-AIMS paste warns if combined credits fall outside the configured limits but
-still displays fitting bundles.
+The menu can check or change a saved AIMS timetable, accept a pasted AIMS course offering, search or inspect GE course information, generate course plans, and show saved plans. Choose **1. Basic settings** to configure preferences including preferred/avoided days, credit limits, lunch duration and window, a minimum gap between classes, and earliest/latest class times. Settings and the remembered AIMS path are stored locally in the application's configuration directory. The menu shows how to clear individual settings or saved data.
 
-At the main menu prompt, type `delete avoid`, `delete prefer`, `delete min`,
-`delete max`, `delete lunch`, `delete window`, `delete gap`, `delete earliest`,
-`delete latest`, or `delete AIMS` to clear that saved value. Type `delete all`
-to remove all basic settings and the remembered AIMS path. To clear multiple
-values, join their names with `and`, such as `delete max and min` or
-`delete AIMS and max`. Type `delete plan1` or `delete plan 1` to delete a saved
-plan by its number.
+Type `cityuschedule --help` for all command-line flags. `q` returns to the menu at supported prompts; `0` exits.
 
-Choose **7. Saved timetable plan** to review saved plans, including their timetable and
-Web Add/Drop sections with CRNs.
+## Check an AIMS timetable for clashes
 
-The other numbered options check or change the saved AIMS timetable, paste an
-AIMS offering, search or inspect GE courses, or generate course plans. The menu
-asks for the required file paths and then runs the selected task. The AIMS HTML
-path is remembered across launches and reused by other AIMS menu options.
-Choose option `2` and enter a different path to
-change the saved one; press Enter to keep using it. Press `0` to exit.
-If a task reports an error, the menu stays open so you can choose another
-option or correct the input; the saved AIMS path is updated only after a
-successful task.
-
-For advanced options, use `cityuschedule --help` or run a command directly.
-
-In menu option 4, GE search repeats until you enter `q` to return to the main
-menu or `0` to exit the package. Search is case-insensitive. Enter
-`without exam` or `with exam` to filter by exam status, `cross` or `not cross`
-to filter cross-institutional courses, or `Area 1`, `Area 2`, or `Area 3` to
-show courses from one area. Enter `Level B` to include all B-level courses,
-`Level B1` for an exact level, or a range such as `Level A1 to B1` (inclusive).
-Other text searches course codes, titles, areas, and offering units. Combine
-any filters and keywords with `+`; every part must match, and their order does
-not matter. For example, `introduction + level B + with exam` finds courses
-matching all three conditions. Spaces inside filter labels are optional:
-`levelB` is equivalent to `level B`, and `area1` to `area 1`. Filter by 2026-27
-semester availability with `2627A` (Sem A), `2627B` (Sem B), or `2627S`
-(Summer); spaces and capitalization do not matter.
-
-\## CSV timetable for planning
-
-You can provide a CSV timetable as the fixed schedule when generating a course
-plan:
-
-
+Save your weekly AIMS timetable as an HTML file, then run:
 
 ```bash
-
-cityuschedule examples/sample\_courses.csv --courses GE1102 --term 2627B
-
+cityuschedule --aims-html path/to/your_aims_timetable.html
 ```
 
+The tool displays the parsed weekly timetable and reports overlapping scheduled sessions. Only scheduled grid classes are included; entries without dates/times are not included.
 
-## CSV format
+## Check a pasted AIMS offering against your timetable
 
+First provide a saved AIMS weekly timetable. The interactive workflow prompts you to paste one complete course-offering table, finish with `END` on its own line, and optionally exclude sections you cannot register for:
 
-Each row represents one class session.
+```bash
+cityuschedule --aims-html path/to/your_aims_timetable.html --paste-aims
+```
+
+You can also configure constraints on the command line. For example:
+
+```bash
+cityuschedule --aims-html path/to/your_aims_timetable.html \
+  --paste-aims --prefer-days Mon Tue --avoid-days Fri \
+  --lunch 30 --lunch-window 12:00 14:00 --min-gap 15
+```
+
+The command reports candidate complete section bundles that fit the weekly timetable and the supplied constraints. The pasted table should include the course heading and its complete section information; if the heading is missing, enter the course code when prompted. Use `--help` for the supported options and formats.
+
+## Generate course plans
+
+The planner uses the course catalogues included with the project. Give it course codes and a semester; add an existing schedule as an AIMS HTML file or CSV if you want to plan around fixed classes:
+
+```bash
+cityuschedule --courses GE1102 GE1401 --term 2627B
+cityuschedule --aims-html path/to/your_aims_timetable.html \
+  --courses GE1102 --term 2627B --add-ge 1 --avoid-days Fri
+```
+
+Semester codes include examples such as `2627A`, `2627B`, and `2627S`. The planner lists candidate plans and explains rejected constraints when no plan fits. Add `--ask` to interactively choose plans to save. Saved plans can be reviewed in the menu.
+
+A CSV can be supplied as the positional fixed timetable:
+
+```bash
+cityuschedule examples/sample_courses.csv --courses GE1102 --term 2627B
+```
+
+Useful planning constraints include `--min-credits`, `--max-credits`, `--prefer-days`, `--avoid-days`, `--earliest`, `--latest`, `--min-gap`, `--lunch`, `--max-daily-hours`, `--no-travel-check`, `--study-load`, and `--seats`. See `cityuschedule --help` for the full option list and defaults.
+
+## CSV timetable format
+
+Each CSV row represents one class session. The header must contain these columns:
 
 ```csv
-
-course\_code,course\_title,crn,section,type,day,start\_time,end\_time,building,room
-
+course_code,course_title,crn,section,type,day,start_time,end_time,building,room
 CS1103,Introduction to Programming,12345,A,LEC,Mon,09:00,10:50,AC,LT-1
-
+CS1103,Introduction to Programming,12346,A1,TUT,Wed,14:00,14:50,AC,Room-1
 ```
 
+Use a 24-hour time such as `09:00` and a day name such as `Mon`, `Tue`, `Wed`, `Thu`, `Fri`, `Sat`, or `Sun`. The repository includes [`examples/sample_courses.csv`](../examples/sample_courses.csv).
 
+## Find GE courses
 
-Use one of the following values in the `day` column:
-
-
-
-\- `Mon`
-
-\- `Tue`
-
-\- `Wed`
-
-\- `Thu`
-
-\- `Fri`
-
-\- `Sat`
-
-\- `Sun`
-
-
-
-Use 24-hour time in the `start\_time` and `end\_time` columns, for example
-
-`09:00` and `10:50`.
-
-
-
-\## Troubleshooting
-
-
-If a CSV timetable cannot be found or contains invalid class times, check the
-file path and ensure that `end_time` is later than `start_time`.
-
-\## AIMS course paste and credit totals
-
-The weekly AIMS timetable contains course codes but not credit values. The
-package looks them up in its built-in CS, GE, and other-course credit
-catalogues. If a course is not covered by those catalogues, provide an
-additional credit catalogue:
-
-```json
-[
-  {
-    "course_code": "BASE1001",
-    "title": "Base course",
-    "credits": 12,
-    "sections": []
-  }
-]
-```
-
-Then paste one course's complete AIMS offering table (the tab-separated table
-copied from AIMS is supported) and finish with `END`. If the copied selection
-does not include the course heading, enter the course code when prompted. At
-the next prompt, enter any section codes you cannot register for, separated
-by spaces or commas, or press Enter for none:
-
-If you press Enter before entering any table data, the paste prompt appears
-again. If the table has no course heading and you leave the course-code prompt
-blank, the package asks for the code again.
-If the pasted text is not a complete course offering table, the package tells
-you what table is needed and reopens the paste prompt before asking for a code.
-At a retry prompt, enter `q` to leave the current input and return to the main
-menu. Enter `0` only to exit the package.
-In interactive prompts for other menu functions, `q` also returns to the main
-menu. Enter `0` only to exit the package.
-In an interactive terminal, menus and instructions are yellow, errors and
-rejected bundles are red, suggested bundles are green, and complete credit
-totals are blue. Colors are suppressed when output is redirected or
-`NO_COLOR` is set.
+Search by keyword or supported filters:
 
 ```bash
-cityuschedule --aims-html aims_schedule.html --paste-aims \
-  --prefer-days Mon Tue --avoid-days Fri
+cityuschedule --ge-search "introduction + level B + with exam"
+cityuschedule --ge-info GE1102
 ```
 
-For example, enter `T35 T90` at the unavailable-sections prompt to exclude
-those sections from all candidate bundles.
+GE data availability depends on the catalogue bundled with the project. Some course-information lookups or updates may access the network.
 
-The pasted offering's section-credit values provide the candidate course's
-credits. The built-in catalogues supply credits for courses already in the
-AIMS HTML. `--credit-catalog credits.json` can supplement those catalogues.
-For example:
+## Troubleshooting
 
-```text
-Pasted course credits: 3
-AIMS timetable credits: 12
-Combined total if added: 15
-```
+- **Command not found:** activate the virtual environment where you installed the package, or reinstall with `python -m pip install -e ".[dev]"`.
+- **AIMS file not found or not recognized:** check the path and ensure the file is a saved weekly timetable HTML page, not a course-offering page.
+- **CSV parsing errors:** check the required header, day names, 24-hour times, and that each row represents a class session.
+- **No course plans found:** check semester/catalogue availability and course codes, then relax constraints or review the rejection details printed by the planner.
 
-If a course is missing from all catalogues, the output reports an incomplete
-total and lists the missing course code(s).
-Rejected bundles that fit the AIMS timetable except for an avoided day are
-listed before bundles rejected for other reasons.
+## Limitations and data notes
 
+`cityuschedule` supports schedule planning; it does not register courses or guarantee that a plan is eligible, available, or accepted by CityU. In particular, weekly timetable fit and travel checks do not validate registration eligibility, live seat availability, date ranges, or multiple meeting rows. Course catalogues and building travel-time data are local project data and may not reflect the latest official information. Confirm important details with the official CityU systems before registration.
+
+The project currently documents timetable checks, course planning, and GE lookup. It does not provide calendar export or a standalone report of all free gaps; gap-related planning is expressed through constraints such as minimum class gaps and lunch breaks.
