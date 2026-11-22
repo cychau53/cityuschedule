@@ -121,6 +121,12 @@ def export_ics(
                 if description:
                     event.add("description", description)
 
+                if str(session["course_code"]).strip().upper().startswith("GE"):
+                    event["CATEGORIES"] = ["GE Course"]
+                    event["COLOR"] = "#008000"
+                    event["X-APPLE-CALENDAR-COLOR"] = "#008000"
+                    event["X-GOOGLE-COLOR"] = "10"
+
                 calendar.add_component(event)
 
             class_date += timedelta(days=7)

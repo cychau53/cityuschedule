@@ -70,6 +70,28 @@ def test_exported_events_use_hong_kong_timezone(tmp_path):
     assert "DTEND;TZID=Asia/Hong_Kong" in content
     assert "RRULE" not in content
 
+
+def test_ge_events_are_exported_in_green(tmp_path):
+    sessions = [
+        make_session("Mon", "15:00", "17:50", "GE1205"),
+    ]
+
+    output_path = tmp_path / "ge_plan.ics"
+
+    export_ics(
+        sessions,
+        str(output_path),
+        "2026-08-31",
+        "2026-11-28",
+    )
+
+    content = output_path.read_text(encoding="utf-8")
+
+    assert "COLOR:#008000" in content
+    assert "CATEGORIES:GE Course" in content
+    assert "X-APPLE-CALENDAR-COLOR:#008000" in content
+    assert "X-GOOGLE-COLOR:10" in content
+
     
 def test_is_excluded_detects_holidays_and_breaks():
     holidays = {date(2026, 10, 1)}
