@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import re
-
+from dataclasses import dataclass
 from itertools import product
 
 
@@ -16,6 +15,8 @@ class AimsSession:
     start_time: str | None
     end_time: str | None
     building: str = ""
+    availability: int | str | None = None
+    waitlist: bool | None = None
 
     @property
     def activity_type(self) -> str:
@@ -100,6 +101,32 @@ class ParsedAimsTable:
                 bundles.add(tuple(combination))
 
         return sorted(bundles)
+
+
+def _seat_status(
+    fields: list[str],
+    availability_index: int,
+    waitlist_index: int,
+) -> tuple[int | str | None, bool | None]:
+    available_text = (
+        fields[availability_index].strip()
+        if availability_index < len(fields)
+        else ""
+    )
+    if re.fullmatch(r"\d+", available_text):
+        availability: int | str | None = int(available_text)
+    elif available_text.upper() == "FULL":
+        availability = "FULL"
+    else:
+        availability = None
+
+    waitlist_text = (
+        fields[waitlist_index].strip().upper()
+        if waitlist_index < len(fields)
+        else ""
+    )
+    waitlist = {"Y": True, "N": False}.get(waitlist_text)
+    return availability, waitlist
 
 
 def parse_aims_table(
@@ -215,6 +242,7 @@ def parse_aims_table(
                 building = record[offset + 2]
             break
 
+        availability, waitlist = _seat_status(record, 3, 5)
         sessions.append(
             AimsSession(
                 course_code=parsed_course_code,
@@ -225,6 +253,8 @@ def parse_aims_table(
                 start_time=start_time,
                 end_time=end_time,
                 building=building,
+                availability=availability,
+                waitlist=waitlist,
             )
         )
 
@@ -285,6 +315,7 @@ def _parse_tabular_sessions(
                 building = fields[index + 2]
             break
 
+        availability, waitlist = _seat_status(fields, 6, 8)
         sessions.append(
             AimsSession(
                 course_code=course_code,
@@ -295,6 +326,8 @@ def _parse_tabular_sessions(
                 start_time=start_time,
                 end_time=end_time,
                 building=building,
+                availability=availability,
+                waitlist=waitlist,
             )
         )
 

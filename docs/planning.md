@@ -8,10 +8,14 @@ The plan generator (menu option 6, or `cityuschedule --courses ...`) works like 
 4. It says how many timeslots of each course fit your timetable, for example "GE1111 has one timeslot that fits your timetable".
 5. It prints one weekly timetable per plan. If GE1234 can be taken on Tuesday 15:00-17:50 or Friday 09:00-11:50, plan 1 puts it on Tuesday and plan 2 on Friday (or the other way round, by ranking).
 
-In the fit summary, courses with matching timeslots are shown in green, while
-courses with no fitting timeslots are shown in red.
+For one requested GE course, a fit is green and no fit is red. When you enter
+multiple GE course codes, each course receives a distinct cyan-to-blue color in
+the fit summary and plan details.
 
 You can choose how many of the GE courses to add (`--add-ge N`), days to avoid or prefer, and credit limits. Credit limits are optional. GE courses count as 3 credit units (GE1601 as 1); the credits of your AIMS courses come from the project's credit catalogues. The best plans come first, with the reason for each ranking and the AIMS registration steps.
+
+Each generated result ends with a blue reminder to check live seat availability
+using **3. Paste and check an AIMS course offering**.
 
 It is built on the project's existing modules, so it gives the same answers as the rest of the program:
 
@@ -64,10 +68,11 @@ Run `cityuschedule` with no arguments and choose **6. Generate timetable plans**
 3. The course codes you are interested in, e.g. `GE1102 GE1401 GE2410`
 4. How many GE courses the generator should add (a positive integer; Enter uses the number of course codes entered)
 
-At least one course code is required in the menu. Course codes without section
-details for the selected semester are rejected and must be re-entered. The GE
-count must be at least 1 and no greater than the number of course codes entered;
-otherwise, you will be asked for the count again.
+At least one course code is required in the menu. If the package has no GE
+section data for the selected semester, it asks you to enter another semester.
+Course codes without section details for a semester that does have data must be
+re-entered. The GE count must be at least 1 and no greater than the number of
+course codes entered; otherwise, you will be asked for the count again.
 
 Your **Basic settings** (option 1) are applied automatically to newly planned courses: preferred and avoided days, lunch duration and window, minimum gap, and earliest/latest class times. Minimum and maximum credits include the courses in your AIMS timetable. AIMS classes are used for clash and walking-time checks, but are not rejected for violating the day or timing settings. Advanced planner filters remain available when running the planner directly from the command line. After the plans are listed you can save one to **7. Saved timetable plan**. Saved plans show their timetable and Web Add/Drop sections with CRNs. Delete a saved plan from the main menu with `delete plan1` or `delete plan 1`. The AIMS path you use is remembered for next time.
 

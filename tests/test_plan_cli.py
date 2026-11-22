@@ -1,3 +1,4 @@
+import re
 from collections import Counter
 from io import StringIO
 from pathlib import Path
@@ -211,6 +212,11 @@ def test_added_plan_courses_are_green_in_terminal(monkeypatch):
         for line in ge_lines
     )
     assert any(line.startswith("\033[33mPlan 1:") for line in lines)
+    assert (
+        "\033[34mPlease check seat availability in 3. Paste and check an "
+        "AIMS course offering.\033[0m"
+        in output.getvalue()
+    )
     assert "waiting between classes" not in output.getvalue()
 
 
@@ -514,7 +520,10 @@ def test_saved_timetable_leaves_one_slot(ge_data, tmp_path, capsys):
     assert "GE3333 has no timeslot that fits your timetable" in output
 
 
-def test_fit_summary_colors_fits_green_and_no_fits_red(ge_data, monkeypatch):
+def test_fit_summary_colors_multiple_ge_courses_distinctly(
+    ge_data,
+    monkeypatch,
+):
     class TerminalOutput(StringIO):
         def isatty(self):
             return True
@@ -522,24 +531,38 @@ def test_fit_summary_colors_fits_green_and_no_fits_red(ge_data, monkeypatch):
     output = TerminalOutput()
     monkeypatch.setattr(cli.sys, "stdout", output)
     monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setattr(
+        "cityuschedule.plan_generator.load_course_requirements",
+        lambda paths=(): {},
+    )
 
     cli.main([
-        "--courses", "GE1111", "GE3333",
-        "--term", "2627A", "--avoid-days", "Thu", "--no-travel-check",
+        "--courses", "GE1111", "GE2222", "GE3333",
+        "--add-ge", "2", "--term", "2627A", "--no-travel-check",
+        "--max-results", "10",
     ])
 
-    fit_lines = [
-        line for line in output.getvalue().splitlines()
-        if "timeslot" in line
-    ]
-    assert any(
-        line.startswith("\033[32m  GE1111 has")
-        and "timeslots that fit your timetable" in line
-        for line in fit_lines
-    )
-    assert any(
-        line.startswith("\033[31m  GE3333 has no timeslot")
-        for line in fit_lines
+    fit_colors = {}
+    plan_course_colors = {}
+    for line in output.getvalue().splitlines():
+        match = re.match(
+            r"\033\[(38;2;\d+;\d+;\d+)m\s+(GE\d{4}[A-Z]?)\b",
+            line,
+        )
+        if not match:
+            continue
+        color, course_code = match.groups()
+        if "timeslot" in line or "no class bundles fit" in line:
+            fit_colors[course_code] = color
+        elif re.search(rf"\b{course_code}\s+\S+", line):
+            plan_course_colors[course_code] = color
+
+    assert set(fit_colors) == {"GE1111", "GE2222", "GE3333"}
+    assert len(set(fit_colors.values())) == 3
+    assert len(plan_course_colors) >= 2
+    assert all(
+        plan_course_colors[code] == fit_colors[code]
+        for code in plan_course_colors
     )
 
 
@@ -577,3 +600,39 @@ def test_plan_command_prompts_for_valid_semester(monkeypatch, capsys):
     assert "Enter a valid semester" in output
     assert requested_terms == ["2026-27 Sem B"]
     assert "Plan 1:" in output
+
+
+def test_menu_reprompts_when_semester_has_no_ge_data(
+    monkeypatch,
+    capsys,
+):
+    feed(monkeypatch, "2526A", "2627A", "", "GE1111", "")
+    requested_terms = []
+
+    def section_catalog(term=None):
+        requested_terms.append(term)
+        return [] if term == "2025-26 Sem A" else ge_sections()
+
+    monkeypatch.setattr(cli, "load_ge_section_catalog", section_catalog)
+
+    command, _ = cli._menu_command("6", None, cli.BasicSettings())
+
+    assert command is not None
+    assert command[command.index("--term") + 1] == "2627A"
+    assert requested_terms == ["2025-26 Sem A", "2026-27 Sem A"]
+    assert "Currently, we don't have data for 2526A" in (
+        capsys.readouterr().out
+    )
+
+
+def test_plan_command_reports_when_semester_has_no_ge_data(
+    monkeypatch,
+    capsys,
+):
+    monkeypatch.setattr(cli, "load_ge_section_catalog", lambda term=None: [])
+
+    with pytest.raises(SystemExit) as error:
+        cli.main(["--courses", "GE1111", "--term", "2526A"])
+
+    assert error.value.code == 2
+    assert "Currently, we don't have data for 2526A" in capsys.readouterr().err

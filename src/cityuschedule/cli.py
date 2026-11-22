@@ -1,4 +1,5 @@
 import argparse
+import colorsys
 import csv
 import json
 import os
@@ -871,23 +872,41 @@ def _colorize(
     return text
 
 
-def _colorize_added_course_lines(text: str, course_codes: set[str]) -> str:
-    codes = {code.upper() for code in course_codes}
+def _colorize_added_course_lines(
+    text: str,
+    course_colors: dict[str, str],
+) -> str:
     lines = []
     for line in text.splitlines():
-        for code in codes:
+        for code, color in course_colors.items():
             escaped = re.escape(code)
-            if (
-                re.match(rf"^\s+{escaped}\s", line)
-                or re.match(
-                    rf"^\s+\d{{2}}:\d{{2}}-\d{{2}}:\d{{2}}\s+{escaped}\s",
-                    line,
-                )
+            if re.search(
+                rf"(?<![A-Z0-9]){escaped}(?![A-Z0-9])",
+                line,
+                re.IGNORECASE,
             ):
-                line = _colorize(line, "32")
+                line = _colorize(line, color)
                 break
         lines.append(line)
     return "\n".join(lines)
+
+
+def _distinct_ge_course_colors(course_codes: list[str]) -> dict[str, str]:
+    ge_codes = [
+        code for code in dict.fromkeys(course_codes)
+        if code.upper().startswith("GE")
+    ]
+    if len(ge_codes) < 2:
+        return {}
+
+    colors = {}
+    for index, code in enumerate(ge_codes):
+        hue = 0.5 + 0.13 * index / (len(ge_codes) - 1)
+        rgb = colorsys.hsv_to_rgb(hue, 0.88, 0.95)
+        colors[code.upper()] = "38;2;" + ";".join(
+            str(round(channel * 255)) for channel in rgb
+        )
+    return colors
 
 
 def _print_color(
@@ -1135,19 +1154,31 @@ def _plan_menu_command(
     """Ask for course plan generator inputs (menu option 6)."""
     from .plan_generator import term_key
 
-    semester = _ask_menu("Semester to check, e.g. 2627A, 2627B, or 2627S")
-    while not term_key(semester):
-        _print_red("Enter a valid semester, e.g. 2627A, 2627B, or 2627S.")
+    while True:
         semester = _ask_menu("Semester to check, e.g. 2627A, 2627B, or 2627S")
+        while not term_key(semester):
+            _print_red("Enter a valid semester, e.g. 2627A, 2627B, or 2627S.")
+            semester = _ask_menu(
+                "Semester to check, e.g. 2627A, 2627B, or 2627S"
+            )
+
+        available_courses = load_ge_section_catalog(
+            term=_ge_catalog_term(semester)
+        )
+        if available_courses:
+            break
+        _print_red(
+            f"Currently, we don't have data for {semester}. "
+            "Please enter another semester."
+        )
 
     aims_path = saved_aims_path or _prompt_plan_aims_path()
     codes = _prompt_required_plan_course_codes()
     ge_count = _prompt_plan_ge_count(len(codes))
 
-    ge_term = _ge_catalog_term(semester)
     available_codes = {
         course.code.upper()
-        for course in load_ge_section_catalog(term=ge_term)
+        for course in available_courses
     }
     while True:
         unavailable = [code for code in codes if code not in available_codes]
@@ -1459,10 +1490,28 @@ def _run_course_planner(args: argparse.Namespace, parser) -> None:
         if wanted or args.add_ge:
             # Course details shown by menu option 5 (data/ge_course_information.json).
             ge_term = _ge_catalog_term(args.term) if args.term else None
+            ge_courses = load_ge_section_catalog(term=ge_term)
+            custom_ge_codes = {
+                course.code.upper()
+                for course in courses
+                if course.code.upper().startswith("GE")
+            }
+            requested_ge = [
+                code for code in wanted if code.startswith("GE")
+            ]
+            if (
+                not ge_courses
+                and (args.add_ge or requested_ge)
+                and not custom_ge_codes
+            ):
+                raise ValueError(
+                    f"Currently, we don't have data for {args.term}. "
+                    "Enter another semester using --term."
+                )
             known = {course.code.upper() for course in courses}
             courses.extend(
                 course
-                for course in load_ge_section_catalog(term=ge_term)
+                for course in ge_courses
                 if course.code.upper() not in known
             )
         if wanted:
@@ -1528,10 +1577,19 @@ def _run_course_planner(args: argparse.Namespace, parser) -> None:
     for warning in report.warnings:
         _print_yellow(f"Note: {warning}")
     fit_lines = report.fit_summary()
+    requested_ge_colors = _distinct_ge_course_colors(wanted)
     if fit_lines:
         print("\nTimeslots that fit your timetable:")
         for line in fit_lines:
-            if (
+            course_match = re.match(r"\s*(GE\d{4}[A-Z]?)\b", line)
+            course_color = (
+                requested_ge_colors.get(course_match.group(1).upper())
+                if course_match
+                else None
+            )
+            if course_color:
+                _print_color(f"  {line}", course_color)
+            elif (
                 "no timeslot that fits your timetable" in line
                 or "no class bundles fit" in line
             ):
@@ -1560,15 +1618,23 @@ def _run_course_planner(args: argparse.Namespace, parser) -> None:
             for option in plan.chosen
             if not option.preregistered
         }
+        added_course_colors = {
+            code: requested_ge_colors.get(code.upper(), "32")
+            for code in added_courses
+        }
         if len(plan_lines) > 1:
             print(
                 _colorize_added_course_lines(
                     "\n".join(plan_lines[1:]),
-                    added_courses,
+                    added_course_colors,
                 )
             )
         print()
     _print_blue(PLANNING_ONLY_NOTICE)
+    _print_blue(
+        "Please check seat availability in 3. Paste and check an AIMS "
+        "course offering."
+    )
 
     if not args.ask:
         return
@@ -2167,7 +2233,8 @@ def main(argv: list[str] | None = None) -> None:
                 for _, reasons in rejected
             )
             message = (
-                "No complete bundle fits: each has an internal overlap, "
+                "No complete bundle fits: each is full with no waitlist, "
+                "has an internal overlap, "
                 "overlaps the base timetable, fails a time, gap or lunch "
                 "requirement, lacks sufficient travel time, or uses an "
                 "avoided day."
@@ -2254,9 +2321,9 @@ def main(argv: list[str] | None = None) -> None:
 
         print()
         print(
-            "Weekly time-fit and travel between known buildings only. "
-            "Eligibility, seat availability, date ranges, and multiple "
-            "meeting rows are not validated."
+            "Weekly time-fit and travel between known buildings are checked. "
+            "Seat availability is checked when present; eligibility, date "
+            "ranges, and multiple meeting rows are not validated."
         )
         return
 

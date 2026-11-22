@@ -5,7 +5,6 @@ from itertools import combinations, pairwise
 from .aims_table_parser import AimsSession, ParsedAimsTable
 from .travel_time import time as check_travel_time
 
-
 DAY_NAMES = {
     "M": "Mon",
     "T": "Tue",
@@ -285,7 +284,7 @@ def registration_bundle_conflicts(
     lunch_minutes: int = 0,
     lunch_window: tuple[str, str] = ("11:30", "14:30"),
 ) -> list[str]:
-    """Explain timetable, day-preference, and travel rejection reasons."""
+    """Explain seat, timetable, day-preference, and travel rejection reasons."""
     by_section = {
         session.section: session
         for session in table.scheduled_sessions
@@ -293,6 +292,18 @@ def registration_bundle_conflicts(
     selected = [by_section[section] for section in bundle]
     reasons: list[str] = []
     bundle_days = _session_days(selected)
+    for session in selected:
+        availability = session.availability
+        is_full = availability == 0 or (
+            isinstance(availability, str)
+            and availability.upper() == "FULL"
+        )
+        if is_full and session.waitlist is False:
+            reasons.append(
+                "No seats available and no waitlist: "
+                + _session_label(session)
+            )
+
     unavailable = {
         section.upper() for section in (unavailable_sections or [])
     }

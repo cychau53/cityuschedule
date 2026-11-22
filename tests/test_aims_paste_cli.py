@@ -152,6 +152,80 @@ def test_paste_cli_reports_fitting_bundle(monkeypatch, capsys):
     assert "1. C01 + T01" in output
 
 
+@pytest.mark.parametrize(
+    ("available", "waitlist", "expected_fitting"),
+    [
+        ("0", "N", 0),
+        ("FULL", "N", 0),
+        ("0", "Y", 1),
+        ("150", "N", 1),
+    ],
+)
+def test_paste_cli_rejects_full_sections_without_waitlist(
+    monkeypatch,
+    capsys,
+    available,
+    waitlist,
+    expected_fitting,
+):
+    offering = PASTED_TABLE.replace(
+        "B\n150\n150\nN\n11/01/2027 - 17/04/2027\nW\n12:00 - 13:50",
+        f"B\n{available}\n150\n{waitlist}\n"
+        "11/01/2027 - 17/04/2027\nW\n12:00 - 13:50",
+    )
+    prepare_cli(monkeypatch, [], pasted_table=offering)
+
+    cli.main()
+
+    output = capsys.readouterr().out
+    assert (
+        f"Bundles fitting weekly timetable: {expected_fitting}"
+        in output
+    )
+    if expected_fitting:
+        assert "Suggested bundles:" in output
+    else:
+        assert "No seats available and no waitlist: " in output
+        assert "TEST1001-C01 W 12:00-13:50" in output
+
+
+def test_paste_cli_keeps_available_bundle_when_another_is_full(
+    monkeypatch,
+    capsys,
+):
+    offering = PASTED_TABLE.replace(
+        "B\n150\n150\nN\n11/01/2027 - 17/04/2027\nW\n12:00 - 13:50",
+        "B\n0\n150\nN\n11/01/2027 - 17/04/2027\nW\n12:00 - 13:50",
+    )
+    second_lecture = """13403
+C02
+3
+Main Campus
+Y
+B
+50
+50
+N
+11/01/2027 - 17/04/2027
+F
+12:00 - 13:50
+BOC
+LT401
+ZHONG Yiming
+English
+"""
+    offering = offering.replace("13402\nT01\n", second_lecture + "13402\nT01\n")
+    prepare_cli(monkeypatch, [], pasted_table=offering)
+
+    cli.main()
+
+    output = capsys.readouterr().out
+    assert "Candidate complete bundles: 2" in output
+    assert "Bundles fitting weekly timetable: 1" in output
+    assert "1. C02 + T01" in output
+    assert "No seats available and no waitlist: TEST1001-C01" in output
+
+
 def test_paste_cli_reprompts_after_empty_enter(monkeypatch, capsys):
     prepare_cli(monkeypatch, [])
     inputs = iter(

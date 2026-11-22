@@ -115,6 +115,14 @@ cityuschedule --ge-info GE1102
 
 GE data availability depends on the catalogue bundled with the project. Some course-information lookups or updates may access the network.
 
+Sections with zero available seats (or marked `FULL`) and no waitlist are
+rejected. Full sections with a waitlist remain candidates. This check is only
+possible when the pasted table includes the availability and waitlist fields.
+
+The pasted offering's section-credit values provide the candidate course's
+credits. The built-in catalogues supply credits for courses already in the
+AIMS HTML. `--credit-catalog credits.json` can supplement those catalogues.
+
 ## Troubleshooting
 
 - **Command not found:** activate the virtual environment where you installed the package, or reinstall with `python -m pip install -e ".[dev]"`.

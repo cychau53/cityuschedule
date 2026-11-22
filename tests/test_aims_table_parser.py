@@ -1,6 +1,5 @@
 from cityuschedule.aims_table_parser import parse_aims_table
 
-
 SAMPLE = """
 GE1401
 CRNSectionCreditCampusWEBLevelAvailCapWaitlist
@@ -45,6 +44,8 @@ def test_parse_course_code_and_scheduled_session():
     admin = table.sessions[0]
     assert admin.section == "A01"
     assert admin.credit == 0
+    assert admin.availability == 200
+    assert admin.waitlist is False
     assert not admin.is_scheduled
 
     tutorial = table.sessions[1]
@@ -55,6 +56,8 @@ def test_parse_course_code_and_scheduled_session():
     assert tutorial.start_time == "09:00"
     assert tutorial.end_time == "11:50"
     assert tutorial.building == "LI"
+    assert tutorial.availability == 25
+    assert tutorial.waitlist is False
     assert tutorial.is_scheduled
     assert table.course_credit == 3
 
@@ -81,6 +84,23 @@ def test_parse_copied_tabular_aims_row_with_course_code_argument():
     assert session.start_time == "12:00"
     assert session.end_time == "14:50"
     assert session.building == "YEUNG"
+    assert session.availability == 79
+    assert session.waitlist is False
+
+
+def test_parse_full_section_and_no_waitlist_from_tabular_row():
+    copied_table = (
+        "CRN\tSection\tCredit\tCampus\tWEB\tLevel\tAvail\tCap\tWaitlist\n"
+        "Avail\tDate\tDay\tTime\tBldg\tRoom\tInstructor\n"
+        "10681\tC01\t3\tMain Campus\tY\tB\t0\t80\tN\t"
+        "11/01/2027 - 17/04/2027\tF\t12:00 - 14:50\tYEUNG\tG4702\t"
+        "HE Yutian"
+    )
+
+    table = parse_aims_table(copied_table, course_code="GE2130")
+
+    assert table.sessions[0].availability == 0
+    assert table.sessions[0].waitlist is False
 
 
 def test_parse_copied_tabular_aims_row_wrapped_across_lines():
