@@ -307,10 +307,32 @@ def _saved_plan_signature(plan: dict) -> tuple:
 
 def _print_saved_plan(plan: dict, number: int) -> None:
     added_sections = _saved_plan_added_sections(plan)
+    added_course_codes = {code for code, _ in added_sections}
+    in_web_add_drop = False
+    web_course_code = None
     for line in _format_saved_plan(plan, number).splitlines():
         if line == f"Plan {number}":
             _print_yellow(line)
             continue
+        if line == "Web Add/Drop:":
+            in_web_add_drop = True
+            print(line)
+            continue
+        if line == "Other registration steps:":
+            in_web_add_drop = False
+        if in_web_add_drop:
+            web_course = re.match(
+                r"^\s+\d+\.\s+([A-Z]{2,4}\s?\d{4}[A-Z]?)\s*$",
+                line.upper(),
+            )
+            if web_course:
+                web_course_code = web_course.group(1).replace(" ", "")
+            if web_course_code in added_course_codes and (
+                web_course
+                or re.match(r"^\s+(?:add|drop)\s+", line, re.IGNORECASE)
+            ):
+                _print_green(line)
+                continue
         prefix = "Course(s) added: "
         if line.startswith(prefix) and line[len(prefix):] != "None":
             print(prefix + _colorize(line[len(prefix):], "32"))
@@ -357,7 +379,7 @@ def _delete_saved_plan(number: int) -> None:
     except OSError as error:
         _print_red(f"Could not delete Plan {number}: {error}")
         return
-    _print_green(f"Deleted Plan {number}.")
+    _print_red(f"Deleted Plan {number}.")
 
 
 def _save_bundles_to_disk(bundles: list[dict]) -> None:
@@ -1480,7 +1502,7 @@ def interactive_menu() -> None:
                 except ValueError as error:
                     _print_red(str(error))
                 else:
-                    _print_green(message)
+                    _print_red(message)
                 continue
 
             if choice == "1":

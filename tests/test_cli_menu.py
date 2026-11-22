@@ -308,6 +308,12 @@ def test_saved_plan_colors_added_course_and_timetable_slot(monkeypatch):
                     "crn": "12718",
                 },
             ],
+            "web_add_drop": [
+                {
+                    "course_code": "GE1205",
+                    "add_sections": [{"section": "S03", "crn": "12718"}],
+                },
+            ],
             "sessions": [
                 {
                     "course_code": "CS2402", "section": "C01", "day": "Mon",
@@ -332,6 +338,8 @@ def test_saved_plan_colors_added_course_and_timetable_slot(monkeypatch):
         "\033[32m    12:00-14:50  GE1205 S03  LI 2614\033[0m"
         in lines
     )
+    assert "\033[32m  1. GE1205\033[0m" in lines
+    assert "\033[32m     add S03 CRN 12718\033[0m" in lines
     assert "    09:00-11:50  CS2402 C01  MMW 2450" in lines
 
 
@@ -360,7 +368,14 @@ def test_legacy_saved_plan_uses_sections_and_registration_steps():
 
 
 @pytest.mark.parametrize("command", ["delete plan1", "delete plan 1"])
-def test_delete_saved_plan_by_number(monkeypatch, command, capsys):
+def test_delete_saved_plan_by_number(monkeypatch, command):
+    class TerminalOutput(StringIO):
+        def isatty(self):
+            return True
+
+    output = TerminalOutput()
+    monkeypatch.setattr(cli.sys, "stdout", output)
+    monkeypatch.delenv("NO_COLOR", raising=False)
     saved = [{"plan": {"courses": ["GE1102 C01"]}}, {"plan": {"courses": ["CS2311 C01"]}}]
     monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: None)
     monkeypatch.setattr(cli, "_load_basic_settings", lambda: cli.BasicSettings())
@@ -377,7 +392,29 @@ def test_delete_saved_plan_by_number(monkeypatch, command, capsys):
 
     assert len(saved) == 1
     assert saved[0]["plan"]["courses"] == ["CS2311 C01"]
-    assert "Deleted Plan 1." in capsys.readouterr().out
+    assert "\033[31mDeleted Plan 1.\033[0m" in output.getvalue()
+
+
+def test_setting_deletion_confirmation_is_red(monkeypatch):
+    class TerminalOutput(StringIO):
+        def isatty(self):
+            return True
+
+    output = TerminalOutput()
+    monkeypatch.setattr(cli.sys, "stdout", output)
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setattr(cli, "_load_saved_aims_path", lambda: None)
+    monkeypatch.setattr(cli, "_load_basic_settings", lambda: cli.BasicSettings())
+    monkeypatch.setattr(cli, "_save_basic_settings", lambda settings: None)
+    inputs = iter(["delete max", "0"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+
+    cli.interactive_menu()
+
+    assert (
+        "\033[31mSaved maximum credits deleted.\033[0m"
+        in output.getvalue()
+    )
 
 
 def test_invalid_delete_command_explains_plan_syntax(monkeypatch, capsys):
