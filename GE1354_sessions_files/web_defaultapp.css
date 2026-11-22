@@ -1,0 +1,2145 @@
+/*
+  AUDIT TRAIL: 5.2
+  1. Initial release.                        JWF 1/9/2002
+  AUDIT TRAIL: 5.3
+  2. For September 2002 release.             GPV 6/27/2002
+  3. FOR UI phase II release		     RK  7/29/2002
+     Following new classes added
+
+     Tables
+           DATA With Border (Table class with borders)
+		Its related classes defined as db.
+ 	   Non Tabular Data
+		Related classes defined as (nt)
+
+     	   Header class (TD.plheadermenulinks) for plain table.
+	        This class defines attributes for header tables.
+
+     Anchors
+	   menulinktext2 (Menu classes)
+	   sitemaplevel1 (Site Map level 1)
+	   sitemaplevel2 (Site Map level 2)
+	   sitemaplevel3 (Site Map level 3)
+
+    	   whitespace link (This anchor gives more spacing at top and bottom)
+
+  4. Fix for defect #53-0017 and #53-0018    Rk 8/23/2002
+	  Added a campus pipeline class which will be used in body tag.
+          Changed Input bg color to white
+  5. Added a class fieldmediumtextbold for student 		Rk 9/3/2002
+
+  AUDIT TRAIL:7.0						Rk 6/22/04
+  1. Modify fonts to use Verdana
+  2. Added tab styles to self service
+
+  AUDIT TRAIL:7.4						Rk 6/22/04
+  1. Field fieldOrangetextbold modified to use hex value instead of orange color
+  2. HR style modified to remove height as an attributte
+
+  AUDIT TRAIL:8.1	         PNN 08/07/2008
+  1. Add style tabdisable to emulate a tab page been disabled.
+
+  AUDIT TRAIL END
+
+  FILE NAME..: web_defaultapp.css
+  RELEASE....: 8.1
+  PRODUCT....: WTLWEB
+  COPYRIGHT..: Copyright (C) SCT Corporation 2002. All rights reserved.
+*/
+
+
+/* BROWSER CONSIDERATIONS - Overall
+   ========================================================
+   Rule:   Set margin-left and margin-right only on BODY, not on DIVS.
+   Reason: Older browsers do not recognize margins on DIVs.
+
+   Rule:   No underscores.
+   Reason: Underscores are not valid in CSS syntax.
+
+   Rule:   Use percentages to define font sizes. Normal text should be 90%.
+   Reason: Presents text in the user's preferred font size. Facilitates page fluidity.
+
+   Rule:   Use precentages to define margins.
+   Reason: Facilitates page fluidity.
+
+   Rule:   Apply font rules to TD and TH elements. Do not rely on inheritance from the BODY.
+   Reason: Some browsers do not support inheritance well.
+*/
+
+/* TEXT CLASSES                                             */
+/* All text classes should have rules defined for at least  */
+/* the following properties (unless the class has a special */
+/* purpose):                                                */
+/* color, font-family, font-weight, font-size, font-style   */
+/* text-align                                               */
+/* ======================================================== */
+.centeraligntext {
+text-align: center;
+}
+
+.leftaligntext {
+text-align: left;
+}
+
+.rightaligntext {
+text-align: right;
+}
+
+.menulisttext {
+list-style: none;
+}
+
+.captiontext {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: italic;
+text-align: left;
+margin-top: 1em;
+}
+
+.skiplinks {
+display: none;
+}
+
+.pageheaderlinks {
+color: #FFFFFF;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: center;
+}
+
+.requirementnotmet {
+color: black;
+}
+
+/* Class for Sub-menu Items                                  */
+/* ========================================================  */
+.pageheaderlinks2 {
+color: #CED5EA;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-size: 90%;
+text-align: justify;
+}
+
+.pagebodylinks {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: center;
+}
+
+.gotoanchorlinks {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+}
+
+.pagefooterlinks {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: center;
+/* BROWSER CONSIDERATION - To make Netscape and IE compatible for PageFooter Division. */
+/* Margin-left style specified for Netscape within parent SPAN tag,                    */
+/* while IE uses the padding-left style within parent DIV tag.                         */
+margin-left: 3px;
+}
+
+.backlinktext {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: right;
+margin-bottom: 5px;
+}
+
+.menuheadertext {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 100%;
+font-style: normal;
+text-align: left;
+}
+
+.menulinktext {
+color: #0F2167;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-style: normal;
+}
+
+.menulinkdesctext {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+}
+
+.normaltext {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+}
+
+.infotext {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+}
+
+.errortext {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+}
+
+.warningtext {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+}
+
+.multipagemsgtext {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+}
+
+.releasetext {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+text-transform: uppercase;
+}
+
+.requiredmsgtext {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+}
+
+.fieldlabeltext {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+}
+
+.fieldlabeltextinvisible {
+display: none;
+}
+
+.fieldrequiredtext {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+}
+
+.fieldformattext {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+}
+
+.fieldformatboldtext {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+}
+
+.fielderrortext {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+}
+
+.fieldsmallboldtext {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+}
+
+.fieldsmalltext {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+}
+
+.fieldmediumtext {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+}
+
+.fieldlargetext {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 110%;
+font-style: normal;
+text-align: left;
+}
+
+.fieldmediumtextbold {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+}
+
+.fieldOrangetextbold {
+color:#FFA500;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+}
+
+
+
+/* ANCHORS (LINKS)                                          */
+/* ======================================================== */
+A:link{color:#0000ff;text-decoration:none;}
+
+A:visited{color:#660099;text-decoration:none;}
+
+A:active{color:#990000;}
+
+A:hover{color:#990000;text-decoration:underline;}
+
+
+/* ANCHOR Definitions for Home Page MenuItems class.        */
+/* ======================================================== */
+A.menulinktext {
+font-family:  Verdana,Arial Narrow, helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+color:#0000ff;
+text-decoration: none;
+}
+
+
+A.submenulinktext {
+font-family:  Verdana,Arial Narrow, helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-transform: none;
+color:#0000ff;
+text-decoration: none;
+}
+
+A.submenulinktext:hover {
+background-color: #1E2B83;
+font-family:  verdana,Arial Narrow, helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: justify;
+text-transform: none;
+color: #FFFFFF;
+text-decoration: none;
+}
+
+A.submenulinktext:visited {
+font-family:  Verdana,Arial Narrow, helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-transform: none;
+color:#660099;
+text-decoration: none;
+}
+
+A.submenulinktext:visited:hover {
+background-color: #1E2B83;
+font-family:  Verdana,Arial Narrow, helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: justify;
+text-transform: none;
+color: #FFFFFF;
+text-decoration: none;
+}
+
+A.submenulinktext2 {
+font-weight: normal;
+font-size: 90%;
+color:#0000ff;
+text-decoration:none;
+}
+
+A.submenulinktext2:hover {
+font-weight: normal;
+font-size: 90%;
+color:#990000;
+text-decoration:underline;
+}
+
+A.submenulinktext2:visited {
+font-family:  Verdana,Arial Narrow, helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+color:#660099;;
+text-decoration: none;
+}
+
+A.submenulinktext2:visited:hover {
+font-family:  Verdana,Arial Narrow, helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+text-decoration:underline;
+color:#990000;
+}
+
+
+
+A.whitespacelink
+{
+line-height: 200%;
+COLOR: #1E2B83;
+text-decoration: underline;
+}
+
+
+A.largelinktext {
+font-family: Verdana,Arial,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 110%;
+font-style: normal;
+text-align: left;
+text-decoration: underline;
+}
+
+
+A.sitemaplevel1 {
+font-family:  Verdana,Arial, helvetica, sans-serif;
+font-weight: bold;
+font-size: 80%;
+font-style: normal;
+text-align: left;
+text-decoration: none;
+color:       #1E2B83;
+}
+
+A.sitemaplevel1:visited {
+font-family: Verdana,Arial,  helvetica, sans-serif;
+font-weight: normal;
+font-size  : 80%;
+font-style : normal;
+text-align : left;
+text-decoration: none;
+color:#660099;
+}
+
+A.sitemaplevel1:hover {
+font-family: Verdana,Arial,  helvetica, sans-serif;
+font-weight: normal;
+font-size  : 80%;
+font-style : normal;
+text-align : left;
+text-decoration:underline;
+color:#990000;
+}
+
+
+A.sitemaplevel2 {
+font-family: Verdana,Arial,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 70%;
+font-style: normal;
+text-align: left;
+text-decoration: none;
+color:#0000ff;
+}
+
+A.sitemaplevel2:visited {
+font-family:  Verdana, Arial,  helvetica, sans-serif;
+font-weight: normal;
+font-size  : 70%;
+font-style : normal;
+text-align : left;
+text-decoration: none;
+color:#660099;
+}
+
+A.sitemaplevel2:hover {
+font-family: Verdana,Arial,  helvetica, sans-serif;
+font-weight: bold;
+font-size  : 70%;
+font-style : normal;
+text-align : left;
+text-decoration:underline;
+color:#990000;
+}
+
+A.sitemaplevel3 {
+font-family: Verdana,Arial,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 60%;
+font-style: normal;
+text-align: left;
+text-decoration: none;
+color:#0000ff;
+}
+
+A.sitemaplevel3:visited {
+font-family: Verdana,Arial,  helvetica, sans-serif;
+font-weight: normal;
+font-size  : 60%;
+font-style : normal;
+text-align : left;
+text-decoration: none;
+color:#660099;
+}
+
+A.sitemaplevel3:hover {
+font-family: Verdana,Arial,  helvetica, sans-serif;
+font-weight: bold;
+font-size  : 70%;
+font-style : normal;
+text-align : left;
+color:#990000;
+text-decoration:underline;
+}
+
+
+/* ANCHOR Definitions for Home Page MenuItems class.        */
+/* ======================================================== */
+
+
+A.whitespacelink
+{
+line-height: 200%;
+color: black;
+text-decoration: underline;
+}
+
+
+A.largelinktext {
+font-family: Verdana, Arial,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 120%;
+font-style: normal;
+text-align: left;
+text-decoration: underline;
+}
+
+
+A.sitemaplevel1 {
+font-family: Verdana, Arial,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 80%;
+font-style: normal;
+text-align: left;
+text-decoration: none;
+color:#0000ff;
+}
+
+A.sitemaplevel1:visited {
+font-family: Verdana, Arial,  helvetica, sans-serif;
+font-weight: normal;
+font-size  : 80%;
+font-style : normal;
+text-align : left;
+text-decoration: none;
+color:#660099;
+}
+
+A.sitemaplevel1:hover {
+font-family: Verdana, Arial,  helvetica, sans-serif;
+font-weight: normal;
+font-size  : 80%;
+font-style : normal;
+text-align : left;
+text-decoration:underline;
+color:#990000;
+}
+
+
+A.sitemaplevel2 {
+font-family: Verdana, Arial,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 80%;
+font-style: normal;
+text-align: left;
+text-decoration: none;
+color:#0000ff;
+}
+
+A.sitemaplevel2:visited {
+font-family: Verdana, Arial,  helvetica, sans-serif;
+font-weight: normal;
+font-size  : 80%;
+font-style : normal;
+text-align : left;
+text-decoration: none;
+color:#660099;
+}
+
+A.sitemaplevel2:hover {
+font-family: Verdana, Arial,  helvetica, sans-serif;
+font-weight: normal;
+font-size  : 80%;
+font-style : normal;
+text-align : left;
+text-decoration:underline;
+color:#990000;
+}
+
+A.sitemaplevel3 {
+font-family: Verdana, Arial,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 60%;
+font-style: normal;
+text-align: left;
+text-decoration: none;
+color:#0000ff;
+}
+
+A.sitemaplevel3:visited {
+font-family: Verdana, Arial,  helvetica, sans-serif;
+font-weight: normal;
+font-size  : 60%;
+font-style : normal;
+text-align : left;
+text-decoration: none;
+color:#660099;
+}
+
+A.sitemaplevel3:hover {
+font-family: Verdana, Arial,  helvetica, sans-serif;
+font-weight: normal;
+font-size  : 60%;
+font-style : normal;
+text-align : left;
+text-decoration: none;
+text-decoration:underline;
+color:#990000;
+}
+
+
+.whitespace1{
+padding-top:0em;
+}
+
+.whitespace2{
+padding-top:1em;
+}
+.whitespace3{
+padding-top:2em;
+}
+.whitespace4{
+padding-top:3em;
+}
+
+/* BODY                                                     */
+/* ======================================================== */
+BODY {
+background-color: #FFFFFF;
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-style: normal;
+text-align: left;
+/* BROWSER CONSIDERATION - Override browser settings for BODY margin */
+margin-top: 0px;
+margin-left: 1%;
+margin-right: 2%;
+/* Cityu clip-on - OCIO background-image: url(/wtlgifs/web_bg_app.jpg); */
+background-image: url('');
+background-repeat: no-repeat;
+}
+BODY.campuspipeline {
+background-color: #FFFFFF;
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-style: normal;
+text-align: left;
+/* BROWSER CONSIDERATION - Override browser settings for BODY margin */
+margin-top: 6px;
+margin-left: 2%;
+background-image: none;
+background-repeat: no-repeat;
+}
+BODY.previewbody {
+background-color: #FFFFFF;
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+margin-left: 2%;
+margin-right: 2%;
+
+/* Override the background image in the main BODY */
+background-image: none;
+}
+
+BODY.validationbody {
+background-color: #FFFFFF;
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+margin-left: 0%;
+margin-right: 2%;
+/* Override the background image in the main BODY */
+background-image: none;
+}
+
+/* DIVIDES                                                  */
+/* All divides should have rules defined for margin and     */
+/* text-align.                                              */
+/* ======================================================== */
+DIV.menulistdiv {
+text-align: left;
+}
+
+DIV.headerwrapperdiv {
+
+margin-left: 0px;
+margin-top: 0px;
+}
+
+DIV.pageheaderdiv1 {
+
+text-align: left;
+/* Cityu clip-on - OCIO margin-top: 8%; */
+margin-top: 0%;
+margin-left: 0px;
+border-bottom: 0px solid;
+border-left: 0px solid;
+border-right: 0px solid;
+border-top: 0px solid;
+
+}
+
+DIV.pageheaderdiv2 {
+text-align: right;
+margin-top: 10px;
+margin-right: 10px;
+position: absolute;
+top: 0px;
+right: 0px;
+float: right;
+display: none;
+
+}
+
+DIV.headerlinksdiv {
+text-align: left;
+margin-right: 0%;
+
+}
+
+/* Class for BANNER SEARCH Form text and button controls     */
+/* ========================================================  */
+DIV.headerlinksdiv2 {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+text-transform: none;
+}
+
+DIV.bodylinksdiv {
+text-align: center;
+margin-top: 1%;
+}
+
+DIV.footerlinksdiv {
+text-align: center;
+}
+
+DIV.backlinkdiv {
+text-align: right;
+margin-top: -40px;
+}
+
+DIV.pagetitlediv {
+text-align: left;
+}
+
+DIV.infotextdiv {
+text-align: left;
+}
+
+DIV.pagebodydiv {
+text-align: left;
+}
+
+DIV.pagefooterdiv {
+text-align: left;
+border: 0px;
+margin-top: 0px;
+float: left;
+}
+
+DIV.poweredbydiv {
+text-align: right;
+margin-right: -1px;
+margin-top: 0px;
+border-bottom: 0px solid;
+border-left: 0px solid;
+border-right: 0px solid;
+border-top: 0px solid;
+float: right;
+}
+
+DIV.previewdiv {
+text-align: center;
+}
+
+DIV.validationdiv {
+text-align: center;
+}
+
+DIV.staticheaders {
+text-align: right;
+font-size:  90%;
+}
+/* HEADERS                                                  */
+/* Do not set font-size for headers - defer to browser.      */
+/* ======================================================== */
+/* H1 is reserved for Page Header */
+H1 {
+color: #FFFFFF;
+font-family: verdana, Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-style: normal;
+font-size:0%;
+margin-top: 0px;
+}
+
+
+/* H2 is reserved for Page Title */
+H2 {
+color	   : BLACK;
+font-family: verdana, Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-style : normal;
+}
+
+/* H3 is reserved for Sub Title */
+H3 {
+color	   : BLACK;
+font-family: verdana, Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-style : normal;
+}
+
+/* Horizontal Rule for Menu Section                         */
+/* ======================================================== */
+
+HR {
+color: #CCCC33;
+text-align: left;
+vertical-align: top;
+margin-top: -10px;
+}
+
+HR.pageseprator {
+color: #003366;
+text-align: left;
+vertical-align: top;
+}
+
+
+/* FORM CONTROLS                                            */
+/* ======================================================== */
+INPUT {
+/*background-color: #FFFFFF;*/
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+}
+
+
+TEXTAREA {
+/*background-color: #FFFFFF;*/
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+
+}
+
+SELECT {
+/*background-color: #FFFFFF;*/
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+}
+
+
+
+/* TABLES                                                   */
+/* ======================================================== */
+TABLE.dataentrytable {
+border-bottom: 0px solid;
+border-left: 0px solid;
+border-right: 0px solid;
+border-top: 0px solid;
+}
+
+TABLE.datadisplaytable {
+/* Cityu clip-on */
+/* Change all 0px to 1px to show border */ 
+border-bottom: 1px #BFBFBF solid;
+border-left: 1px #BFBFBF solid;
+border-right: 1px #BFBFBF solid;
+border-top: 1px #BFBFBF solid;
+/* End of Cityu clip-on */
+}
+
+TABLE.plaintable {
+border-bottom: 0px solid;
+border-left: 0px solid;
+border-right: 0px solid;
+border-top: 0px solid;
+}
+
+TABLE.menuplaintable {
+/* Create a horizontal rule effect. */
+border-top: 1pt #707070 solid;
+}
+
+TABLE.pageheadertable {
+margin-top: 0px;
+}
+
+TABLE.colorsampletable {
+background-color: #FFFFFF;
+}
+
+TABLE.bordertable {
+border-collapse:collapse;
+border-bottom: 1px #BFBFBF solid;
+border-left: 1px #BFBFBF solid;
+border-right: 1px #BFBFBF solid;
+border-top: 1px #BFBFBF solid;
+}
+
+/* TABLE HEADERS AND DATA CELLS                             */
+/* ======================================================== */
+TABLE TH {
+vertical-align: top;
+color: black;
+}
+
+TABLE TD {
+vertical-align: top;
+color: black;
+}
+
+.pageheadertablecell {
+text-align: left;
+}
+
+.pageheadernavlinkstablecell {
+text-align: right;
+}
+
+/* DATA ENTRY TABLE HEADERS AND DATA CELLS                  */
+/* Some font rules are redunant because they do not         */
+/* inherit well from the BODY on older browsers.            */
+/* ======================================================== */
+TABLE TD.deheader {
+background-color: #E3E5EE;
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+}
+
+TABLE TH.deheader {
+background-color: #E3E5EE;
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+}
+
+TABLE TD.detitle {
+background-color: #E3E5EE;
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+/* Make titles big and chunky. */
+padding-bottom: 1em;
+}
+
+TABLE TH.detitle {
+background-color: #E3E5EE;
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+/* Make titles big and chunky. */
+padding-bottom: 1em;
+}
+
+TABLE TD.delabel {
+/*background-color: #E3E5EE;*/
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+}
+
+TABLE TH.delabel {
+/*background-color: #E3E5EE;*/
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+}
+
+TABLE TD.deseparator {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+}
+
+TABLE TD.dehighlight {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+}
+
+TABLE TD.dedead {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+}
+
+TABLE TD.dedefault {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+}
+
+TABLE TD.dewhite {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+}
+
+TABLE TD.deborder {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+border: 1px #BFBFBF solid;
+
+}
+
+/* DATA DISPLAY TABLE HEADERS AND DATA CELLS                */
+/* Some font rules are redunant because they do not         */
+/* inherit well from the BODY on older browsers.            */
+/* ======================================================== */
+TABLE TD.ddheader {
+background-color: #E3E5EE;
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+/* CityU clip-on */
+/* text-align: left; */
+padding-left:5px;
+padding-right:5px;
+/* End of Cityu clip-on */
+vertical-align: top;
+}
+
+TABLE TH.ddheader {
+background-color: #E3E5EE;
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+/* CityU clip-on */
+/* text-align: left; */
+border: 1px #BFBFBF solid;
+padding-left:5px;
+padding-right:5px;
+/* End of Cityu clip-on */
+vertical-align: top;
+}
+
+TABLE TD.ddtitle {
+background-color: #E3E5EE;
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+/* CityU clip-on */
+/* text-align: left; */
+padding-left:5px;
+padding-right:5px;
+/* End of Cityu clip-on */
+vertical-align: top;
+/* Make titles big and chunky. */
+padding-bottom: 1em;
+}
+
+TABLE TH.ddtitle {
+background-color: #E3E5EE;
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+/* CityU clip-on */
+/* Note: keep left text-align */
+text-align: left;
+border: 1px #BFBFBF solid;
+padding-left:5px;
+padding-right:5px;
+/* End of Cityu clip-on */
+vertical-align: top;
+/* Make titles big and chunky. */
+padding-bottom: 1em;
+}
+
+TABLE TD.ddlabel {
+/*background-color: #E3E5EE;*/
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+/* CityU clip-on */
+/* text-align: left; */
+padding-left:5px;
+padding-right:5px;
+/* End of Cityu clip-on */
+vertical-align: top;
+}
+
+/*  CityU custom class cityuddlabel
+    to facilitate outputting valign=program-specified
+    to facilitate outputting align=program-specified
+    modified from TABLE TD.ddlabel
+*/
+TABLE TD.cityuddlabel {
+background-color: #E3E5EE;
+color: #1E2B83;
+font-family: Arial Narrow, verdana, helvetica, sans-serif;
+font-weight: bold;
+font-size: 100%;
+font-style: normal;
+padding-left:5px;
+padding-right:5px;
+/*text-align: left;*/
+/*vertical-align: top;*/
+}
+
+TABLE TH.ddlabel {
+/*background-color: #E3E5EE;*/
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+/* CityU clip-on */
+/* text-align: left; */
+padding-left:5px;
+padding-right:5px;
+/* End of Cityu clip-on */
+vertical-align: top;
+}
+
+
+TABLE TD.ddseparator {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+/* CityU clip-on */
+/* text-align: left; */
+padding-left:5px;
+padding-right:5px;
+/* End of Cityu clip-on */
+vertical-align: top;
+}
+
+TABLE TD.ddhighlight {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+/* CityU clip-on */
+/* text-align: left; */
+padding-left:5px;
+padding-right:5px;
+/* End of Cityu clip-on */
+vertical-align: top;
+}
+
+TABLE TD.dddead {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+/* CityU clip-on */
+/* text-align: left; */
+padding-left:5px;
+padding-right:5px;
+/* End of Cityu clip-on */
+vertical-align: top;
+}
+
+TABLE TD.dddefault {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+/* CityU clip-on */
+/* text-align: left; */
+border: 1px #BFBFBF solid;
+padding-left:5px;
+padding-right:5px; 
+padding-top:0em;
+padding-bottom:0em;
+vertical-align: top;
+/*border-bottom: 1pt #BFBFBF solid; */
+/* End of Cityu clip-on */
+}
+
+TABLE TD.ddnontabular {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+/* CityU clip-on */
+/* text-align: left; */
+padding-left:5px;
+padding-right:5px;
+/* End of Cityu clip-on */
+vertical-align: top;
+}
+
+TABLE TD.ddwhite {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+/* CityU clip-on */
+/* text-align: left; */
+padding-left:5px;
+padding-right:5px;
+/* End of Cityu clip-on */
+vertical-align: top;
+}
+
+/* PLAIN TABLE HEADERS AND DATA CELLS                       */
+/* These table data cell classes pertain to a table that is */
+/* used strictly for layout. They do not have the redundant */
+/* font rules because it is assumed that whatever is placed */
+/* in these TD/TH tags will have its own class.             */
+/* ======================================================== */
+TABLE TD.pltitle {
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-weight: bold;
+}
+
+TABLE TD.plheader {
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-size: 90%;
+font-weight: bold;
+}
+
+TABLE TH.pllabel {
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-size: 90%;
+font-weight: bold;
+}
+
+TABLE TD.plseparator {
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+}
+
+TABLE TD.plhighlight {
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+}
+
+TABLE TD.pldead {
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+}
+
+TABLE TD.pldefault {
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+}
+
+TABLE TD.plwhite {
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+
+}
+TABLE TD.plheaderlinks {
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+
+}
+
+
+/*========================================================*/
+/*=======  Class for header links=========================*/
+/*========================================================*/
+
+TABLE TD.plheadermenulinks {
+font-weight: normal;
+/*background-color:#CED5EA;*/
+}
+
+
+
+
+/* MENU PLAIN TABLE HEADERS AND DATA CELLS                  */
+/* ======================================================== */
+TABLE TD.mptitle {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+}
+
+TABLE TD.mpheader {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+}
+
+TABLE TH.mplabel {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+}
+
+TABLE TD.mpwhite {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+}
+
+TABLE TD.mpdefault {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+}
+
+TABLE TD.indefault {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+/* CityU clip-on */
+/* The below vertical-align is added because we have removed the one in the overall table TD */
+vertical-align: top;
+/* End of Cityu clip-on */
+}
+
+/* Define tables with border				    */
+/* ======================================================== */
+TABLE TD.dbheader {
+background-color: #E3E5EE;
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+border: 1px #BFBFBF solid;
+}
+
+TABLE TH.dbheader {
+background-color: #E3E5EE;
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+border: 1px #BFBFBF solid;
+}
+
+TABLE TD.dbtitle {
+background-color: #E3E5EE;
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+/* Make titles big and chunky. */
+padding-bottom: 1em;
+border: 1px #BFBFBF solid;
+}
+
+TABLE TH.dbtitle {
+background-color: #E3E5EE;
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+/* Make titles big and chunky. */
+padding-bottom: 1em;
+border: 1px #BFBFBF solid;
+}
+
+TABLE TD.dblabel {
+/*background-color: #E3E5EE;*/
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+border: 1px #BFBFBF solid;
+}
+
+TABLE TH.dblabel {
+background-color: #E3E5EE;
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+border: 1px #BFBFBF solid;
+}
+TABLE TD.dbdefault {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+border: 1px #BFBFBF solid;
+}
+
+
+
+
+/* NON TABULAR TABLE DATA DISPLAY  HEADERS AND DATA CELLS  */
+/* Some font rules are redunant because they do not         */
+/* inherit well from the BODY on older browsers.            */
+/* ======================================================== */
+TABLE TD.ntheader {
+background-color: #E3E5EE;
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+}
+
+TABLE TH.ntheader {
+background-color: #E3E5EE;
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+}
+
+TABLE TD.nttitle {
+background-color: #E3E5EE;
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+/* Make titles big and chunky. */
+padding-bottom: 1em;
+}
+
+TABLE TH.nttitle {
+background-color: #E3E5EE;
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+/* Make titles big and chunky. */
+padding-bottom: 1em;
+}
+
+TABLE TD.ntlabel {
+background-color: #E3E5EE;
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+}
+
+TABLE TH.ntlabel {
+background-color: #E3E5EE;
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: bold;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+}
+
+TABLE TD.ntseparator {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+}
+
+TABLE TD.nthighlight {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+}
+
+TABLE TD.ntdead {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+}
+
+TABLE TD.ntdefault {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+}
+
+TABLE TD.ntwhite {
+color: black;
+font-family: Verdana,Arial Narrow,  helvetica, sans-serif;
+font-weight: normal;
+font-size: 90%;
+font-style: normal;
+text-align: left;
+vertical-align: top;
+}
+/*
+
+New Tab styles for Self Service
+
+*/
+.bgtabon {
+	BACKGROUND-COLOR: #003366
+}
+.bgtaboff {
+	BACKGROUND-COLOR: #cccccc
+}
+.texttabon {
+	COLOR: #ffffff
+}
+.texttaboff {
+	COLOR: #000000
+}
+/* Cityu clip-on - OCIO	PADDING-LEFT: 8px; FONT-WEIGHT: bold; FONT-SIZE: 12px; BACKGROUND-IMAGE: url(/wtlgifs/web_tab_corner.gif); COLOR: #ffffff; BACKGROUND-REPEAT: no-repeat; BACKGROUND-COLOR: #003366 */
+.tabon {
+	PADDING-LEFT: 8px; FONT-WEIGHT: bold; FONT-SIZE: 12px; BACKGROUND-IMAGE: url(/cityu2/gifs/web_tab_corner.gif); COLOR: #ffffff; BACKGROUND-REPEAT: no-repeat; BACKGROUND-COLOR: #003366
+}
+.tabon A:link {
+	COLOR: #ffffff; TEXT-DECORATION: none
+}
+.tabon A:visited {
+	COLOR: #ffffff; TEXT-DECORATION: none
+}
+.tabon A:active {
+	COLOR: #ffffff; TEXT-DECORATION: none
+}
+.tabon A:hover {
+	COLOR: #ffffff; TEXT-DECORATION: none
+}
+/* Cityu clip-on - OCIO      BACKGROUND-IMAGE: url(../wtlgifs/web_tab_corner.gif); */
+.taboff {
+	PADDING-LEFT: 8px;
+      FONT-WEIGHT: bold;
+      FONT-SIZE: 12px;
+      BACKGROUND-IMAGE: url(/cityu2/gifs/web_tab_corner.gif);
+      COLOR: #000000;
+      BACKGROUND-REPEAT: no-repeat;
+      BACKGROUND-COLOR: #cccccc
+}
+.taboff A:link {
+	COLOR: #000000; TEXT-DECORATION: none
+}
+.taboff A:visited {
+	COLOR: #000000; TEXT-DECORATION: none
+}
+.taboff A:active {
+	COLOR: #000000; TEXT-DECORATION: none
+}
+.taboff A:hover {
+	COLOR: #000000; TEXT-DECORATION: none
+}
+
+/* 80100-1 */
+/* Cityu clip-on - OCIO      BACKGROUND-IMAGE: url(../wtlgifs/web_tab_corner.gif); */
+.tabdisable {
+	PADDING-LEFT: 8px;
+      FONT-WEIGHT: bold;
+      FONT-SIZE: 12px;
+      BACKGROUND-IMAGE: url(/cityu2/gifs/web_tab_corner.gif);
+      COLOR: #F2F2F2;
+      BACKGROUND-REPEAT: no-repeat;
+      BACKGROUND-COLOR: #cccccc
+}
+.tabdisable A:link {
+	COLOR: #F2F2F2; TEXT-DECORATION: none
+}
+.tabdisable A:visited {
+	COLOR: #F2F2F2; TEXT-DECORATION: none
+}
+.tabdisable A:active {
+	COLOR: #F2F2F2; TEXT-DECORATION: none
+}
+.tabdisable A:hover {
+	COLOR: #F2F2F2; TEXT-DECORATION: none
+}
+
+.bg3 {
+	BACKGROUND-COLOR: #cccc00
+}
+
+
+/* ========================================================================  */
+/* Cityu clip-on - OCIO @ Jan 2010                                           */
+/* Overrided Defaults                                                        */
+/* ========================================================================  */
+body {font-size: 90%; line-height: 1.2em; font-family: Arial, Helvetica, sans-serif;}
+body, img {outline: 0; border: 0; margin: 0; padding: 0;}
+p p {outline: 0; border: 0; margin: 0; padding: 0;}
+p.leftaligntext, p.centeraligntext, p.rightaligntext {margin: 0;}
+th, td, div, p, ul, ol {line-height: 1.2em;}
+span {line-height: 1.6em;}
+th, td {vertical-align: top;}
+ul {list-style-type: disc;}
+li {margin-left: 3em;}
+hr {border-top: 1px dotted #cccccc; border-bottom: 1px solid #ffffff; border-left: 1px solid #ffffff; border-right: 1px solid #ffffff; margin: 0em 0px 0.5em 0px; padding: 0;}
+form {margin: 1em 0px;}
+/* OCIO *form {display: inline;} */ /* IE7 or below */
+input {padding: 2px 3px; font-family: Verdana, Genva, Tahoma, sans-serif;}
+/* OCIO select {padding: 0px; font-size: 0.8em; font-family: Arial, Helvetica, sans-serif;} */
+select {padding: 0px; font-family: Arial, Helvetica, sans-serif;}
+
+h1 {margin: 1em 0em 1em 0em; line-height: 1.6em; font-size: 2.0em; font-family: "Times New Roman", Times, serif;}
+h2 {margin: 1em 0em 1em 0em; line-height: 1.6em; font-size: 1.2em; font-family: Arial, Helvetica, sans-serif; font-weight: bold;}
+h3 {margin: 1em 0em 1em 0em; line-height: 1.6em; font-size: 1.1em; font-family: Arial, Helvetica, sans-serif; font-weight: bold;}
+h4 {margin: 1em 0em 1em 0em; line-height: 1.6em; font-size: 1.0em; font-family: Arial, Helvetica, sans-serif; font-weight: bold;}
+h5 {margin: 1em 0em 1em 0em; line-height: 1.6em; font-size: 1.0em; font-family: Arial, Helvetica, sans-serif; font-weight: bold;}
+h6 {margin: 1em 0em 1em 0em; line-height: 1.6em; font-size: 1.0em; font-family: Arial, Helvetica, sans-serif;}
+/* OCIO *h1, *h2, *h3 {margin: 0;} */ /* IE7 or below */
+/* OCIO small {color: #888888;} */
+
+a:link,
+a:visited,
+a:active {color: #007ac4; text-decoration: none;}
+a:hover,
+a:focus {color: #990000; text-decoration: underline;}
+
+
+/* ========================================================================  */
+/* Overrided AIMS Classes                                                    */
+/* ========================================================================  */
+/* Menu */
+span.pageheaderlinks2 table,
+span.pageheaderlinks2 tr,
+span.pageheaderlinks2 p {outline: 0; border: 0; margin: 0; padding: 0;}
+span.pageheaderlinks2 td.tabon,
+span.pageheaderlinks2 td.bgtabon {background-color: #a50b5e;}
+span.pageheaderlinks2 td.taboff,
+span.pageheaderlinks2 td.bgtaboff {background-color: #e9e9e9;}
+span.pageheaderlinks2 td.tabon,
+span.pageheaderlinks2 td.taboff {vertical-align: middle;}
+
+span.pageheaderlinks2 td.bgtaboff, span.pageheaderlinks2 td.bgtabon {
+   border-right: 1px solid #ffffff;
+}
+
+span.pageheaderlinks2 .tabon a, span.pageheaderlinks2 .taboff a {
+   padding: 10px 6px 10px 14px;
+   display: block;
+}
+
+span.pageheaderlinks2 .tabon, span.pageheaderlinks2 .taboff {
+   padding:0;
+}
+
+/* Menu: Search Toolbar */
+div.headerlinksdiv2 {float: right; outline: 0; border: 0; margin: 3px 15px 0px 15px; padding: 0; line-height: 1em; font-family: Arial, Helvetica, sans-serif;}
+div.headerlinksdiv2 form {outline: 0; border: 0; margin: 0; padding: 0;}
+
+
+/* Title */
+div.pagetitlediv table,
+div.pagetitlediv tr,
+div.pagetitlediv td,
+/* OCIO div.pagetitlediv p {outline: 0; border: 0; margin: 0; padding: 0;} */
+div.pagetitlediv p {outline: 0; border: 0; margin: 0.5em; padding: 0;}
+div.pagetitlediv table {margin-bottom: 0.5em;}
+div.pagetitlediv h2 {margin: 0em; line-height: 1.2em; color: #444444; font-size: 1.8em; font-family: "Times New Roman", Times, serif; letter-spacing: 0px; font-weight: normal;}
+div.pagetitlediv td.bg3 {border-top: 1px solid #444444; border-bottom: 1px solid #ffffff; border-left: 1px solid #ffffff; border-right: 1px solid #ffffff; margin: 0; padding: 0;}
+div.pagetitlediv td.bg3 img {height: 0;}
+
+
+/* Info Text */
+div.infotextdiv table.infotexttable {outline: 0; border: 0; margin: 0.5em 0 1.2em 0; padding: 0;}
+/* OCIO *div.infotextdiv table.infotexttable {margin-bottom: 0.5em;} */ /* IE7 or below */
+div.infotextdiv p {outline: 0; border: 0; margin: 0; padding: 0;}
+/* OCIO span.infotext {font-size: 1em; font-family: Arial, Helvetica, sans-serif;} */
+span.infotext {font-size: 1em; font-family: Arial, Helvetica, sans-serif;}
+
+
+/* Form */
+table.dataentrytable td.delabel,
+table.dataentrytable td.delabel p.leftaligntext {margin: 0; padding: 0 5px 0 0; line-height: 1.2em; font-family: Arial, Helvetica, sans-serif; font-weight: normal;}
+
+
+/* Body */
+td.default {font-size: 0.9em;}
+table.menuplaintable,
+table.menuplaintable tr,
+table.menuplaintable td,
+table.menuplaintable p,
+table.menuplaintable a,
+table.menuplaintable span,
+table.menuplaintable font,
+table.menuplaintable img{outline: 0; border: 0; margin: 0; padding: 0; line-height: 1.4em;}
+table.menuplaintable {margin-bottom: 1em;}
+table.menuplaintable a.submenulinktext2 img {margin: 0.4em 5px 0 0;}
+table.menuplaintable a.submenulinktext2,
+table.menuplaintable a.submenulinktext2:link,
+table.menuplaintable a.submenulinktext2:visited,
+table.menuplaintable a.submenulinktext2:active {color: #1252a0; font-weight: bold; text-decoration: none; font-family: Arial, Helvetica, sans-serif;}
+table.menuplaintable a.submenulinktext2:hover,
+table.menuplaintable a.submenulinktext2:focus {color: #BF165E; font-weight: bold; text-decoration: underline; font-family: Arial, Helvetica, sans-serif;}
+table.menuplaintable span.menulinkdesctext font {font-size: 1.2em; font-family: Arial, Helvetica, sans-serif; position: relative; top: -0.4em;}
+
+
+/* ========================================================================  */
+/* New Classes                                                               */
+/* ========================================================================  */
+/* CityU Bar */
+div.cityubar_outer {clear: both; margin: 0px; padding: 0px;}
+div.cityubar_inner {padding: 5px 15px; vertical-align: middle; font-size: 11px; font-weight: bold;}
+div.cityubar_inner a.cityu_nameplate {position: relative; top: -6px; left: 3px;}
+div.cityubar_inner a.cityu_nameplate:hover {text-decoration: none;}
+div.cityubar_tools {font-size: 10px; font-weight: normal; font-family: Verdana, Geneva, Tahoma, sans-serif;}
+div.cityubar_tools a {line-height: 2em;}
+div.cityubar_tools a.submenulinktext2,
+div.cityubar_tools a.submenulinktext2:link,
+div.cityubar_tools a.submenulinktext2:visited,
+div.cityubar_tools a.submenulinktext2:active {color: #006797; text-decoration: none; font-size: 10px; font-family: Verdana, Geneva, Tahoma, sans-serif;}
+div.cityubar_tools a.submenulinktext2:hover,
+div.cityubar_tools a.submenulinktext2:focus {color: #990000; text-decoration: underline; font-size: 10px; font-family: Verdana, Geneva, Tahoma, sans-serif;}
+
+
+/* Header */
+# div.header_outer {clear: both; height: 150px; margin: 0px; padding: 0px; background: #ffffff url(/cityu2/gifs/web_bg_header.png) repeat-x;}
+#div.header_outer {clear: both; height: 150px; margin: 0px; padding: 0px; background:none; background-color:#F1F1F1;}
+div.header_outer {clear: both; height: 80px; margin: 0px; padding: 0px; background:none; background-color:#F1F1F1;}
+div.header_inner {padding: 0px 15px; text-align: left; vertical-align: middle;} 
+div.header_inner h1 {display: inline; position: relative; top: -137px; left: 0px; margin: 0; line-height: 1em; color: #ffffff; font-size: 40px; font-family: "Trebuchet MS", sans-serif; font-weight: normal; text-decoration: none;}
+/* OCIO *div.header_inner h1 {top: -145px;} */ /* IE7 or below */
+div.header_inner h1 a,
+div.header_inner h1 a:link,
+div.header_inner h1 a:visited,
+div.header_inner h1 a:active,
+div.header_inner h1 a:hover,
+div.header_inner h1 a:focus {color: #ffffff;  text-decoration: none;}
+@media print {
+	div.header_outer img {height: 0px; width: 0px;}
+	div.header_outer {height: 40px; background: none;}
+	div.header_inner {vertical-align: middle;}
+	div.header_inner h1 {top: 0px;}
+	div.header_inner h1 a {color: #000000;}
+}
+
+
+/* Footer */
+div.footer_outer {clear: both; margin: 0px 15px 15px 15px; padding: 0px; background-color: #ffffff;}
+/* div.footer_inner {border-top: 1px solid #dddddd; padding: 5px 0px; vertical-align: middle; color: #888888; font-size: 11px;} */
+div.footer_inner {border-top: 1px solid #dddddd; padding: 5px 0px; vertical-align: middle; color: #888888; }
+div.footer_inner table.plaintable td.pldefault {color: #888888;}
+div.footer_inner table.plaintable {margin-bottom: 5px;}
+
+
+/* Menu */
+
+
+/* Menu: Search Toolbar */
+input.search_textbox {width: 200px; outline: 0; margin: 0; padding: 3px; border: 1px solid #0080c1; font-size: 12px; font-family: Arial,
+Helvetica, sans-serif;}
+input[type="submit"].search_button, 
+input[type="submit"].search_button:visited {
+	display: inline-block; 
+	cursor: pointer;
+	position: relative;
+	padding: 2px 2px 2px 2px;
+	width: 28px;
+	height: 22px;
+
+	background: #0070b0 url(/cityu2/gifs/web_bg_button_28x22.png) repeat-x; 	
+	border: 0px;
+	border-bottom: 1px solid rgba(0,0,0,0.25);
+	-moz-border-radius: 5px; 
+	-webkit-border-radius: 5px;
+	-moz-box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+	-webkit-box-shadow: 0 1px 3px rgba(0,0,0,0.5);	
+	
+	color: #ffffff;	
+	font-size: 13px;
+	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;	
+	font-weight: bold;
+	line-height: 1em;
+	text-decoration: none;
+	text-shadow: 0 -1px 1px rgba(0,0,0,0.25);	
+}
+@media print {
+	input[type="submit"].search_button {text-shadow: none; background-color: #cccccc; border: 1px solid #888888; position: static;
+	-webkit-box-shadow: inherit; -webkit-border-radius: inherit;}
+}
+input[type="submit"].search_button:active {top: 1px;}
+input[type="submit"].search_button:hover,
+input[type="submit"].search_button:focus {background-color: #004080;}
+
+
+/* Form */
+form.form_login table.dataentrytable,
+form.form_login table.dataentrytable tr,
+form.form_login table.dataentrytable td,
+form.form_login table.dataentrytable p {outline: 0; border: 0; margin: 0; padding: 0;}
+form.form_login table.dataentrytable td.dedefault input {margin-bottom: 10px;}
+form.form_login table.dataentrytable td.dedefault input {width: 200px;}
+form.form_login input[type="submit"] {margin: 10px 0px;}
+/* OCIO *form.form_login input[type="submit"] {margin-bottom: 15px;} */ /* IE7 or below */
+
+
+/* Form: Buttons */
+/* Ref: http://www.smashingmagazine.com/2009/12/02/pushing-your-buttons-with-practical-css3/ */
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+input[type="button"]:visited,  
+input[type="submit"]:visited,
+input[type="reset"]:visited {
+	display: inline-block; 
+	cursor: pointer;
+	position: relative;
+	padding: 3px 4px;
+
+	background: #444444 url(/cityu2/gifs/web_bg_button.png) repeat-x;
+	border: 0px;
+	border-bottom: 1px solid rgba(0,0,0,0.25);
+	-moz-border-radius: 5px; 
+	-webkit-border-radius: 5px;
+	-moz-box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+	-webkit-box-shadow: 0 1px 3px rgba(0,0,0,0.5);	
+	
+	color: #ffffff;	
+	font-size: 13px;
+	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;	
+	font-weight: bold;
+	line-height: 1em;
+	text-decoration: none;
+	text-shadow: 0 -1px 1px rgba(0,0,0,0.25);	
+}
+@media print {
+	input[type="submit"],input[type="reset"],input[type="button"] {text-shadow: none; background-color: #cccccc; border: 1px solid #888888;
+	position: static; -webkit-box-shadow: inherit; -webkit-border-radius: inherit;}
+}
+input[type="button"]:active,
+input[type="submit"]:active,
+input[type="reset"]:active {top: 1px;}
+input[type="button"]:hover,
+input[type="submit"]:hover,
+input[type="reset"]:hover,
+input[type="button"]:focus,
+input[type="submit"]:focus,
+input[type="reset"]:focus {background-color: #111111;}
+
+/* Form: Buttons: cityu_button_100 */
+input[type="button"].cityu_button_100,
+input[type="submit"].cityu_button_100,
+input[type="reset"].cityu_button_100,
+input[type="button"].cityu_button_100:visited,  
+input[type="submit"].cityu_button_100:visited,
+input[type="reset"].cityu_button_100:visited {
+	display: inline-block; 
+	cursor: pointer;
+	position: relative;
+	padding: 5px 0px 6px 0px;
+	width: 100px;
+	height: 27px;
+
+	background: #444444 url(/cityu2/gifs/web_bg_button_100x27.png) repeat-x;
+	border: 0px;
+	border-bottom: 1px solid rgba(0,0,0,0.25);
+	-moz-border-radius: 5px; 
+	-webkit-border-radius: 5px;
+	-moz-box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+	-webkit-box-shadow: 0 1px 3px rgba(0,0,0,0.5);	
+	
+	color: #ffffff;	
+	font-size: 13px;
+	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;	
+	font-weight: bold;
+	line-height: 1em;
+	text-decoration: none;
+	text-shadow: 0 -1px 1px rgba(0,0,0,0.25);	
+}
+@media print {
+	input[type="submit"],input[type="reset"],input[type="button"] {text-shadow: none; background-color: #cccccc; border: 1px solid #888888;
+	position: static; -webkit-box-shadow: inherit; -webkit-border-radius: inherit;}
+}
+input[type="button"].cityu_button_100:active,
+input[type="submit"].cityu_button_100:active,
+input[type="reset"].cityu_button_100:active {top: 1px;}
+input[type="button"].cityu_button_100:hover,
+input[type="submit"].cityu_button_100:hover,
+input[type="reset"].cityu_button_100:hover,
+input[type="button"].cityu_button_100:focus,
+input[type="submit"].cityu_button_100:focus,
+input[type="reset"].cityu_button_100:focus {background-color: #111111;}
+
+/*
+input.green.input_button,
+input.green.input_button:visited {background-color: #91bd09;}
+input.green.input_button:hover,
+input.green.input_button:focus {background-color: #749a02;}
+
+input.blue.input_button,
+input.blue.input_button:visited {background-color: #2daebf;}
+input.blue.input_button:hover,
+input.blue.input_button:focus {background-color: #007d9a;}
+
+input.red.input_button,
+input.red.input_button:visited {background-color: #e33100;}
+input.red.input_button:hover,
+input.red.input_button:focus {background-color: #872300;}
+
+input.magenta.input_button,
+input.magenta.input_button:visited {background-color: #a9014b;}
+input.magenta.input_button:hover,
+input.magenta.input_button:focus {background-color: #630030;}
+
+input.orange.input_button,
+input.orange.input_button:visited {background-color: #ff5c00;}
+input.orange.input_button:hover,
+input.orange.input_button:focus {background-color: #d45500;}
+
+input.yellow.input_button,
+input.yellow.input_button:visited {background-color: #ffb515;}
+input.yellow.input_button:hover,
+input.yellow.input_button:focus {background-color: #fc9200;}
+*/
+
+/* Body */
+div.body {clear: both; padding: 0em 15px 0.5em 15px; text-align: left; vertical-align: top;}
+
+
+/* Body: Communications Directory: */
+div.hwgksphb_links {position: relative; top: -0.5em; line-height: 1.6em; outline: 0; border: 0; margin: 0; padding: 0; font-size: 0.75em; font-family: Verdana, Geneva, Tahoma, sans-serif;}
+table.hwgksphb_privacy {border: 1px solid #ffcc00; margin: 0px; background-color: #ffeeaa; -moz-border-radius: 10px; -webkit-border-radius: 10px; -moz-box-shadow: 0 1px 3px rgba(0,0,0,0.5); -webkit-box-shadow: 0 1px 3px rgba(0,0,0,0.5);}
+table.hwgksphb_privacy td {padding: 5px;}
+table.hwgksphb_help {margin: 0px;}
+table.hwgksphb_help td {padding: 0px;}
+table.hwgksphb_help h3 {outline: 0; border: 0; margin: 0; padding: 0;}
+table.hwgksphb_help h5 {font-size: 0.8em; line-height: 1.6em;}
+table.hwgksphb_help ol {margin-left: -10px; padding: 0px; font-size: 0.8em;}
