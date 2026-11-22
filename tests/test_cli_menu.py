@@ -203,10 +203,18 @@ def test_menu_saves_aims_path_and_reuses_it(monkeypatch, tmp_path):
     ]
 
 
-def test_menu_returns_after_task_error(monkeypatch, tmp_path, capsys):
+def test_menu_reprompts_same_option_after_task_error(monkeypatch, tmp_path, capsys):
     config_file = tmp_path / "aims_html_path.txt"
     inputs = iter(
-        ["3", r"C:\Schedules\missing.html", "5", "environment", "q", "0"]
+        [
+            "3",
+            r"C:\Schedules\missing.html",
+            r"C:\Schedules\current.html",
+            "5",
+            "environment",
+            "q",
+            "0",
+        ]
     )
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
     monkeypatch.setattr(
@@ -218,7 +226,7 @@ def test_menu_returns_after_task_error(monkeypatch, tmp_path, capsys):
 
     def run_command(argv=None):
         commands.append(argv)
-        if argv and argv[0] == "--aims-html":
+        if argv == ["--aims-html", r"C:\Schedules\missing.html"]:
             raise SystemExit(2)
 
     monkeypatch.setattr(cli, "main", run_command)
@@ -227,10 +235,23 @@ def test_menu_returns_after_task_error(monkeypatch, tmp_path, capsys):
 
     assert commands == [
         ["--aims-html", r"C:\Schedules\missing.html"],
+        ["--aims-html", r"C:\Schedules\current.html"],
         ["--ge-search", "environment"],
     ]
-    assert not config_file.exists()
-    assert "Returning to the menu" in capsys.readouterr().out
+    assert config_file.read_text(encoding="utf-8") == r"C:\Schedules\current.html"
+    assert "Please enter the inputs for option 3 again." in capsys.readouterr().out
+
+
+def test_menu_reprompts_required_input_without_returning_to_menu(monkeypatch):
+    inputs = iter(["2", "", "courses.csv", "0"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+    monkeypatch.setattr(cli, "_load_basic_settings", lambda: cli.BasicSettings())
+    commands = []
+    monkeypatch.setattr(cli, "main", lambda argv=None: commands.append(argv))
+
+    cli.interactive_menu()
+
+    assert commands == [["courses.csv"]]
 
 
 def test_menu_exits_when_task_requests_exit(monkeypatch):
@@ -284,7 +305,7 @@ def test_basic_settings_persist_and_apply_to_paste_and_planning(
             "0",
             "8",
             "ge1105",
-            "0",
+            "1",
             "2627A",
             "0",
         ]
@@ -351,6 +372,8 @@ def test_basic_settings_persist_and_apply_to_paste_and_planning(
             "2627A",
             "--courses",
             "GE1105",
+            "--add-ge",
+            "1",
             "--ask",
         ],
     ]
@@ -519,7 +542,7 @@ def test_menu_reports_unknown_delete_command(monkeypatch, capsys):
 
 def test_export_and_plan_menu_options_reuse_saved_aims_path(monkeypatch):
     saved_path = r"C:\Schedules\current AIMS.html"
-    inputs = iter(["AIMS", "", "", "", "ge1102", "0", "2627B"])
+    inputs = iter(["AIMS", "", "", "", "ge1102", "1", "2627B"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
 
     export_command, export_path = cli._menu_command("7", saved_path)
@@ -573,6 +596,8 @@ def test_export_and_plan_menu_options_reuse_saved_aims_path(monkeypatch):
         "2627B",
         "--courses",
         "GE1102",
+        "--add-ge",
+        "1",
         "--ask",
     ]
     assert plan_path == saved_path

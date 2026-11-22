@@ -155,26 +155,63 @@ def test_menu_option_8_without_aims_or_courses(monkeypatch, capsys):
     term_index = command.index("--term")
     assert command[term_index : term_index + 2] == ["--term", "2627B"]
     assert command[command.index("--add-ge") + 1] == "1"
-    assert "whole number of GE courses from 0 to 1" in capsys.readouterr().out
+    assert "whole number of GE courses from 1 to 1" in capsys.readouterr().out
+
+
+def test_menu_option_8_ge_count_must_be_one_through_code_count(
+    monkeypatch,
+    capsys,
+):
+    prompts = []
+    answers = iter(["0", "2", "1"])
+    monkeypatch.setattr(
+        "builtins.input",
+        lambda prompt="": prompts.append(prompt) or next(answers),
+    )
+
+    assert cli._prompt_plan_ge_count(1) == "1"
+    assert all("(1-1; Enter for 1" in prompt for prompt in prompts)
+    assert "whole number of GE courses from 1 to 1" in capsys.readouterr().out
+
+
+def test_menu_option_8_blank_ge_count_uses_course_count(monkeypatch):
+    feed(monkeypatch, "")
+    assert cli._prompt_plan_ge_count(3) == "3"
 
 
 def test_menu_option_8_reprompts_invalid_course_code(monkeypatch, capsys):
-    feed(monkeypatch, "", "GE-1102", "GE1102", "0", "2627B")
+    feed(monkeypatch, "", "GE-1102", "GE1102", "1", "2627B")
 
     command, _ = cli._menu_command("8", None, cli.BasicSettings())
 
     assert command is not None
-    assert command[-5:] == ["--term", "2627B", "--courses", "GE1102", "--ask"]
+    assert command[-7:] == [
+        "--term",
+        "2627B",
+        "--courses",
+        "GE1102",
+        "--add-ge",
+        "1",
+        "--ask",
+    ]
     assert "Invalid course code" in capsys.readouterr().out
 
 
 def test_menu_option_8_reprompts_course_unavailable_in_term(monkeypatch, capsys):
-    feed(monkeypatch, "GE1102", "0", "2627A", "GE1105")
+    feed(monkeypatch, "GE1102", "1", "2627A", "GE1105")
 
     command, _ = cli._menu_command("8", "saved.html", cli.BasicSettings())
 
     assert command is not None
-    assert command[-5:] == ["--term", "2627A", "--courses", "GE1105", "--ask"]
+    assert command[-7:] == [
+        "--term",
+        "2627A",
+        "--courses",
+        "GE1105",
+        "--add-ge",
+        "1",
+        "--ask",
+    ]
     assert "No section details for GE1102 in 2627A" in capsys.readouterr().out
 
 
@@ -187,7 +224,7 @@ def test_invalid_plan_course_reprompts_without_returning_to_menu(
         "8",
         "",
         "GE1102",
-        "",
+        "1",
         "2627A",
         "",
         "",
@@ -215,7 +252,7 @@ def test_menu_option_8_reprompts_invalid_aims_path(monkeypatch, tmp_path, capsys
         str(tmp_path / "missing.html"),
         str(aims),
         "GE1105",
-        "",
+        "1",
         "2627A",
     )
 

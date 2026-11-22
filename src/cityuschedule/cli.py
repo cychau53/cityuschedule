@@ -815,7 +815,7 @@ def _prompt_plan_ge_count(maximum: int) -> str:
     while True:
         count = input(
             "How many GE courses should the generator add? "
-            f"(0-{maximum}; Enter for up to {maximum}, q = menu): "
+            f"(1-{maximum}; Enter for {maximum}, q = menu): "
         ).strip()
         if count.casefold() == "q":
             raise _ReturnToMenu
@@ -827,10 +827,10 @@ def _prompt_plan_ge_count(maximum: int) -> str:
             except ValueError:
                 pass
             else:
-                if 0 <= number <= maximum:
+                if 1 <= number <= maximum:
                     return str(number)
         _print_red(
-            f"Enter a whole number of GE courses from 0 to {maximum}."
+            f"Enter a whole number of GE courses from 1 to {maximum}."
         )
 
 
@@ -1177,43 +1177,47 @@ def interactive_menu() -> None:
                 _show_saved_bundles()
                 continue
 
-            command, aims_path_to_save = _menu_command(
-                choice,
-                saved_aims_path,
-                basic_settings,
-            )
+            task_options = {"2", "3", "4", "6", "7", "8", "9"}
+            if choice not in task_options:
+                _print_red("Choose an option from 0 to 10.")
+                continue
+
+            while True:
+                command, aims_path_to_save = _menu_command(
+                    choice,
+                    saved_aims_path,
+                    basic_settings,
+                )
+                if command is None:
+                    _print_red(
+                        "Required input was not provided. "
+                        f"Please enter the inputs for option {choice} again."
+                    )
+                    continue
+
+                try:
+                    main(command)
+                except SystemExit as error:
+                    if error.code == 0:
+                        return
+                    if error.code:
+                        _print_red(
+                            "\nTask failed. Please enter the inputs for "
+                            f"option {choice} again."
+                        )
+                    continue
+
+                if aims_path_to_save:
+                    saved_aims_path = aims_path_to_save
+                    try:
+                        _save_aims_path(aims_path_to_save)
+                    except OSError as error:
+                        _print_red(f"Could not save AIMS path: {error}")
+                break
         except EOFError:
             return
         except _ReturnToMenu:
             continue
-
-        if command is None:
-            if choice not in {
-                "2", "3", "4", "5", "6", "7", "8", "9", "10"
-            }:
-                _print_red("Choose an option from 0 to 10.")
-            else:
-                _print_red("Required input was not provided.")
-            continue
-
-        try:
-            main(command)
-        except SystemExit as error:
-            if error.code == 0:
-                return
-            if error.code:
-                print(
-                    "\nTask failed. Returning to the menu; "
-                    "choose another option or 0 to exit."
-                )
-            continue
-
-        if aims_path_to_save:
-            saved_aims_path = aims_path_to_save
-            try:
-                _save_aims_path(aims_path_to_save)
-            except OSError as error:
-                _print_red(f"Could not save AIMS path: {error}")
 
 
 def _required_section_pairs(values: list[str] | None) -> dict[str, list[str]]:
