@@ -1172,7 +1172,13 @@ def _plan_menu_command(
             "Please enter another semester."
         )
 
-    aims_path = saved_aims_path or _prompt_plan_aims_path()
+    if saved_aims_path and not Path(saved_aims_path).is_file():
+        _print_red(
+            f"Remembered AIMS HTML was not found: {saved_aims_path}."
+        )
+        aims_path = _prompt_plan_aims_path()
+    else:
+        aims_path = saved_aims_path or _prompt_plan_aims_path()
     codes = _prompt_required_plan_course_codes()
     ge_count = _prompt_plan_ge_count(len(codes))
 
@@ -1442,6 +1448,15 @@ def interactive_menu() -> None:
                         _save_aims_path(aims_path_to_save)
                     except OSError as error:
                         _print_red(f"Could not save AIMS path: {error}")
+                elif choice == "6" and saved_aims_path:
+                    try:
+                        _aims_path_config_file().unlink(missing_ok=True)
+                    except OSError as error:
+                        _print_red(
+                            f"Could not clear the missing AIMS path: {error}"
+                        )
+                    else:
+                        saved_aims_path = None
                 break
         except EOFError:
             return

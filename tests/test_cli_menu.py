@@ -454,7 +454,10 @@ def test_menu_dispatches_paste_aims_command(monkeypatch, capsys, tmp_path):
 
 def test_menu_saves_aims_path_and_reuses_it(monkeypatch, tmp_path):
     config_file = tmp_path / "aims_html_path.txt"
-    saved_path = r"C:\Schedules\current AIMS.html"
+    config_file.write_text("old.html", encoding="utf-8")
+    aims_file = tmp_path / "current AIMS.html"
+    aims_file.write_text("<html></html>", encoding="utf-8")
+    saved_path = str(aims_file)
     inputs = iter(["2", f'"{saved_path}"', "0", "3", "0"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
     monkeypatch.setattr(cli, "_load_basic_settings", lambda: cli.BasicSettings())
@@ -561,7 +564,9 @@ def test_basic_settings_persist_and_apply_to_paste_and_planning(
     tmp_path,
 ):
     settings_file = tmp_path / "basic_settings.json"
-    saved_path = r"C:\Schedules\current AIMS.html"
+    aims_file = tmp_path / "current AIMS.html"
+    aims_file.write_text("<html></html>", encoding="utf-8")
+    saved_path = str(aims_file)
     inputs = iter(
         [
             "1",
@@ -814,8 +819,10 @@ def test_menu_reports_unknown_delete_command(monkeypatch, capsys):
     )
 
 
-def test_plan_menu_option_reuses_saved_aims_path(monkeypatch):
-    saved_path = r"C:\Schedules\current AIMS.html"
+def test_plan_menu_option_reuses_saved_aims_path(monkeypatch, tmp_path):
+    aims_file = tmp_path / "current AIMS.html"
+    aims_file.write_text("<html></html>", encoding="utf-8")
+    saved_path = str(aims_file)
     inputs = iter(["2627B", "ge1102", "1"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
 
@@ -866,3 +873,48 @@ def test_plan_menu_option_reuses_saved_aims_path(monkeypatch):
         "--ask",
     ]
     assert plan_path == saved_path
+
+
+def test_plan_menu_prompts_when_saved_aims_path_is_missing(monkeypatch, capsys):
+    inputs = iter(["2627B", "", "GE1102", "1"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+
+    plan_command, plan_path = cli._menu_command(
+        "6",
+        "courses.html",
+        cli.BasicSettings(),
+    )
+
+    assert plan_command is not None
+    assert "--aims-html" not in plan_command
+    assert plan_path is None
+    assert "Remembered AIMS HTML was not found: courses.html." in (
+        capsys.readouterr().out
+    )
+
+
+def test_plan_menu_clears_missing_saved_aims_path_when_skipped(
+    monkeypatch,
+    tmp_path,
+    capsys,
+):
+    config_file = tmp_path / "aims_html_path.txt"
+    config_file.write_text("courses.html", encoding="utf-8")
+    inputs = iter(["6", "2627B", "", "GE1102", "1", "0"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+    monkeypatch.setattr(cli, "_aims_path_config_file", lambda: config_file)
+    monkeypatch.setattr(cli, "_load_basic_settings", lambda: cli.BasicSettings())
+    commands = []
+    monkeypatch.setattr(
+        cli,
+        "main",
+        lambda argv=None: commands.append(argv),
+    )
+
+    cli.interactive_menu()
+
+    assert commands and "--aims-html" not in commands[0]
+    assert not config_file.exists()
+    assert "Remembered AIMS HTML was not found: courses.html." in (
+        capsys.readouterr().out
+    )

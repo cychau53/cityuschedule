@@ -220,7 +220,10 @@ def test_added_plan_courses_are_green_in_terminal(monkeypatch):
     assert "waiting between classes" not in output.getvalue()
 
 
-def test_menu_option_6_builds_plan_command(monkeypatch):
+def test_menu_option_6_builds_plan_command(monkeypatch, tmp_path):
+    aims_file = tmp_path / "saved.html"
+    aims_file.write_text("<html></html>", encoding="utf-8")
+    saved_path = str(aims_file)
     prompts = []
     answers = iter(["2627B", "ge1102, ge1105", "1"])
     monkeypatch.setattr(
@@ -228,12 +231,12 @@ def test_menu_option_6_builds_plan_command(monkeypatch):
         lambda prompt="": prompts.append(prompt) or next(answers),
     )
     settings = cli.BasicSettings(prefer_days=("Mon",), avoid_days=("Fri",), max_credits=18)
-    command, aims_path = cli._menu_command("6", "saved.html", settings)
+    command, aims_path = cli._menu_command("6", saved_path, settings)
     assert prompts[0].startswith("Semester to check")
     assert prompts[1].startswith("Course codes")
     assert prompts[2].startswith("How many GE courses")
     assert command == [
-        "--aims-html", "saved.html",
+        "--aims-html", saved_path,
         "--prefer-days", "Mon",
         "--avoid-days", "Fri",
         "--max-credits", "18",
@@ -242,7 +245,7 @@ def test_menu_option_6_builds_plan_command(monkeypatch):
         "--add-ge", "1",
         "--ask",
     ]
-    assert aims_path == "saved.html"
+    assert aims_path == saved_path
 
 
 def test_menu_option_6_without_aims_or_courses(monkeypatch, capsys):
@@ -301,7 +304,12 @@ def test_menu_option_6_reprompts_invalid_course_code(monkeypatch, capsys):
     assert "Invalid course code" in capsys.readouterr().out
 
 
-def test_menu_option_6_reprompts_course_unavailable_in_term(monkeypatch):
+def test_menu_option_6_reprompts_course_unavailable_in_term(
+    monkeypatch,
+    tmp_path,
+):
+    aims_file = tmp_path / "saved.html"
+    aims_file.write_text("<html></html>", encoding="utf-8")
     class TerminalOutput(StringIO):
         def isatty(self):
             return True
@@ -311,7 +319,11 @@ def test_menu_option_6_reprompts_course_unavailable_in_term(monkeypatch):
     monkeypatch.delenv("NO_COLOR", raising=False)
     feed(monkeypatch, "2627A", "GE1102", "1", "GE1105")
 
-    command, _ = cli._menu_command("6", "saved.html", cli.BasicSettings())
+    command, _ = cli._menu_command(
+        "6",
+        str(aims_file),
+        cli.BasicSettings(),
+    )
 
     assert command is not None
     assert command[-7:] == [
