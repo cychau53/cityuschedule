@@ -981,6 +981,20 @@
     "partner_institutions": []
   },
   {
+    "course_code": "GE1360",
+    "course_title": "Introductory Physics",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "PHY",
+    "level": "B1",
+    "terms": [
+      "2026-27 Sem B"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
     "course_code": "GE1361",
     "course_title": "Digital Literacy: New Technologies, Society, and You",
     "area": "Area 3",
@@ -995,6 +1009,21 @@
     "partner_institutions": [
       "HKBU"
     ]
+  },
+  {
+    "course_code": "GE1362",
+    "course_title": "Exploring Generative AI in Practice",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "CS",
+    "level": "B1, B2, B3, B4",
+    "terms": [
+      "2026-27 Sem A",
+      "2026-27 Sem B"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
   },
   {
     "course_code": "GE1401",
@@ -1578,6 +1607,85 @@
     "partner_institutions": []
   },
   {
+    "course_code": "GE2230",
+    "course_title": "Innovation and Entrepreneurship in Global Business",
+    "area": "Area 2",
+    "category": "Area 2",
+    "offering_unit": "MGT",
+    "level": "B2, A2",
+    "terms": [
+      "2026-27 Sem A",
+      "2026-27 Sem B"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2231",
+    "course_title": "Business, Media and Society",
+    "area": "Area 2",
+    "category": "Area 2",
+    "offering_unit": "MGT",
+    "level": "B2, A2",
+    "terms": [    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2232",
+    "course_title": "Knowing Ourselves Better in Work and Life",
+    "area": "Area 2",
+    "category": "Area 2",
+    "offering_unit": "MGT",
+    "level": "B2, A2",
+    "terms": [    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2234",
+    "course_title": "Social Networks for Media, Business and Technological Applications",
+    "area": "Area 2",
+    "category": "Area 2",
+    "offering_unit": "COM",
+    "level": "B2, A2",
+    "terms": [
+      "2026-27 Sem A"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2239",
+    "course_title": "Food: Culture, Science and Society",
+    "area": "Area 2",
+    "category": "Area 2",
+    "offering_unit": "PIA",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem A"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2242",
+    "course_title": "Conducting Online Business in China",
+    "area": "Area 2",
+    "category": "Area 2",
+    "offering_unit": "IS",
+    "level": "B2",
+    "terms": [    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
     "course_code": "GE2244",
     "course_title": "The Hidden City: Space, Power and Social Processes in Hong Kong",
     "area": "Area 2",
@@ -1637,6 +1745,18 @@
     "partner_institutions": []
   },
   {
+    "course_code": "GE2259",
+    "course_title": "Technology Ventures: From ICT Innovation to Enterprise",
+    "area": "Area 2",
+    "category": "Area 2",
+    "offering_unit": "IS",
+    "level": "B2",
+    "terms": [    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
     "course_code": "GE2260",
     "course_title": "Introduction to Finance",
     "area": "Area 2",
@@ -1648,6 +1768,18 @@
       "2026-27 Sem B"
     ],
     "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2261",
+    "course_title": "Urban Sustainability in Hong Kong",
+    "area": "Area 2",
+    "category": "Area 2",
+    "offering_unit": "SEE",
+    "level": "B2",
+    "terms": [    ],
+    "with_exam": false,
     "cross_institutional": false,
     "partner_institutions": []
   },
@@ -1675,6 +1807,33 @@
     "level": "B2",
     "terms": [
       "2026-27 Sem A"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2264",
+    "course_title": "Introduction to People Management in Organization",
+    "area": "Area 2",
+    "category": "Area 2",
+    "offering_unit": "MGT",
+    "level": "B2",
+    "terms": [    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2265",
+    "course_title": "Introduction to Marketing",
+    "area": "Area 2",
+    "category": "Area 2",
+    "offering_unit": "MKT",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem A",
+      "2026-27 Sem B"
     ],
     "with_exam": true,
     "cross_institutional": false,
@@ -1709,6 +1868,231 @@
     "partner_institutions": []
   },
   {
+    "course_code": "GE2301",
+    "course_title": "Science and Technology: Fascinating Mechanical Engineering",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "MNE",
+    "level": "B2,A2",
+    "terms": [
+      "2026-27 Sem A",
+      "2026-27 Sem B"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2303",
+    "course_title": "Save the Earth: Sustainable Development",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "ACE",
+    "level": "B2",
+    "terms": [],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2304",
+    "course_title": "Foundations of Innovation and Entrepreneurship",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "SYE",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem A",
+      "2026-27 Sem B"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2305",
+    "course_title": "Astronomy – The Universe and Us",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "PHY",
+    "level": "B2,A2",
+    "terms": [
+      "2026-27 Sem B"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2306",
+    "course_title": "Energy and Technology",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "MSE",
+    "level": "B2,A2",
+    "terms": [
+      "2026-27 Summer"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2309",
+    "course_title": "The World of NANO: The Next Big Thing is Really Small",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "MSE",
+    "level": "B2,A2",
+    "terms": [
+      "2026-27 Sem A"
+    ],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2311",
+    "course_title": "Technology and Society",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "ACE",
+    "level": "B2,A2",
+    "terms": [],
+    "with_exam": false,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2313",
+    "course_title": "Global IT Case Studies",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "CS",
+    "level": "B2,A2",
+    "terms": [],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2314",
+    "course_title": "Construction As One of the Founding Stones of Modern Hong Kong",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "ACE",
+    "level": "B2,A2",
+    "terms": [],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2316",
+    "course_title": "Computing Snapshot, Today and Tomorrow",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "EE",
+    "level": "B2",
+    "terms": [],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2318",
+    "course_title": "Complexity in Science and Technology",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "EE",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem B"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2320",
+    "course_title": "Robots in Our Life: How Applications of Robots Affect Our Life and Society",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": " ",
+    "level": "B2",
+    "terms": [],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2322",
+    "course_title": "The Nobel Prize: A Discovery Approach to Human Greatness",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "CHEM",
+    "level": "B2",
+    "terms": [],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2324",
+    "course_title": "The Art and Science of Data",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "CS",
+    "level": "B2,A2",
+    "terms": [
+      "2026-27 Sem B",
+      "2026-27 Summer"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2327",
+    "course_title": "Green and Intelligent Buildings",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "ACE",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem A"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2329",
+    "course_title": "Green Buildings: Discovery & Innovations",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "ACE",
+    "level": "B2,A2",
+    "terms": [],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2333",
+    "course_title": "The Science of Cosmetics",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "CHEM",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem B"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
     "course_code": "GE2334",
     "course_title": "Science Versus Crime",
     "area": "Area 3",
@@ -1737,6 +2121,20 @@
     "partner_institutions": []
   },
   {
+    "course_code": "GE2336",
+    "course_title": "Systems Thinking to Understanding Phenomena",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "SYE",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem A"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
     "course_code": "GE2338",
     "course_title": "Everyday Security – Protecting yourself in the digital age",
     "area": "Area 3",
@@ -1754,6 +2152,60 @@
     "area": "Area 3",
     "category": "Area 3",
     "offering_unit": "SYE",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem B"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2340",
+    "course_title": "Artificial Intelligence - Past, Present, and Future",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "CS",
+    "level": "B2,A2",
+    "terms": [
+      "2026-27 Sem A"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2341",
+    "course_title": "Freshwater Aquaculture and Aquatic Animal Health",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "PH",
+    "level": "B2",
+    "terms": [],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2342",
+    "course_title": "Introduction to Zoonotic Diseases",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "PH",
+    "level": "B2",
+    "terms": [
+      "2026-27 Sem B"
+    ],
+    "with_exam": true,
+    "cross_institutional": false,
+    "partner_institutions": []
+  },
+  {
+    "course_code": "GE2343",
+    "course_title": "Data Visualization",
+    "area": "Area 3",
+    "category": "Area 3",
+    "offering_unit": "DS",
     "level": "B2",
     "terms": [
       "2026-27 Sem B"
