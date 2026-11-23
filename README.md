@@ -74,7 +74,9 @@ print the link without opening a browser automatically.
 
 The webpage includes navigation for timetable planning, GE course search,
 GE course information, checking/clash-finding for a saved AIMS timetable,
-saving generated plans, and viewing saved timetable plans and course bundles.
+saving generated plans, viewing saved timetable plans and course bundles, and
+configuring shared basic timetable settings. The planner defaults to adding
+one GE course and requires at least one.
 
 ## Typical Workflow
 

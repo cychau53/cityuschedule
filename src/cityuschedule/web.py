@@ -63,6 +63,7 @@ def _page(title: str, body: str) -> bytes:
   <h1>CityUSchedule</h1>
   <nav>
     <a href="/planner">Plan timetable</a>
+    <a href="/settings">Basic settings</a>
     <a href="/ge-search">Search GE courses</a>
     <a href="/ge-info">GE course information</a>
     <a href="/aims">Check AIMS timetable</a>
@@ -84,7 +85,7 @@ def _form() -> str:
   <label for="aims">Saved AIMS timetable HTML</label>
   <input id="aims" name="aims" type="file" accept=".html,text/html">
   <label for="add_ge">Number of GE courses to add</label>
-  <input id="add_ge" name="add_ge" type="number" min="0" value="0">
+  <input id="add_ge" name="add_ge" type="number" min="1" value="1" required>
   <label for="max_results">Maximum plans</label>
   <input id="max_results" name="max_results" type="number" min="1" value="5">
   <label for="seats">Seat policy</label>
@@ -97,6 +98,123 @@ def _form() -> str:
   <button type="submit">Generate timetable plans</button>
 </form>
 <p class="notice">This is a planning aid. Verify availability and registration requirements in AIMS.</p>"""
+
+
+def _basic_settings_form() -> str:
+    from .cli import _load_basic_settings
+
+    settings = _load_basic_settings()
+    return f"""<h2>Basic timetable settings</h2>
+<form method="post" action="/settings">
+  <input type="hidden" name="action" value="save-settings">
+  <label for="prefer_days">Preferred days</label>
+  <input id="prefer_days" name="prefer_days" value="{html.escape(', '.join(settings.prefer_days))}" placeholder="Mon, Tue">
+  <label for="avoid_days">Days to avoid</label>
+  <input id="avoid_days" name="avoid_days" value="{html.escape(', '.join(settings.avoid_days))}" placeholder="Fri">
+  <label for="min_credits">Minimum credits (optional)</label>
+  <input id="min_credits" name="min_credits" type="number" min="0" value="{'' if settings.min_credits is None else settings.min_credits}">
+  <label for="max_credits">Maximum credits (optional)</label>
+  <input id="max_credits" name="max_credits" type="number" min="0" value="{'' if settings.max_credits is None else settings.max_credits}">
+  <label for="earliest_start">Earliest class start (optional)</label>
+  <input id="earliest_start" name="earliest_start" value="{html.escape(settings.earliest_start or '')}" placeholder="09:00">
+  <label for="latest_end">Latest class end (optional)</label>
+  <input id="latest_end" name="latest_end" value="{html.escape(settings.latest_end or '')}" placeholder="18:00">
+  <label for="min_gap">Minimum gap between classes (minutes)</label>
+  <input id="min_gap" name="min_gap" type="number" min="0" value="{settings.min_gap}">
+  <label for="lunch_minutes">Lunch break needed (minutes)</label>
+  <input id="lunch_minutes" name="lunch_minutes" type="number" min="0" value="{settings.lunch_minutes}">
+  <label for="lunch_start">Lunch window start</label>
+  <input id="lunch_start" name="lunch_start" value="{html.escape(settings.lunch_window[0])}" placeholder="11:30">
+  <label for="lunch_end">Lunch window end</label>
+  <input id="lunch_end" name="lunch_end" value="{html.escape(settings.lunch_window[1])}" placeholder="14:30">
+  <button type="submit">Save basic settings</button>
+</form>
+<p class="notice">Saved settings are used when generating plans and are shared with the command-line app.</p>"""
+
+
+def _save_basic_settings(fields: dict[str, str]) -> str:
+    from .cli import (
+        BasicSettings,
+        _parse_clock_time,
+        _parse_day_list,
+        _parse_lunch_window,
+        _validate_lunch_duration,
+    )
+    from .cli import _save_basic_settings as save_settings
+
+    prefer_days = _parse_day_list(fields.get("prefer_days", ""))
+    avoid_days = _parse_day_list(fields.get("avoid_days", ""))
+    if set(prefer_days) & set(avoid_days):
+        raise ValueError("A day cannot be both preferred and avoided.")
+
+    def optional_credits(field: str) -> int | None:
+        value = fields.get(field, "").strip()
+        if not value:
+            return None
+        try:
+            credits = int(value)
+        except ValueError:
+            raise ValueError(f"{field.replace('_', ' ').capitalize()} must be a non-negative integer.") from None
+        if credits < 0:
+            raise ValueError(f"{field.replace('_', ' ').capitalize()} must be a non-negative integer.")
+        return credits
+
+    def nonnegative_minutes(field: str) -> int:
+        value = fields.get(field, "").strip() or "0"
+        try:
+            minutes = int(value)
+        except ValueError:
+            raise ValueError(f"{field.replace('_', ' ').capitalize()} must be a non-negative integer.") from None
+        if minutes < 0:
+            raise ValueError(f"{field.replace('_', ' ').capitalize()} must be a non-negative integer.")
+        return minutes
+
+    min_credits = optional_credits("min_credits")
+    max_credits = optional_credits("max_credits")
+    if (
+        min_credits is not None
+        and max_credits is not None
+        and min_credits > max_credits
+    ):
+        raise ValueError("Minimum credits cannot exceed maximum credits.")
+
+    lunch_minutes = nonnegative_minutes("lunch_minutes")
+    lunch_window = _parse_lunch_window(
+        f"{fields.get('lunch_start', '11:30') or '11:30'}-"
+        f"{fields.get('lunch_end', '14:30') or '14:30'}"
+    )
+    _validate_lunch_duration(lunch_minutes, lunch_window)
+
+    earliest = fields.get("earliest_start", "").strip()
+    latest = fields.get("latest_end", "").strip()
+    earliest_start = (
+        _parse_clock_time(earliest, "Earliest class start")
+        if earliest else None
+    )
+    latest_end = (
+        _parse_clock_time(latest, "Latest class end", allow_24=True)
+        if latest else None
+    )
+    if (
+        earliest_start is not None
+        and latest_end is not None
+        and earliest_start > latest_end
+    ):
+        raise ValueError("Earliest class start cannot be later than latest class end.")
+
+    settings = BasicSettings(
+        prefer_days=prefer_days,
+        avoid_days=avoid_days,
+        min_credits=min_credits,
+        max_credits=max_credits,
+        lunch_minutes=lunch_minutes,
+        lunch_window=lunch_window,
+        min_gap=nonnegative_minutes("min_gap"),
+        earliest_start=earliest_start,
+        latest_end=latest_end,
+    )
+    save_settings(settings)
+    return "Basic settings saved."
 
 
 def _saved_bundles_link() -> str:
@@ -213,10 +331,10 @@ def _generate(
     for item in fields.get("courses", "").replace(",", " ").upper().split():
         if item and item not in wanted:
             wanted.append(item)
-    add_ge = int(fields.get("add_ge", "0") or "0")
+    add_ge = int(fields.get("add_ge", "1") or "1")
     max_results = int(fields.get("max_results", "5") or "5")
-    if add_ge < 0:
-        raise ValueError("The GE course count cannot be negative.")
+    if add_ge < 1:
+        raise ValueError("The GE course count must be at least 1.")
     if max_results < 1:
         raise ValueError("Maximum plans must be at least 1.")
 
@@ -242,12 +360,24 @@ def _generate(
         finally:
             Path(temporary_path).unlink(missing_ok=True)
 
+    from .cli import _load_basic_settings
+
+    basic_settings = _load_basic_settings()
     options = PlanOptions(
-        ge_courses=add_ge or None,
+        ge_courses=add_ge,
         max_results=max_results,
         check_travel=fields.get("no_travel") != "1",
         seat_policy=fields.get("seats", "waitlist"),
         term=term,
+        min_credits=basic_settings.min_credits,
+        max_credits=basic_settings.max_credits,
+        preferred_days=basic_settings.prefer_days,
+        avoid_days=basic_settings.avoid_days,
+        earliest_start=basic_settings.earliest_start,
+        latest_end=basic_settings.latest_end,
+        min_gap=basic_settings.min_gap,
+        lunch_minutes=basic_settings.lunch_minutes,
+        lunch_window=basic_settings.lunch_window,
     )
     report = generate_course_plans(
         courses,
@@ -503,6 +633,9 @@ class CityUScheduleWebHandler(BaseHTTPRequestHandler):
         if path in {"", "/", "/planner"}:
             self._send(_page("CityUSchedule", _form()))
             return
+        if path == "/settings":
+            self._send(_page("Basic settings", _basic_settings_form()))
+            return
         if path == "/ge-search":
             self._send(_page("Search GE courses", _ge_search_form()))
             return
@@ -532,7 +665,8 @@ class CityUScheduleWebHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         if urlparse(self.path).path not in {
-            "", "/", "/planner", "/ge-search", "/ge-info", "/aims", "/save-plans",
+            "", "/", "/planner", "/settings", "/ge-search", "/ge-info",
+            "/aims", "/save-plans",
         }:
             self.send_error(404)
             return
@@ -542,7 +676,14 @@ class CityUScheduleWebHandler(BaseHTTPRequestHandler):
             content_type = self.headers.get("Content-Type", "")
             fields, upload = _parse_multipart(body, content_type)
             action = fields.get("action", "")
-            if action == "ge-search":
+            if action == "save-settings":
+                result = _save_basic_settings(fields)
+                body = (
+                    f'<p class="notice">{html.escape(result)}</p>'
+                    f'{_basic_settings_form()}'
+                )
+                self._send(_page("Basic settings saved", body))
+            elif action == "ge-search":
                 keyword = fields.get("keyword", "")
                 result = _search_ge(keyword)
                 body = _ge_search_form(keyword) + f"\n<pre>{html.escape(result)}</pre>"
@@ -585,6 +726,8 @@ class CityUScheduleWebHandler(BaseHTTPRequestHandler):
                 if path == "/ge-search"
                 else _ge_info_form()
                 if path == "/ge-info"
+                else _basic_settings_form()
+                if path == "/settings"
                 else _aims_form()
                 if path == "/aims"
                 else _form()
