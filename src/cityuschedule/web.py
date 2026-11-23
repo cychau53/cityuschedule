@@ -1,6 +1,8 @@
 """Small local web interface for CityUSchedule."""
 
+import colorsys
 import html
+import re
 import secrets
 import tempfile
 import threading
@@ -57,13 +59,14 @@ def _page(title: str, body: str) -> bytes:
     .error {{ background: #fff1f0; border: 1px solid #ffccc7; padding: 12px; border-radius: 8px; }}
     .notice {{ background: #eef4ff; border: 1px solid #b2c9ff; padding: 12px; border-radius: 8px; }}
     pre {{ white-space: pre-wrap; background: #fff; border: 1px solid #dde2ea; padding: 16px; border-radius: 8px; }}
+    pre.course-plan {{ margin: 12px 0; }}
   </style>
 </head>
 <body>
   <h1>CityUSchedule</h1>
   <nav>
-    <a href="/planner">Plan timetable</a>
     <a href="/settings">Basic settings</a>
+    <a href="/planner">Plan timetable</a>
     <a href="/ge-search">Search GE courses</a>
     <a href="/ge-info">GE course information</a>
     <a href="/aims">Check AIMS timetable</a>
@@ -322,7 +325,7 @@ def _generate(
     upload: bytes | None,
     plan_cache: dict[str, list[dict]],
     plan_cache_lock: threading.Lock,
-) -> tuple[str, str | None]:
+) -> tuple[str, str | None, str]:
     term = fields.get("term", "").strip().upper()
     if len(term) != 5:
         raise ValueError("Enter a valid semester, for example 2627B.")
@@ -390,19 +393,63 @@ def _generate(
     if fit_lines:
         pieces.append("Timeslots that fit your timetable:\n" + "\n".join(fit_lines))
     token = None
+    plans_html = ""
     if not report.plans:
         pieces.append("No course plans matched the selected options.")
     else:
         pieces.append(f"Found {len(report.plans)} course plan(s):")
-        for number, plan in enumerate(report.plans, start=1):
-            pieces.append(format_plan(plan, number, steps=True))
+        plans_html = _format_plans_html(report.plans)
         token = secrets.token_urlsafe(24)
         with plan_cache_lock:
             plan_cache[token] = [plan.to_dict() for plan in report.plans]
             while len(plan_cache) > 64:
                 del plan_cache[next(iter(plan_cache))]
     pieces.append(PLANNING_ONLY_NOTICE)
-    return "\n\n".join(pieces), token
+    return "\n\n".join(pieces), token, plans_html
+
+
+def _format_plans_html(plans) -> str:
+    rendered = []
+    for number, plan in enumerate(plans, start=1):
+        added_codes = list(dict.fromkeys(
+            option.course_code
+            for option in plan.chosen
+            if not option.preregistered
+        ))
+        colors = {}
+        if len(added_codes) == 1:
+            colors[added_codes[0].upper()] = "#008000"
+        elif len(added_codes) > 1:
+            for index, code in enumerate(added_codes):
+                hue = 0.5 + 0.13 * index / (len(added_codes) - 1)
+                rgb = colorsys.hsv_to_rgb(hue, 0.88, 0.95)
+                colors[code.upper()] = "rgb(" + ", ".join(
+                    str(round(channel * 255)) for channel in rgb
+                ) + ")"
+
+        lines = []
+        for line in format_plan(plan, number, steps=True).splitlines():
+            course_color = next(
+                (
+                    color
+                    for code, color in colors.items()
+                    if re.search(
+                        rf"(?<![A-Z0-9]){re.escape(code)}(?![A-Z0-9])",
+                        line,
+                        re.IGNORECASE,
+                    )
+                ),
+                None,
+            )
+            escaped_line = html.escape(line)
+            if course_color:
+                escaped_line = (
+                    f'<span style="color: {course_color}">{escaped_line}</span>'
+                )
+            lines.append(escaped_line)
+        lines_text = "\n".join(lines)
+        rendered.append(f'<pre class="course-plan">{lines_text}</pre>')
+    return "\n".join(rendered)
 
 
 def _save_selected_plans(
@@ -706,13 +753,14 @@ class CityUScheduleWebHandler(BaseHTTPRequestHandler):
                 body = f'<p class="notice">{html.escape(result)}</p>{_saved_bundles_link()}'
                 self._send(_page("Plans saved", body))
             else:
-                result, token = _generate(
+                result, token, plans_html = _generate(
                     fields,
                     upload,
                     self.server.plan_results,
                     self.server.plan_results_lock,
                 )
                 body = _form() + f"\n<pre>{html.escape(result)}</pre>"
+                body += plans_html
                 if token:
                     body += _save_plan_form(
                         token,
