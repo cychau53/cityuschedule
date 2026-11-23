@@ -88,6 +88,7 @@ def test_web_page_is_served_with_navigation(web_url):
     assert "CityUSchedule" in body
     for path in (
         "/planner",
+        "/settings",
         "/ge-search",
         "/ge-info",
         "/aims",
@@ -103,10 +104,131 @@ def test_web_form_rejects_invalid_term(web_url):
     assert b"valid semester" in error.value.read()
 
 
+def test_web_plan_requires_at_least_one_ge_course(web_url):
+    with pytest.raises(urllib.error.HTTPError) as error:
+        _post_form(
+            web_url + "/planner",
+            {"action": "plan", "term": "2627B", "add_ge": "0"},
+        )
+    assert error.value.code == 400
+    assert b"must be at least 1" in error.value.read()
+
+
+def test_web_plan_form_defaults_ge_count_to_one(web_url):
+    with urllib.request.urlopen(web_url + "/planner", timeout=5) as response:
+        body = response.read().decode("utf-8")
+    assert 'id="add_ge" name="add_ge" type="number" min="1" value="1" required' in body
+
+
+def test_basic_settings_post_saves_shared_cli_settings(web_url, monkeypatch):
+    from cityuschedule import cli
+
+    saved = []
+    monkeypatch.setattr(cli, "_save_basic_settings", saved.append)
+    monkeypatch.setattr(cli, "_load_basic_settings", cli.BasicSettings)
+    with _post_form(
+        web_url + "/settings",
+        {
+            "action": "save-settings",
+            "prefer_days": "Mon, Wed",
+            "avoid_days": "Fri",
+            "min_credits": "12",
+            "max_credits": "18",
+            "earliest_start": "09:00",
+            "latest_end": "18:00",
+            "min_gap": "15",
+            "lunch_minutes": "30",
+            "lunch_start": "11:30",
+            "lunch_end": "14:30",
+        },
+    ) as response:
+        body = response.read().decode("utf-8")
+    assert response.status == 200
+    assert "Basic settings saved." in body
+    assert saved == [
+        cli.BasicSettings(
+            prefer_days=("Mon", "Wed"),
+            avoid_days=("Fri",),
+            min_credits=12,
+            max_credits=18,
+            lunch_minutes=30,
+            lunch_window=("11:30", "14:30"),
+            min_gap=15,
+            earliest_start="09:00",
+            latest_end="18:00",
+        )
+    ]
+
+
+def test_basic_settings_reject_conflicting_days(web_url):
+    with pytest.raises(urllib.error.HTTPError) as error:
+        _post_form(
+            web_url + "/settings",
+            {
+                "action": "save-settings",
+                "prefer_days": "Mon",
+                "avoid_days": "Monday",
+            },
+        )
+    assert error.value.code == 400
+    assert b"both preferred and avoided" in error.value.read()
+
+
+def test_planner_uses_saved_basic_settings(web_url, monkeypatch):
+    from cityuschedule import cli, web
+
+    settings = cli.BasicSettings(
+        prefer_days=("Mon",),
+        avoid_days=("Fri",),
+        min_credits=12,
+        max_credits=18,
+        lunch_minutes=30,
+        lunch_window=("11:30", "14:30"),
+        min_gap=15,
+        earliest_start="09:00",
+        latest_end="18:00",
+    )
+    captured = {}
+    monkeypatch.setattr(cli, "_load_basic_settings", lambda: settings)
+    monkeypatch.setattr(
+        web,
+        "load_ge_section_catalog",
+        lambda term: [SimpleNamespace(code="GE1102")],
+    )
+    monkeypatch.setattr(
+        web,
+        "generate_course_plans",
+        lambda courses, options, **kwargs: (
+            captured.setdefault("options", options)
+            and SimpleNamespace(plans=[], fit_summary=list)
+        ),
+    )
+
+    with _post_form(
+        web_url + "/planner",
+        {"action": "plan", "term": "2627B", "courses": "GE1102"},
+    ) as response:
+        body = response.read().decode("utf-8")
+    assert response.status == 200
+    options = captured["options"]
+    assert options.ge_courses == 1
+    assert options.preferred_days == ("Mon",)
+    assert options.avoid_days == ("Fri",)
+    assert options.min_credits == 12
+    assert options.max_credits == 18
+    assert options.lunch_minutes == 30
+    assert options.lunch_window == ("11:30", "14:30")
+    assert options.min_gap == 15
+    assert options.earliest_start == "09:00"
+    assert options.latest_end == "18:00"
+    assert "No course plans matched" in body
+
+
 @pytest.mark.parametrize(
     ("path", "heading", "field"),
     [
         ("/ge-search", "Search Gateway Education courses", 'name="keyword"'),
+        ("/settings", "Basic timetable settings", 'name="prefer_days"'),
         ("/ge-info", "Gateway Education course information", 'name="course_code"'),
         ("/aims", "Check an AIMS timetable", 'name="aims"'),
     ],
