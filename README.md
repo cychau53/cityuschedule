@@ -56,23 +56,6 @@ cityuschedule
 
 Follow the prompts to load course information and generate a timetable plan.
 
-## Web Interface
-
-Start the browser-based interface:
-
-```bash
-cityuschedule-web
-```
-
-Or run the Streamlit app directly:
-
-```bash
-streamlit run src/cityuschedule/app.py
-```
-
-The web interface can browse the bundled GE section data, load an uploaded
-timetable catalogue or AIMS/CSV timetable, and generate ranked plans.
-
 ## Typical Workflow
 
 1. Start CityUSchedule.
