@@ -116,6 +116,45 @@ def test_web_plan_requires_at_least_one_ge_course(web_url):
     assert b"must be at least 1" in error.value.read()
 
 
+def test_planner_warns_and_continues_when_input_course_has_no_sections(
+    web_url,
+    monkeypatch,
+):
+    from cityuschedule import cli, web
+
+    available_course = SimpleNamespace(code="GE1102")
+    loaded = {}
+    generated = {}
+
+    def load_sections(term):
+        loaded["term"] = term
+        return [available_course]
+
+    def generate(courses, options, **kwargs):
+        generated["courses"] = courses
+        return SimpleNamespace(plans=[], fit_summary=list)
+
+    monkeypatch.setattr(cli, "_load_basic_settings", cli.BasicSettings)
+    monkeypatch.setattr(web, "load_ge_section_catalog", load_sections)
+    monkeypatch.setattr(web, "generate_course_plans", generate)
+
+    with _post_form(
+        web_url + "/planner",
+        {
+            "action": "plan",
+            "term": "2627A",
+            "courses": "GE1102 GE9999",
+        },
+    ) as response:
+        body = response.read().decode("utf-8")
+    assert response.status == 200
+    assert loaded["term"] == "2026-27 Sem A"
+    assert generated["courses"] == [available_course]
+    assert "no section details for GE9999 in 2026-27 Sem A" in body
+    assert "left out of planning" in body
+    assert "No course plans matched" in body
+
+
 def test_web_plan_form_defaults_ge_count_to_one(web_url):
     with urllib.request.urlopen(web_url + "/planner", timeout=5) as response:
         body = response.read().decode("utf-8")

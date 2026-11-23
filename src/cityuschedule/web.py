@@ -374,15 +374,12 @@ def _generate(
 
     ge_term = _term_label(term)
     courses = load_ge_section_catalog(term=ge_term)
+    missing = []
     if wanted:
         keep = set(wanted)
         courses = [course for course in courses if course.code.upper() in keep]
         found = {course.code.upper() for course in courses}
         missing = sorted(keep - found)
-        if missing:
-            raise ValueError("No section details are available for: " + ", ".join(missing))
-    if not courses and not add_ge:
-        raise ValueError(f"Currently, we don't have data for {term}.")
 
     fixed_sessions = []
     if upload:
@@ -420,6 +417,11 @@ def _generate(
     )
 
     pieces = []
+    if missing:
+        pieces.append(
+            f"Note: no section details for {', '.join(missing)} in "
+            f"{ge_term or term}; those courses were left out of planning."
+        )
     fit_lines = report.fit_summary()
     if fit_lines:
         pieces.append("Timeslots that fit your timetable:\n" + "\n".join(fit_lines))
