@@ -227,17 +227,32 @@ def _saved_bundles_link() -> str:
     return '<p><a href="/saved-bundles">View saved plans and course bundles</a></p>'
 
 
-def _save_plan_form(token: str, plans: list[dict]) -> str:
-    choices = "\n".join(
-        f'<label><input type="checkbox" name="plan_{index}" value="1" '
-        f'style="width:auto"> Save Plan {index}</label>'
-        for index in range(1, len(plans) + 1)
-    )
+def _save_plan_form(
+    token: str,
+    plans: list[dict],
+    *,
+    retry: bool = False,
+) -> str:
+    choices = []
+    for index, plan in enumerate(plans, start=1):
+        courses = plan.get("courses", [])
+        course_label = ", ".join(
+            str(course) for course in courses
+        ) if isinstance(courses, list) else ""
+        label = f"Save Plan {index}"
+        if course_label:
+            label += f": {course_label}"
+        choices.append(
+            f'<label><input type="checkbox" name="plan_{index}" value="1" '
+            f'style="width:auto"> {html.escape(label)}</label>'
+        )
+    choices_html = "\n".join(choices)
+    heading = "Choose another plan to save" if retry else "Save plans"
     return f"""<form method="post" action="/save-plans">
   <input type="hidden" name="action" value="save-plans">
   <input type="hidden" name="plan_token" value="{html.escape(token)}">
-  <h2>Save plans</h2>
-  {choices}
+  <h2>{heading}</h2>
+  {choices_html}
   <button type="submit">Save selected plans</button>
 </form>"""
 
@@ -609,7 +624,7 @@ def _save_selected_plans(
     fields: dict[str, str],
     plan_cache: dict[str, list[dict]],
     plan_cache_lock: threading.Lock,
-) -> str:
+) -> tuple[str, int]:
     from .cli import (
         _load_saved_bundles,
         _save_bundles_to_disk,
@@ -656,7 +671,7 @@ def _save_selected_plans(
     message = f"Saved {len(new_entries)} plan(s)."
     if already_saved:
         message += f" {already_saved} selected plan(s) were already saved."
-    return message
+    return message, already_saved
 
 
 def _search_ge(keyword: str) -> str:
@@ -898,12 +913,23 @@ class CityUScheduleWebHandler(BaseHTTPRequestHandler):
                 body = _aims_form() + f"\n<pre>{html.escape(result)}</pre>"
                 self._send(_page("AIMS timetable results", body))
             elif action == "save-plans":
-                result = _save_selected_plans(
+                result, already_saved = _save_selected_plans(
                     fields,
                     self.server.plan_results,
                     self.server.plan_results_lock,
                 )
-                body = f'<p class="notice">{html.escape(result)}</p>{_saved_bundles_link()}'
+                body = f'<p class="notice">{html.escape(result)}</p>'
+                if already_saved:
+                    token = fields.get("plan_token", "")
+                    with self.server.plan_results_lock:
+                        plans = self.server.plan_results.get(token)
+                    if plans:
+                        body += _save_plan_form(
+                            token,
+                            plans,
+                            retry=True,
+                        )
+                body += _saved_bundles_link()
                 self._send(_page("Plans saved", body))
             elif action == "delete-plan":
                 result = _delete_saved_timetable_plan(

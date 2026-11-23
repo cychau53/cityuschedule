@@ -447,59 +447,121 @@ def test_generated_plan_can_be_saved_from_webpage(web_url, monkeypatch):
         ],
         "total_credits": 3,
     }
+    second_plan_data = {
+        "courses": ["GE1205 S04"],
+        "sections": [
+            {
+                "course_code": "GE1205",
+                "section": "S04",
+                "crn": "12346",
+                "day": "Tue",
+                "start": "10:00",
+                "end": "10:50",
+                "location": "LI 1406",
+            }
+        ],
+        "total_credits": 3,
+    }
 
     class FakePlan:
-        def __init__(self):
+        def __init__(self, data, course_code):
+            self.data = data
             self.chosen = [
-                SimpleNamespace(course_code="GE1102", preregistered=False)
+                SimpleNamespace(course_code=course_code, preregistered=False)
             ]
 
         def to_dict(self):
-            return plan_data
+            return self.data
 
     report = SimpleNamespace(
-        plans=[FakePlan()],
+        plans=[
+            FakePlan(plan_data, "GE1102"),
+            FakePlan(second_plan_data, "GE1205"),
+        ],
         warnings=[],
         fit_summary=list,
     )
     monkeypatch.setattr(
         web,
         "load_ge_section_catalog",
-        lambda term: [SimpleNamespace(code="GE1102")],
+        lambda term: [
+            SimpleNamespace(code="GE1102"),
+            SimpleNamespace(code="GE1205"),
+        ],
     )
     monkeypatch.setattr(web, "generate_course_plans", lambda *args, **kwargs: report)
     monkeypatch.setattr(
         web,
         "format_plan",
-        lambda *args, **kwargs: "Plan 1: sample\n  GE1102 C01",
+        lambda plan, *args, **kwargs: (
+            f"Plan 1: sample\n  {plan.chosen[0].course_code}"
+        ),
     )
     saved = []
-    monkeypatch.setattr(cli, "_load_saved_bundles", list)
-    monkeypatch.setattr(cli, "_save_bundles_to_disk", saved.append)
+    monkeypatch.setattr(cli, "_load_saved_bundles", lambda: list(saved))
+    monkeypatch.setattr(
+        cli,
+        "_save_bundles_to_disk",
+        lambda plans: saved.__setitem__(slice(None), plans),
+    )
 
     with _post_form(
         web_url + "/planner",
-        {"action": "plan", "term": "2627B", "courses": "GE1102"},
+        {"action": "plan", "term": "2627B", "courses": "GE1102 GE1205"},
     ) as response:
         result_page = response.read().decode("utf-8")
     assert response.status == 200
     assert "Save selected plans" in result_page
     assert 'style="color: #008000"' in result_page
+    assert "Save Plan 1: GE1102 C01" in result_page
+    assert "Save Plan 2: GE1205 S04" in result_page
 
     token_match = re.search(r'name="plan_token" value="([^"]+)"', result_page)
     assert token_match is not None
+    token = token_match.group(1)
     with _post_form(
         web_url + "/save-plans",
         {
             "action": "save-plans",
-            "plan_token": token_match.group(1),
+            "plan_token": token,
             "plan_1": "1",
         },
     ) as response:
         saved_page = response.read().decode("utf-8")
     assert response.status == 200
     assert "Saved 1 plan(s)." in saved_page
-    assert saved == [[{"plan": plan_data}]]
+    assert saved == [{"plan": plan_data}]
+
+    with _post_form(
+        web_url + "/save-plans",
+        {
+            "action": "save-plans",
+            "plan_token": token,
+            "plan_1": "1",
+        },
+    ) as response:
+        duplicate_page = response.read().decode("utf-8")
+    assert response.status == 200
+    assert "already saved" in duplicate_page
+    assert "Choose another plan to save" in duplicate_page
+    assert 'name="plan_2" value="1"' in duplicate_page
+    assert len(saved) == 1
+
+    with _post_form(
+        web_url + "/save-plans",
+        {
+            "action": "save-plans",
+            "plan_token": token,
+            "plan_2": "1",
+        },
+    ) as response:
+        second_saved_page = response.read().decode("utf-8")
+    assert response.status == 200
+    assert "Saved 1 plan(s)." in second_saved_page
+    assert saved == [
+        {"plan": plan_data},
+        {"plan": second_plan_data},
+    ]
 
 
 def test_saved_bundles_page_lists_saved_plans_and_course_bundles(

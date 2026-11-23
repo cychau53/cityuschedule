@@ -329,6 +329,28 @@ def _saved_plan_added_sections(plan: dict) -> set[tuple[str, str]]:
     return added_sections
 
 
+def _saved_plan_course_codes(plan: dict) -> list[str]:
+    courses = plan.get("courses", [])
+    codes = []
+    if isinstance(courses, list):
+        for course in courses:
+            match = re.match(
+                r"\s*([A-Z]{2,4}\s?\d{4}[A-Z]?)\b",
+                str(course),
+                re.IGNORECASE,
+            )
+            if match:
+                code = match.group(1).replace(" ", "").upper()
+                if code not in codes:
+                    codes.append(code)
+    if codes:
+        return codes
+    return sorted({
+        code
+        for code, _ in _saved_plan_added_sections(plan)
+    })
+
+
 def _saved_plan_signature(plan: dict) -> tuple:
     courses = plan.get("courses", [])
     normalized_courses = tuple(sorted(
@@ -355,7 +377,7 @@ def _saved_plan_signature(plan: dict) -> tuple:
 
 def _print_saved_plan(plan: dict, number: int) -> None:
     added_sections = _saved_plan_added_sections(plan)
-    added_course_codes = {code for code, _ in added_sections}
+    course_colors = _distinct_course_colors(_saved_plan_course_codes(plan))
     in_web_add_drop = False
     web_course_code = None
     for line in _format_saved_plan(plan, number).splitlines():
@@ -375,26 +397,34 @@ def _print_saved_plan(plan: dict, number: int) -> None:
             )
             if web_course:
                 web_course_code = web_course.group(1).replace(" ", "")
-            if web_course_code in added_course_codes and (
+            if web_course_code in course_colors and (
                 web_course
                 or re.match(r"^\s+(?:add|drop)\s+", line, re.IGNORECASE)
             ):
-                _print_green(line)
+                _print_color(line, course_colors[web_course_code])
                 continue
         prefix = "Course(s) added: "
         if line.startswith(prefix) and line[len(prefix):] != "None":
-            print(prefix + _colorize(line[len(prefix):], "32"))
+            print(prefix + _colorize_saved_course_labels(
+                line[len(prefix):],
+                course_colors,
+            ))
             continue
         session = re.match(
             r"^\s+\d{2}:\d{2}-\d{2}:\d{2}\s+"
             r"([A-Z]{2,4}\s?\d{4}[A-Z]?)\s+(\S+)",
             line.upper(),
         )
-        if session and (
-            session.group(1).replace(" ", ""),
-            session.group(2),
-        ) in added_sections:
-            _print_green(line)
+        if session:
+            code = session.group(1).replace(" ", "")
+            if (
+                (code, session.group(2)) in added_sections
+                and code in course_colors
+            ):
+                _print_color(line, course_colors[code])
+                continue
+        if course_colors:
+            print(_colorize_course_mentions(line, course_colors))
         else:
             print(line)
 
@@ -1068,6 +1098,58 @@ def _colorize_added_course_lines(
     return "\n".join(lines)
 
 
+def _colorize_course_mentions(
+    text: str,
+    course_colors: dict[str, str],
+) -> str:
+    for code, color in course_colors.items():
+        pattern = re.compile(
+            rf"(?<![A-Z0-9]){re.escape(code)}(?![A-Z0-9])",
+            re.IGNORECASE,
+        )
+        text = pattern.sub(
+            lambda match, color=color: _colorize(match.group(0), color),
+            text,
+        )
+    return text
+
+
+def _colorize_saved_course_labels(
+    text: str,
+    course_colors: dict[str, str],
+) -> str:
+    for code, color in course_colors.items():
+        pattern = re.compile(
+            rf"(?<![A-Z0-9])({re.escape(code)}"
+            r"(?:\s+[A-Z][A-Z0-9]*(?:\+[A-Z][A-Z0-9]*)*)?)"
+            r"(?![A-Z0-9])",
+            re.IGNORECASE,
+        )
+        text = pattern.sub(
+            lambda match, color=color: _colorize(match.group(0), color),
+            text,
+        )
+    return text
+
+
+def _distinct_course_colors(course_codes: list[str]) -> dict[str, str]:
+    codes = list(dict.fromkeys(
+        str(code).strip().upper()
+        for code in course_codes
+        if str(code).strip()
+    ))
+    if len(codes) == 1:
+        return {codes[0]: "32"}
+    colors = {}
+    for index, code in enumerate(codes):
+        hue = 0.48 + 0.18 * index / (len(codes) - 1)
+        rgb = colorsys.hsv_to_rgb(hue, 0.82, 0.95)
+        colors[code] = "38;2;" + ";".join(
+            str(round(channel * 255)) for channel in rgb
+        )
+    return colors
+
+
 def _distinct_ge_course_colors(course_codes: list[str]) -> dict[str, str]:
     ge_codes = [
         code for code in dict.fromkeys(course_codes)
@@ -1075,15 +1157,7 @@ def _distinct_ge_course_colors(course_codes: list[str]) -> dict[str, str]:
     ]
     if len(ge_codes) < 2:
         return {}
-
-    colors = {}
-    for index, code in enumerate(ge_codes):
-        hue = 0.5 + 0.13 * index / (len(ge_codes) - 1)
-        rgb = colorsys.hsv_to_rgb(hue, 0.88, 0.95)
-        colors[code.upper()] = "38;2;" + ";".join(
-            str(round(channel * 255)) for channel in rgb
-        )
-    return colors
+    return _distinct_course_colors(ge_codes)
 
 
 def _print_color(
@@ -1864,28 +1938,35 @@ def _run_course_planner(
 
     try:
         chosen = _prompt_plan_save_choices(len(plans))
-        if chosen:
+        while chosen:
             saved_bundles = _load_saved_bundles()
             saved_signatures = {
                 _saved_plan_signature(_saved_plan_data(entry))
                 for entry in saved_bundles
             }
             new_plans = []
+            already_saved = []
             for index in chosen:
                 plan_data = plans[index].to_dict()
                 signature = _saved_plan_signature(plan_data)
                 if signature in saved_signatures:
                     _print_red(f"Plan {index + 1} has already been saved.")
+                    already_saved.append(index)
                     continue
                 saved_signatures.add(signature)
                 new_plans.append({"plan": plan_data})
-            saved_bundles.extend(new_plans)
             if new_plans:
                 try:
-                    _save_bundles_to_disk(saved_bundles)
+                    _save_bundles_to_disk(saved_bundles + new_plans)
                     _print_green(f"Saved {len(new_plans)} plan(s).")
                 except OSError as error:
                     _print_red(f"Could not save plans: {error}")
+            if not already_saved:
+                break
+            _print_yellow(
+                "Choose another plan to save, or press Enter to finish."
+            )
+            chosen = _prompt_plan_save_choices(len(plans))
     except EOFError:
         return
     except _ReturnToMenu:

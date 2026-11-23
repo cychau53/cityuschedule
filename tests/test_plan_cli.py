@@ -1,3 +1,4 @@
+import colorsys
 import re
 from collections import Counter
 from io import StringIO
@@ -143,13 +144,20 @@ def test_ask_saves_plans(monkeypatch):
     assert "waiting between classes" not in saved[0]["plan"]["summary"]
 
 
-def test_ask_warns_and_skips_duplicate_saved_plan(monkeypatch):
+def test_ask_prompts_again_after_duplicate_and_saves_another_plan(monkeypatch):
     class TerminalOutput(StringIO):
         def isatty(self):
             return True
 
     output = TerminalOutput()
     saved = []
+    choices = iter([[0], [0], [1]])
+    prompt_counts = []
+
+    def prompt_choices(count):
+        prompt_counts.append(count)
+        return next(choices)
+
     monkeypatch.setattr(cli.sys, "stdout", output)
     monkeypatch.delenv("NO_COLOR", raising=False)
     monkeypatch.setattr(cli, "_load_saved_bundles", lambda: saved)
@@ -158,7 +166,7 @@ def test_ask_warns_and_skips_duplicate_saved_plan(monkeypatch):
         "_save_bundles_to_disk",
         lambda plans: saved.__setitem__(slice(None), plans),
     )
-    monkeypatch.setattr(cli, "_prompt_plan_save_choices", lambda count: [0])
+    monkeypatch.setattr(cli, "_prompt_plan_save_choices", prompt_choices)
     args = [
         "--timetable-catalog", str(EXAMPLE), "--term", "2627A",
         "--ask", "--no-travel-check",
@@ -171,11 +179,67 @@ def test_ask_warns_and_skips_duplicate_saved_plan(monkeypatch):
 
     cli.main(args)
 
-    assert len(saved) == 1
-    assert (
-        "\033[31mPlan 1 has already been saved.\033[0m"
-        in output.getvalue()
-    )
+    assert len(saved) == 2
+    assert len(prompt_counts) == 3
+    assert "\033[31mPlan 1 has already been saved.\033[0m" in output.getvalue()
+    assert "Choose another plan to save" in output.getvalue()
+    assert "Saved 1 plan(s)." in output.getvalue()
+
+
+@pytest.mark.parametrize("course_count", [2, 3])
+def test_saved_plan_courses_use_distinct_safe_colors(
+    monkeypatch,
+    course_count,
+):
+    class TerminalOutput(StringIO):
+        def isatty(self):
+            return True
+
+    course_sections = [
+        ("GE3109", "C01"),
+        ("GE1205", "S04"),
+        ("CS2204", "C02"),
+    ][:course_count]
+    plan_data = {
+        "courses": [f"{code} {section}" for code, section in course_sections],
+        "sections": [
+            {
+                "course_code": code,
+                "section": section,
+                "day": "Fri",
+                "start": "09:00",
+                "end": "09:50",
+                "location": "LI 1406",
+            }
+            for code, section in course_sections
+        ],
+        "web_add_drop": [
+            {
+                "course_code": code,
+                "add_sections": [{"section": section, "crn": str(11000 + index)}],
+            }
+            for index, (code, section) in enumerate(course_sections)
+        ],
+        "total_credits": 3 * course_count,
+    }
+    output = TerminalOutput()
+    monkeypatch.setattr(cli.sys, "stdout", output)
+    monkeypatch.delenv("NO_COLOR", raising=False)
+
+    cli._print_saved_plan(plan_data, 1)
+
+    colors = {}
+    for code, _ in course_sections:
+        match = re.search(
+            rf"\033\[38;2;(\d+);(\d+);(\d+)m{code}",
+            output.getvalue(),
+        )
+        assert match is not None
+        rgb = tuple(int(channel) / 255 for channel in match.groups())
+        colors[code] = match.groups()
+        hue = colorsys.rgb_to_hsv(*rgb)[0]
+        assert 0.47 <= hue <= 0.67
+    assert len(set(colors.values())) == course_count
 
 
 def test_course_plan_uses_ge_section_data(capsys):
