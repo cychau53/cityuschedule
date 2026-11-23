@@ -1,3 +1,4 @@
+import re
 import threading
 import urllib.error
 import urllib.parse
@@ -86,6 +87,7 @@ def test_web_page_is_served_with_navigation(web_url):
         body = response.read().decode("utf-8")
     assert response.status == 200
     assert "CityUSchedule" in body
+    assert body.index('href="/settings"') < body.index('href="/planner"')
     for path in (
         "/planner",
         "/settings",
@@ -222,6 +224,28 @@ def test_planner_uses_saved_basic_settings(web_url, monkeypatch):
     assert options.earliest_start == "09:00"
     assert options.latest_end == "18:00"
     assert "No course plans matched" in body
+
+
+def test_added_courses_use_distinct_colors_in_plan_output(monkeypatch):
+    from cityuschedule import web
+
+    plan = SimpleNamespace(
+        chosen=[
+            SimpleNamespace(course_code="GE1102", preregistered=False),
+            SimpleNamespace(course_code="GE1202", preregistered=False),
+        ]
+    )
+    monkeypatch.setattr(
+        web,
+        "format_plan",
+        lambda *args, **kwargs: "Plan 1\nGE1102 C01\nGE1202 C01",
+    )
+    output = web._format_plans_html([plan])
+    colors = re.findall(r'<span style="color: ([^"]+)">', output)
+    assert len(colors) == 2
+    assert colors[0] != colors[1]
+    assert "GE1102 C01" in output
+    assert "GE1202 C01" in output
 
 
 @pytest.mark.parametrize(
@@ -382,6 +406,11 @@ def test_generated_plan_can_be_saved_from_webpage(web_url, monkeypatch):
     }
 
     class FakePlan:
+        def __init__(self):
+            self.chosen = [
+                SimpleNamespace(course_code="GE1102", preregistered=False)
+            ]
+
         def to_dict(self):
             return plan_data
 
@@ -396,7 +425,11 @@ def test_generated_plan_can_be_saved_from_webpage(web_url, monkeypatch):
         lambda term: [SimpleNamespace(code="GE1102")],
     )
     monkeypatch.setattr(web, "generate_course_plans", lambda *args, **kwargs: report)
-    monkeypatch.setattr(web, "format_plan", lambda *args, **kwargs: "Plan 1: sample")
+    monkeypatch.setattr(
+        web,
+        "format_plan",
+        lambda *args, **kwargs: "Plan 1: sample\n  GE1102 C01",
+    )
     saved = []
     monkeypatch.setattr(cli, "_load_saved_bundles", list)
     monkeypatch.setattr(cli, "_save_bundles_to_disk", saved.append)
@@ -408,8 +441,7 @@ def test_generated_plan_can_be_saved_from_webpage(web_url, monkeypatch):
         result_page = response.read().decode("utf-8")
     assert response.status == 200
     assert "Save selected plans" in result_page
-
-    import re
+    assert 'style="color: #008000"' in result_page
 
     token_match = re.search(r'name="plan_token" value="([^"]+)"', result_page)
     assert token_match is not None
