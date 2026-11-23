@@ -2076,6 +2076,22 @@ def main(
         help="Do not print the registration steps of each plan",
     )
     planning.add_argument(
+        "--web", action="store_true",
+        help="Serve the timetable planner as a local webpage",
+    )
+    planning.add_argument(
+        "--host", default="127.0.0.1",
+        help="Local web server host (default 127.0.0.1)",
+    )
+    planning.add_argument(
+        "--port", type=int, default=8000,
+        help="Local web server port (default 8000)",
+    )
+    planning.add_argument(
+        "--no-browser", action="store_true",
+        help="Do not open a browser automatically for --web",
+    )
+    planning.add_argument(
         "--ask", action="store_true",
         help="After listing plans, ask which to save",
     )
@@ -2098,6 +2114,22 @@ def main(
     )
 
     args = parser.parse_args(command_line)
+
+    if args.web:
+        if args.port < 1 or args.port > 65535:
+            parser.error("--port must be between 1 and 65535.")
+        if args.csv_file or args.aims_html or args.courses or args.timetable_catalog:
+            parser.error(
+                "--web starts the webpage interface; upload timetable "
+                "and course details in the browser."
+            )
+        from .web import run_web_server
+
+        try:
+            run_web_server(args.host, args.port, open_browser=not args.no_browser)
+        except OSError as error:
+            parser.error(f"Could not start the web server: {error}")
+        return
 
     if args.csv_file and not (
         args.aims_html
