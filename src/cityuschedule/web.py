@@ -54,7 +54,8 @@ def _page(title: str, body: str) -> bytes:
     nav a:hover {{ background: #d8e4ff; }}
     form {{ display: grid; gap: 12px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 12px #0001; }}
     label {{ font-weight: 650; }}
-    input, select {{ width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #bbc3d1; border-radius: 7px; }}
+    input, select, textarea {{ width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #bbc3d1; border-radius: 7px; }}
+    textarea {{ min-height: 280px; resize: vertical; font-family: monospace; }}
     button {{ border: 0; border-radius: 7px; padding: 11px 16px; background: #155eef; color: white; font-weight: 700; cursor: pointer; }}
     button.delete {{ background: #b42318; }}
     .error {{ color: #b42318; background: #fff1f0; border: 1px solid #ffccc7; padding: 12px; border-radius: 8px; font-weight: 650; }}
@@ -70,6 +71,7 @@ def _page(title: str, body: str) -> bytes:
   <nav>
     <a href="/settings">Basic settings</a>
     <a href="/planner">Plan timetable</a>
+    <a href="/aims-offering">3. Paste and check an AIMS course offering</a>
     <a href="/ge-search">Search GE courses</a>
     <a href="/ge-info">GE course information</a>
     <a href="/aims">Check AIMS timetable</a>
@@ -453,6 +455,157 @@ def _ge_info_form(course_code: str = "") -> str:
   <button type="submit">Show course</button>
 </form>"""
 
+
+def _aims_offering_form(
+    course_code: str = "",
+    offering_text: str = "",
+) -> str:
+    return f"""<h2>Paste and check an AIMS course offering</h2>
+<p>
+  Copy one course's complete offering table from AIMS.
+  Upload your existing weekly timetable to check which complete
+  section bundles fit.
+</p>
+<form method="post" action="/aims-offering"
+      enctype="multipart/form-data">
+  <input type="hidden" name="action" value="aims-offering">
+
+  <label for="offering_course_code">Course code</label>
+  <input id="offering_course_code" name="course_code"
+         value="{html.escape(course_code)}"
+         placeholder="GE1352" required>
+
+  <label for="offering_text">Complete AIMS course offering table</label>
+  <textarea id="offering_text" name="offering_text"
+            spellcheck="false"
+            placeholder="Paste the copied AIMS offering table here."
+            required>{html.escape(offering_text)}</textarea>
+
+  <label for="aims">Existing AIMS weekly timetable HTML</label>
+  <input id="aims" name="aims" type="file"
+         accept=".html,.htm,text/html" required>
+
+  <button type="submit">Check complete section bundles</button>
+</form>
+<p class="notice">
+  Saved basic timetable settings are applied.
+  Unscheduled sessions do not block weekly timeslots.
+  Results are for planning; verify registration details in AIMS.
+</p>"""
+
+
+def _check_aims_offering(
+    fields: dict[str, str],
+    upload: bytes | None,
+) -> str:
+    from .aims_fit import (
+        DAY_NAMES,
+        convert_aims_sessions,
+        fitting_registration_bundles,
+    )
+    from .aims_table_parser import parse_aims_table
+    from .cli import _load_basic_settings
+
+    course_code = re.sub(
+        r"\s+",
+        "",
+        fields.get("course_code", ""),
+    ).upper()
+    offering_text = fields.get("offering_text", "")
+
+    if not re.fullmatch(r"[A-Z]+\d{4}[A-Z]?", course_code):
+        raise ValueError("Enter a valid course code, such as GE1352.")
+
+    if not offering_text.strip():
+        raise ValueError("Paste the complete AIMS course offering table.")
+
+    if not upload:
+        raise ValueError("Upload your existing AIMS weekly timetable HTML.")
+
+    table = parse_aims_table(
+        offering_text,
+        course_code=course_code,
+    )
+
+    if table.course_code != course_code:
+        raise ValueError(
+            f"The pasted table is for {table.course_code}, "
+            f"but you entered {course_code}."
+        )
+
+    with tempfile.NamedTemporaryFile(
+        suffix=".html",
+        delete=False,
+    ) as temporary:
+        temporary.write(upload)
+        temporary_path = Path(temporary.name)
+
+    try:
+        timetable_rows = load_aims_html(str(temporary_path))
+    finally:
+        temporary_path.unlink(missing_ok=True)
+
+    base_sessions = convert_aims_sessions(timetable_rows)
+    settings = _load_basic_settings()
+
+    fitting = fitting_registration_bundles(
+        table,
+        base_sessions,
+        preferred_days=list(settings.prefer_days),
+        avoid_days=list(settings.avoid_days),
+        min_gap=settings.min_gap,
+        earliest_start=settings.earliest_start,
+        latest_end=settings.latest_end,
+        lunch_minutes=settings.lunch_minutes,
+        lunch_window=settings.lunch_window,
+    )
+
+    all_bundles = table.registration_bundles()
+    lines = [
+        f"Course: {table.course_code}",
+        f"Loaded {len(base_sessions)} fixed timetable meeting(s).",
+        f"Parsed {len(table.sessions)} offering record(s).",
+        f"Found {len(all_bundles)} complete scheduled bundle(s).",
+        f"Found {len(fitting)} fitting bundle(s).",
+        "",
+    ]
+
+    if not all_bundles:
+        lines.append(
+            "No complete scheduled bundles could be constructed. "
+            "Check that you pasted the entire offering table."
+        )
+    elif not fitting:
+        lines.append(
+            "No complete bundles fit the uploaded timetable "
+            "and current settings."
+        )
+    else:
+        sessions_by_section = {
+            session.section: session
+            for session in table.scheduled_sessions
+        }
+
+        for number, bundle in enumerate(fitting, start=1):
+            lines.append(
+                f"{number}. {table.course_code} {'+'.join(bundle)}"
+            )
+
+            for section in bundle:
+                session = sessions_by_section[section]
+                day = DAY_NAMES.get(
+                    session.day or "",
+                    session.day or "",
+                )
+                lines.append(
+                    f"   CRN {session.crn}: {session.section} "
+                    f"{day} {session.start_time}-{session.end_time} "
+                    f"{session.building}".rstrip()
+                )
+
+            lines.append("")
+
+    return "\n".join(lines)
 
 def _aims_form() -> str:
     return """<h2>Check an AIMS timetable</h2>
@@ -845,6 +998,23 @@ class CityUScheduleWebHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = urlparse(self.path).path
+        if path == "/aims-offering":
+            document = _page(
+                "Check AIMS course offering",
+                _aims_offering_form(),
+            )
+            self.send_response(200)
+            self.send_header(
+                "Content-Type",
+                "text/html; charset=utf-8",
+            )
+            self.send_header(
+                "Content-Length",
+                str(len(document)),
+            )
+            self.end_headers()
+            self.wfile.write(document)
+            return
         if path in {"", "/", "/planner"}:
             self._send(_page("CityUSchedule", _form()))
             return
@@ -881,10 +1051,13 @@ class CityUScheduleWebHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         if urlparse(self.path).path not in {
             "", "/", "/planner", "/settings", "/ge-search", "/ge-info",
-            "/aims", "/save-plans", "/delete-plan",
+            "/aims", "/aims-offering", "/save-plans", "/delete-plan",
         }:
             self.send_error(404)
             return
+
+        fields = {}
+                
         try:
             content_length = int(self.headers.get("Content-Length", "0"))
             body = self.rfile.read(content_length)
@@ -912,6 +1085,24 @@ class CityUScheduleWebHandler(BaseHTTPRequestHandler):
                 result = _check_aims(upload)
                 body = _aims_form() + f"\n<pre>{html.escape(result)}</pre>"
                 self._send(_page("AIMS timetable results", body))
+            elif action == "aims-offering":
+                course_code = fields.get("course_code", "")
+                offering_text = fields.get("offering_text", "")
+
+                result = _check_aims_offering(fields, upload)
+
+                body = (
+                    _aims_offering_form(
+                        course_code,
+                        offering_text,
+                    )
+                    + "\n<h2>Course offering results</h2>"
+                    + f"\n<pre>{html.escape(result)}</pre>"
+                )
+
+                self._send(
+                    _page("AIMS course offering results", body)
+                )
             elif action == "save-plans":
                 result, already_saved = _save_selected_plans(
                     fields,
@@ -974,6 +1165,11 @@ class CityUScheduleWebHandler(BaseHTTPRequestHandler):
                 if path == "/settings"
                 else _aims_form()
                 if path == "/aims"
+                else _aims_offering_form(
+                    fields.get("course_code", ""),
+                    fields.get("offering_text", ""),
+                )
+                if path == "/aims-offering"
                 else _form()
             )
             body = f'<div class="error">{html.escape(str(error))}</div>\n{form}'
