@@ -61,6 +61,8 @@ def _page(title: str, body: str) -> bytes:
     .notice {{ background: #eef4ff; border: 1px solid #b2c9ff; padding: 12px; border-radius: 8px; }}
     pre {{ white-space: pre-wrap; background: #fff; border: 1px solid #dde2ea; padding: 16px; border-radius: 8px; }}
     pre.course-plan {{ margin: 12px 0; }}
+    .added-course {{ color: #008000; }}
+    .plan-heading {{ color: #856000; }}
   </style>
 </head>
 <body>
@@ -258,10 +260,106 @@ def _delete_saved_timetable_plan(number_value: str) -> str:
     _save_bundles_to_disk(saved_plans)
     return f"Deleted Plan {number}."
 
+def _format_saved_plan_html(plan: dict, number: int) -> str:
+    from .cli import (
+        _format_saved_plan,
+        _saved_plan_added_sections,
+    )
+
+    added_sections = _saved_plan_added_sections(plan)
+    added_course_codes = {
+        code for code, _ in added_sections
+    }
+
+    rendered_lines = []
+    in_web_add_drop = False
+    web_course_code = None
+
+    for line in _format_saved_plan(plan, number).splitlines():
+        escaped_line = html.escape(line)
+
+        if line == f"Plan {number}":
+            rendered_lines.append(
+                f'<span class="plan-heading">{escaped_line}</span>'
+            )
+            continue
+
+        if line == "Web Add/Drop:":
+            in_web_add_drop = True
+            web_course_code = None
+            rendered_lines.append(escaped_line)
+            continue
+
+        if line == "Other registration steps:":
+            in_web_add_drop = False
+            web_course_code = None
+
+        if in_web_add_drop:
+            web_course = re.match(
+                r"^\s+\d+\.\s+([A-Z]{2,4}\s?\d{4}[A-Z]?)\s*$",
+                line.upper(),
+            )
+
+            if web_course:
+                web_course_code = web_course.group(1).replace(
+                    " ", ""
+                )
+
+            is_registration_action = re.match(
+                r"^\s+(?:add|drop)\s+",
+                line,
+                re.IGNORECASE,
+            )
+
+            if (
+                web_course_code in added_course_codes
+                and (web_course or is_registration_action)
+            ):
+                rendered_lines.append(
+                    '<span class="added-course">'
+                    f"{escaped_line}</span>"
+                )
+                continue
+
+        prefix = "Course(s) added: "
+
+        if (
+            line.startswith(prefix)
+            and line[len(prefix):] != "None"
+        ):
+            rendered_lines.append(
+                html.escape(prefix)
+                + '<span class="added-course">'
+                + html.escape(line[len(prefix):])
+                + "</span>"
+            )
+            continue
+
+        session = re.match(
+            r"^\s+\d{2}:\d{2}-\d{2}:\d{2}\s+"
+            r"([A-Z]{2,4}\s?\d{4}[A-Z]?)\s+(\S+)",
+            line.upper(),
+        )
+
+        if session and (
+            session.group(1).replace(" ", ""),
+            session.group(2),
+        ) in added_sections:
+            rendered_lines.append(
+                '<span class="added-course">'
+                f"{escaped_line}</span>"
+            )
+        else:
+            rendered_lines.append(escaped_line)
+
+    return (
+        '<pre class="course-plan">'
+        + "\n".join(rendered_lines)
+        + "</pre>"
+    )
 
 def _saved_bundles_page(notice: str | None = None) -> str:
     from .cli import (
-        _format_saved_plan,
         _load_saved_bundles,
         _load_saved_course_bundles,
         _saved_plan_data,
@@ -278,7 +376,7 @@ def _saved_bundles_page(notice: str | None = None) -> str:
         for index, entry in enumerate(saved_plans, start=1):
             plan = _saved_plan_data(entry)
             sections.append(
-                f"<pre>{html.escape(_format_saved_plan(plan, index))}</pre>"
+                _format_saved_plan_html(plan, index)
             )
             sections.append(
                 '<form method="post" action="/delete-plan" '
