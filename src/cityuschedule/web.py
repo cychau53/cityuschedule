@@ -56,6 +56,7 @@ def _page(title: str, body: str) -> bytes:
     label {{ font-weight: 650; }}
     input, select {{ width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #bbc3d1; border-radius: 7px; }}
     button {{ border: 0; border-radius: 7px; padding: 11px 16px; background: #155eef; color: white; font-weight: 700; cursor: pointer; }}
+    button.delete {{ background: #b42318; }}
     .error {{ background: #fff1f0; border: 1px solid #ffccc7; padding: 12px; border-radius: 8px; }}
     .notice {{ background: #eef4ff; border: 1px solid #b2c9ff; padding: 12px; border-radius: 8px; }}
     pre {{ white-space: pre-wrap; background: #fff; border: 1px solid #dde2ea; padding: 16px; border-radius: 8px; }}
@@ -239,7 +240,26 @@ def _save_plan_form(token: str, plans: list[dict]) -> str:
 </form>"""
 
 
-def _saved_bundles_page() -> str:
+def _delete_saved_timetable_plan(number_value: str) -> str:
+    from .cli import _load_saved_bundles, _save_bundles_to_disk
+
+    try:
+        number = int(number_value)
+    except ValueError:
+        raise ValueError("Choose a valid saved plan number.") from None
+
+    saved_plans = _load_saved_bundles()
+    if not saved_plans:
+        raise ValueError("No saved plans were found.")
+    if not 1 <= number <= len(saved_plans):
+        raise ValueError(f"Plan number must be from 1 to {len(saved_plans)}.")
+
+    del saved_plans[number - 1]
+    _save_bundles_to_disk(saved_plans)
+    return f"Deleted Plan {number}."
+
+
+def _saved_bundles_page(notice: str | None = None) -> str:
     from .cli import (
         _format_saved_plan,
         _load_saved_bundles,
@@ -249,13 +269,24 @@ def _saved_bundles_page() -> str:
 
     saved_plans = _load_saved_bundles()
     saved_course_bundles = _load_saved_course_bundles()
-    sections = ["<h2>Saved timetable plans</h2>"]
+    sections = []
+    if notice:
+        sections.append(f'<p class="notice">{html.escape(notice)}</p>')
+    sections.append("<h2>Saved timetable plans</h2>")
     if saved_plans:
         sections.append(f"<p>Found {len(saved_plans)} saved plan(s).</p>")
         for index, entry in enumerate(saved_plans, start=1):
             plan = _saved_plan_data(entry)
             sections.append(
                 f"<pre>{html.escape(_format_saved_plan(plan, index))}</pre>"
+            )
+            sections.append(
+                '<form method="post" action="/delete-plan" '
+                f'onsubmit="return confirm(\'Delete Plan {index}?\');">'
+                '<input type="hidden" name="action" value="delete-plan">'
+                f'<input type="hidden" name="plan_number" value="{index}">'
+                f'<button class="delete" type="submit">Delete Plan {index}</button>'
+                "</form>"
             )
     else:
         sections.append("<p>No saved timetable plans.</p>")
@@ -713,7 +744,7 @@ class CityUScheduleWebHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         if urlparse(self.path).path not in {
             "", "/", "/planner", "/settings", "/ge-search", "/ge-info",
-            "/aims", "/save-plans",
+            "/aims", "/save-plans", "/delete-plan",
         }:
             self.send_error(404)
             return
@@ -752,6 +783,16 @@ class CityUScheduleWebHandler(BaseHTTPRequestHandler):
                 )
                 body = f'<p class="notice">{html.escape(result)}</p>{_saved_bundles_link()}'
                 self._send(_page("Plans saved", body))
+            elif action == "delete-plan":
+                result = _delete_saved_timetable_plan(
+                    fields.get("plan_number", "")
+                )
+                self._send(
+                    _page(
+                        "Saved plans and bundles",
+                        _saved_bundles_page(result),
+                    )
+                )
             else:
                 result, token, plans_html = _generate(
                     fields,
@@ -769,6 +810,13 @@ class CityUScheduleWebHandler(BaseHTTPRequestHandler):
                 self._send(_page("CityUSchedule results", body))
         except (ValueError, OSError) as error:
             path = urlparse(self.path).path
+            if path == "/delete-plan":
+                body = (
+                    f'<div class="error">{html.escape(str(error))}</div>'
+                    f'{_saved_bundles_page()}'
+                )
+                self._send(_page("Saved plans and bundles", body), status=400)
+                return
             form = (
                 _ge_search_form()
                 if path == "/ge-search"

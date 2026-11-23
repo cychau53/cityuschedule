@@ -501,7 +501,64 @@ def test_saved_bundles_page_lists_saved_plans_and_course_bundles(
     assert response.status == 200
     assert "Saved timetable plans" in body
     assert "Plan 1" in body
+    assert 'action="/delete-plan"' in body
+    assert 'name="plan_number" value="1"' in body
+    assert "Delete Plan 1?" in body
     assert "Saved course bundles" in body
     assert "GE1202" in body
     assert "C01" in body
     assert "CRN 13397" in body
+
+
+def test_saved_plan_can_be_deleted_from_webpage(web_url, monkeypatch):
+    from cityuschedule import cli
+
+    saved = [
+        {"plan": {"courses": ["GE1102 C01"], "sections": [], "total_credits": 3}},
+        {"plan": {"courses": ["GE1202 C01"], "sections": [], "total_credits": 3}},
+    ]
+    written = []
+
+    def save_plans(plans):
+        saved[:] = plans
+        written.append(plans)
+
+    monkeypatch.setattr(cli, "_load_saved_bundles", lambda: saved)
+    monkeypatch.setattr(cli, "_save_bundles_to_disk", save_plans)
+    monkeypatch.setattr(cli, "_load_saved_course_bundles", list)
+
+    with _post_form(
+        web_url + "/delete-plan",
+        {"action": "delete-plan", "plan_number": "2"},
+    ) as response:
+        body = response.read().decode("utf-8")
+    assert response.status == 200
+    assert "Deleted Plan 2." in body
+    assert "GE1102 C01" in body
+    assert "GE1202 C01" not in body
+    assert len(written) == 1
+    assert len(saved) == 1
+
+
+def test_delete_saved_plan_rejects_out_of_range_number(web_url, monkeypatch):
+    from cityuschedule import cli
+
+    monkeypatch.setattr(
+        cli,
+        "_load_saved_bundles",
+        lambda: [{"plan": {"courses": ["GE1102 C01"], "sections": []}}],
+    )
+    monkeypatch.setattr(cli, "_load_saved_course_bundles", list)
+    monkeypatch.setattr(
+        cli,
+        "_save_bundles_to_disk",
+        lambda plans: pytest.fail("Invalid plan number must not delete plans"),
+    )
+    with pytest.raises(urllib.error.HTTPError) as error:
+        _post_form(
+            web_url + "/delete-plan",
+            {"action": "delete-plan", "plan_number": "2"},
+        )
+    assert error.value.code == 400
+    body = error.value.read()
+    assert b"Plan number must be from 1 to 1" in body
