@@ -56,6 +56,26 @@ cityuschedule
 
 Follow the prompts to load course information and generate a timetable plan.
 
+Start the local webpage interface:
+
+```bash
+cityuschedule --web
+```
+
+This opens a browser at `http://127.0.0.1:8000`. Use `--host` and `--port`
+to change the local address, for example:
+
+```bash
+cityuschedule --web --host 127.0.0.1 --port 8080
+```
+
+Keep the terminal open while using the webpage. Add `--no-browser` to
+print the link without opening a browser automatically.
+
+The webpage includes navigation for timetable planning, GE course search,
+GE course information, checking/clash-finding for a saved AIMS timetable,
+saving generated plans, and viewing saved timetable plans and course bundles.
+
 ## Typical Workflow
 
 1. Start CityUSchedule.
