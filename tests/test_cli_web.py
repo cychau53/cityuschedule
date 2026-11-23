@@ -152,7 +152,11 @@ def test_planner_warns_and_continues_when_input_course_has_no_sections(
     assert generated["courses"] == [available_course]
     assert "no section details for GE9999 in 2026-27 Sem A" in body
     assert "left out of planning" in body
-    assert "No course plans matched" in body
+    assert (
+        '<div class="error" role="alert">'
+        "No course plans matched the selected options."
+        "</div>"
+    ) in body
 
 
 def test_web_plan_form_defaults_ge_count_to_one(web_url):

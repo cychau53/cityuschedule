@@ -57,7 +57,7 @@ def _page(title: str, body: str) -> bytes:
     input, select {{ width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #bbc3d1; border-radius: 7px; }}
     button {{ border: 0; border-radius: 7px; padding: 11px 16px; background: #155eef; color: white; font-weight: 700; cursor: pointer; }}
     button.delete {{ background: #b42318; }}
-    .error {{ background: #fff1f0; border: 1px solid #ffccc7; padding: 12px; border-radius: 8px; }}
+    .error {{ color: #b42318; background: #fff1f0; border: 1px solid #ffccc7; padding: 12px; border-radius: 8px; font-weight: 650; }}
     .notice {{ background: #eef4ff; border: 1px solid #b2c9ff; padding: 12px; border-radius: 8px; }}
     pre {{ white-space: pre-wrap; background: #fff; border: 1px solid #dde2ea; padding: 16px; border-radius: 8px; }}
     pre.course-plan {{ margin: 12px 0; }}
@@ -485,6 +485,28 @@ def _format_plans_html(plans) -> str:
     return "\n".join(rendered)
 
 
+def _result_html(result: str) -> str:
+    parts = []
+    lines = []
+    for line in result.splitlines():
+        if line.startswith("No course plans matched"):
+            if lines:
+                text = "\n".join(lines)
+                parts.append(f"<pre>{html.escape(text)}</pre>")
+                lines = []
+            parts.append(
+                '<div class="error" role="alert">'
+                f"{html.escape(line)}"
+                "</div>"
+            )
+        else:
+            lines.append(line)
+    if lines:
+        text = "\n".join(lines)
+        parts.append(f"<pre>{html.escape(text)}</pre>")
+    return "\n".join(parts)
+
+
 def _save_selected_plans(
     fields: dict[str, str],
     plan_cache: dict[str, list[dict]],
@@ -802,7 +824,7 @@ class CityUScheduleWebHandler(BaseHTTPRequestHandler):
                     self.server.plan_results,
                     self.server.plan_results_lock,
                 )
-                body = _form() + f"\n<pre>{html.escape(result)}</pre>"
+                body = _form() + _result_html(result)
                 body += plans_html
                 if token:
                     body += _save_plan_form(
