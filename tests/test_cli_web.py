@@ -612,8 +612,11 @@ def test_saved_bundles_page_lists_saved_plans_and_course_bundles(
             }
         ],
     )
-    with urllib.request.urlopen(f"{web_url.rstrip('/')}/saved-plans",timeout=5,) as response:
-    body = response.read().decode("utf-8")
+    with urllib.request.urlopen(
+        f"{web_url.rstrip('/')}/saved-plans",
+        timeout=5,
+    ) as response:
+        body = response.read().decode("utf-8")
     assert response.status == 200
     assert "Saved timetable plans" in body
     assert "Plan 1" in body
