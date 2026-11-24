@@ -79,6 +79,35 @@ course codes entered; otherwise, you will be asked for the count again.
 
 Your **Basic settings** (option 1) are applied automatically to newly planned courses: preferred and avoided days, lunch duration and window, minimum gap, and earliest/latest class times. Minimum and maximum credits include the courses in your AIMS timetable. AIMS classes are used for clash and walking-time checks, but are not rejected for violating the day or timing settings. Advanced planner filters remain available when running the planner directly from the command line. After the plans are listed you can save one to **8. Saved timetable plan**. Saved plans show their timetable and Web Add/Drop sections with CRNs. Delete a saved plan from the main menu with `delete plan1` or `delete plan 1`. The AIMS path you use is remembered for next time.
 
+## Web interface
+
+The web planner is available at:
+
+```text
+http://127.0.0.1:8000/planner
+```
+
+It uses the same plan generator and shared basic timetable settings as the
+command-line application.
+
+On the planner page:
+
+- Choose the semester.
+- Enter the course codes to consider.
+- Upload an AIMS timetable HTML file, or leave the upload blank to reuse the
+  AIMS timetable saved through the application.
+- Choose how many GE courses to add.
+- Choose the maximum number of plans to display.
+- Generate complete timetable plans.
+
+When complete plans are generated, select one or more plans in the
+**Save plans** section and choose **Save selected plans**. Saved plans are
+available under **Saved timetable plan** at `/saved-plans`.
+
+The “Timeslots that fit your timetable” summary lists alternative section
+bundles for individual courses. These are not complete timetable plans and
+cannot be saved directly as timetable plans.
+
 ## Command line
 
 ```bash
@@ -126,8 +155,6 @@ cityuschedule --aims-html aims_schedule.html \
   --courses GE1102 --add-ge 1 --term 2627B \
   --prefer-days Mon Tue Wed
 ```
-
-A CSV timetable can be given instead of `--aims-html` for the fixed timetable: `cityuschedule path/to/your_timetable.csv --courses GE1102 --term 2627B`.
 
 Days accept `Mon`, `M`, `Thu`, `R`, `Thursday` and so on.
 
@@ -205,13 +232,21 @@ A course can also list `prerequisites`, `precursors` and `exclusive_courses`.
 
 ```python
 from cityuschedule.aims import load_aims_html
-from cityuschedule.course_catalog import load_ge_section_catalog
-from cityuschedule.plan_generator import PlanOptions, format_plan, generate_course_plans
+from cityuschedule.course_catalog import (
+    load_credit_catalogs,
+    load_ge_section_catalog,
+)
+from cityuschedule.plan_generator import (
+    PlanOptions,
+    format_plan,
+    generate_course_plans,
+)
 
 report = generate_course_plans(
     [c for c in load_ge_section_catalog() if c.code == "GE1102"],
     PlanOptions(avoid_days=("Fri",), max_results=3),
     fixed_sessions=load_aims_html("aims_schedule.html"),
+    credit_courses=load_credit_catalogs(),
 )
 
 for warning in report.warnings:
@@ -229,6 +264,6 @@ Use `PlanOptions(bundle_definitions={"GE1102": [["C01", "T01"], ["C01", "T02"]]}
 
 ## Limits
 
-- Buildings not in `travel_time.json` (for example `AC` in the sample CSV) are reported as a note and not checked.
+- Buildings not in `travel_time.json` are reported as a note and are not checked.
 - Sections without a fixed time are kept in the plan but are not checked for clashes, and a note lists them.
 - The search stops after `search_limit` combinations (default 200,000) and the report says so. Pruning keeps typical semesters of 6-8 candidate courses far below this.
