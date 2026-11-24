@@ -69,14 +69,14 @@ def _page(title: str, body: str) -> bytes:
 <body>
   <h1>CityUSchedule</h1>
   <nav>
-    <a href="/settings">1. Basic settings</a>
-    <a href="/aims">2. Check or change saved AIMS timetable</a>
-    <a href="/aims-offering">3. Paste and check an AIMS course offering</a>
-    <a href="/saved-bundles#course-bundles">4. Saved course bundles</a>
-    <a href="/ge-search">5. Search GE courses</a>
-    <a href="/ge-info">6. Show GE course details</a>
-    <a href="/planner">7. Generate timetable plans</a>
-    <a href="/saved-bundles#timetable-plans">8. Saved timetable plan</a>
+    <a href="/settings">Basic settings</a>
+    <a href="/aims">Check or change saved AIMS timetable</a>
+    <a href="/aims-offering">Paste and check an AIMS course offering</a>
+    <a href="/saved-course-bundles">Saved course bundles</a>
+    <a href="/ge-search">Search GE courses</a>
+    <a href="/ge-info">Show GE course details</a>
+    <a href="/planner">Generate timetable plans</a>
+    <a href="/saved-plans">8. Saved timetable plan</a>
   </nav>
   {body}
 </body>
@@ -227,7 +227,10 @@ def _save_basic_settings(fields: dict[str, str]) -> str:
 
 
 def _saved_bundles_link() -> str:
-    return '<p><a href="/saved-bundles">View saved plans and course bundles</a></p>'
+    return (
+        '<p><a href="/saved-plans">'
+        "View saved timetable plans</a></p>"
+    )
 
 
 def _save_plan_form(
@@ -376,69 +379,148 @@ def _format_saved_plan_html(plan: dict, number: int) -> str:
         + "</pre>"
     )
 
-def _saved_bundles_page(notice: str | None = None) -> str:
+def _saved_timetable_plans_page(
+    notice: str | None = None,
+) -> str:
     from .cli import (
         _load_saved_bundles,
-        _load_saved_course_bundles,
         _saved_plan_data,
     )
 
     saved_plans = _load_saved_bundles()
-    saved_course_bundles = _load_saved_course_bundles()
     sections = []
+
     if notice:
-        sections.append(f'<p class="notice">{html.escape(notice)}</p>')
-    sections.append(
-        '<h2 id="timetable-plans">Saved timetable plans</h2>'
-    )
-    if saved_plans:
-        sections.append(f"<p>Found {len(saved_plans)} saved plan(s).</p>")
-        for index, entry in enumerate(saved_plans, start=1):
-            plan = _saved_plan_data(entry)
-            sections.append(
-                _format_saved_plan_html(plan, index)
-            )
-            sections.append(
-                '<form method="post" action="/delete-plan" '
-                f'onsubmit="return confirm(\'Delete Plan {index}?\');">'
-                '<input type="hidden" name="action" value="delete-plan">'
-                f'<input type="hidden" name="plan_number" value="{index}">'
-                f'<button class="delete" type="submit">Delete Plan {index}</button>'
-                "</form>"
-            )
-    else:
+        sections.append(
+            f'<p class="notice">{html.escape(notice)}</p>'
+        )
+
+    sections.append("<h2>Saved timetable plans</h2>")
+
+    if not saved_plans:
         sections.append("<p>No saved timetable plans.</p>")
+        return "\n".join(sections)
 
     sections.append(
-        '<h2 id="course-bundles">Saved course bundles</h2>'
+        f"<p>Found {len(saved_plans)} saved plan(s).</p>"
     )
-    if saved_course_bundles:
-        sections.append(f"<p>Found {len(saved_course_bundles)} saved course bundle(s).</p>")
-        for bundle in saved_course_bundles:
-            course_code = str(bundle.get("course_code") or "Unknown")
-            lines = [course_code]
-            for section in bundle.get("sections", []):
-                if not isinstance(section, dict):
-                    continue
-                lines.append(
-                    "  "
-                    + " ".join(
-                        value for value in (
-                            str(section.get("section") or ""),
-                            f"CRN {section.get('crn')}" if section.get("crn") else "",
-                            str(section.get("day") or ""),
-                            (
-                                f"{section.get('start_time', '')}-"
-                                f"{section.get('end_time', '')}"
-                            ).strip("-"),
-                        )
-                        if value
-                    )
-                )
-            sections.append(f"<pre>{html.escape(chr(10).join(lines))}</pre>")
-    else:
-        sections.append("<p>No saved course bundles.</p>")
+
+    for index, entry in enumerate(saved_plans, start=1):
+        plan = _saved_plan_data(entry)
+
+        sections.append(
+            _format_saved_plan_html(plan, index)
+        )
+
+        sections.append(
+            '<form method="post" action="/delete-plan" '
+            f'onsubmit="return confirm(\'Delete Plan {index}?\');">'
+            '<input type="hidden" name="action" value="delete-plan">'
+            '<input type="hidden" name="plan_number" '
+            f'value="{index}">'
+            '<button class="delete" type="submit">'
+            f"Delete Plan {index}</button>"
+            "</form>"
+        )
+
     return "\n".join(sections)
+
+
+def _saved_course_bundles_page() -> str:
+    from .cli import (
+        _course_bundle_sort_key,
+        _load_saved_course_bundles,
+    )
+
+    bundles = sorted(
+        _load_saved_course_bundles(),
+        key=_course_bundle_sort_key,
+    )
+
+    sections = ["<h2>Saved course bundles</h2>"]
+
+    if not bundles:
+        sections.append("<p>No saved course bundles.</p>")
+        return "\n".join(sections)
+
+    sections.append(
+        f"<p>Found {len(bundles)} saved course bundle(s).</p>"
+    )
+
+    for number, bundle in enumerate(bundles, start=1):
+        course_code = str(
+            bundle.get("course_code") or "Unknown"
+        )
+
+        meetings = [
+            section
+            for section in bundle.get("sections", [])
+            if isinstance(section, dict)
+        ]
+
+        section_names = [
+            str(section.get("section") or "").strip()
+            for section in meetings
+            if str(section.get("section") or "").strip()
+        ]
+
+        heading = f"{number}. {course_code}"
+
+        if section_names:
+            heading += " " + "+".join(section_names)
+
+        lines = [heading]
+
+        for section in meetings:
+            time_range = (
+                f"{section.get('start_time') or ''}-"
+                f"{section.get('end_time') or ''}"
+            ).strip("-")
+
+            details = [
+                str(section.get("section") or ""),
+                (
+                    f"CRN {section['crn']}"
+                    if section.get("crn")
+                    else ""
+                ),
+                str(section.get("day") or ""),
+                time_range,
+            ]
+
+            lines.append(
+                "  " + " ".join(
+                    detail for detail in details if detail
+                )
+            )
+
+        text = "\n".join(lines)
+        sections.append(
+            f"<pre>{html.escape(text)}</pre>"
+        )
+
+    return "\n".join(sections)
+
+
+def _saved_bundles_page(
+    notice: str | None = None,
+) -> str:
+    """Keep the old URL available without combining both lists."""
+    message = ""
+
+    if notice:
+        message = (
+            f'<p class="notice">{html.escape(notice)}</p>'
+        )
+
+    return (
+        message
+        + "<h2>Saved data</h2>"
+        + '<p><a href="/saved-course-bundles">'
+        + "View saved course bundles</a></p>"
+        + '<p><a href="/saved-plans">'
+        + "View saved timetable plans</a></p>"
+    )
 
 
 def _ge_search_form(keyword: str = "") -> str:
@@ -1003,55 +1085,117 @@ class CityUScheduleWebHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = urlparse(self.path).path
+
+        if path == "/saved-course-bundles":
+            try:
+                body = _saved_course_bundles_page()
+                status = 200
+            except (ValueError, OSError) as error:
+                body = (
+                    "<h2>Saved course bundles</h2>"
+                    '<div class="error">'
+                    + html.escape(str(error))
+                    + "</div>"
+                )
+                status = 400
+
+            self._send(
+                _page("Saved course bundles", body),
+                status=status,
+            )
+            return
+
+        if path == "/saved-plans":
+            try:
+                body = _saved_timetable_plans_page()
+                status = 200
+            except (ValueError, OSError) as error:
+                body = (
+                    "<h2>Saved timetable plans</h2>"
+                    '<div class="error">'
+                    + html.escape(str(error))
+                    + "</div>"
+                )
+                status = 400
+
+            self._send(
+                _page("Saved timetable plans", body),
+                status=status,
+            )
+            return
+
         if path == "/aims-offering":
-            document = _page(
-                "Check AIMS course offering",
-                _aims_offering_form(),
+            self._send(
+                _page(
+                    "Check AIMS course offering",
+                    _aims_offering_form(),
+                )
             )
-            self.send_response(200)
-            self.send_header(
-                "Content-Type",
-                "text/html; charset=utf-8",
-            )
-            self.send_header(
-                "Content-Length",
-                str(len(document)),
-            )
-            self.end_headers()
-            self.wfile.write(document)
             return
+
         if path in {"", "/", "/planner"}:
-            self._send(_page("CityUSchedule", _form()))
+            self._send(
+                _page("CityUSchedule", _form())
+            )
             return
+
         if path == "/settings":
-            self._send(_page("Basic settings", _basic_settings_form()))
+            self._send(
+                _page(
+                    "Basic settings",
+                    _basic_settings_form(),
+                )
+            )
             return
+
         if path == "/ge-search":
-            self._send(_page("Search GE courses", _ge_search_form()))
+            self._send(
+                _page(
+                    "Search GE courses",
+                    _ge_search_form(),
+                )
+            )
             return
+
         if path == "/ge-info":
-            self._send(_page("GE course information", _ge_info_form()))
+            self._send(
+                _page(
+                    "GE course information",
+                    _ge_info_form(),
+                )
+            )
             return
+
         if path == "/aims":
-            self._send(_page("Check AIMS timetable", _aims_form()))
+            self._send(
+                _page(
+                    "Check AIMS timetable",
+                    _aims_form(),
+                )
+            )
             return
+
         if path == "/saved-bundles":
             try:
                 body = _saved_bundles_page()
             except (OSError, ValueError) as error:
                 self._send(
                     _page(
-                        "Saved plans and bundles",
-                        f'<div class="error">{html.escape(str(error))}</div>',
+                        "Saved data",
+                        '<div class="error">'
+                        + html.escape(str(error))
+                        + "</div>",
                     ),
                     status=500,
                 )
                 return
-            self._send(_page("Saved plans and bundles", body))
+
+            self._send(
+                _page("Saved data", body)
+            )
             return
-        else:
-            self.send_error(404)
-            return
+
+        self.send_error(404)
 
     def do_POST(self):
         if urlparse(self.path).path not in {
@@ -1131,10 +1275,11 @@ class CityUScheduleWebHandler(BaseHTTPRequestHandler):
                 result = _delete_saved_timetable_plan(
                     fields.get("plan_number", "")
                 )
+
                 self._send(
                     _page(
-                        "Saved plans and bundles",
-                        _saved_bundles_page(result),
+                        "Saved timetable plans",
+                        _saved_timetable_plans_page(result),
                     )
                 )
             else:
@@ -1156,10 +1301,16 @@ class CityUScheduleWebHandler(BaseHTTPRequestHandler):
             path = urlparse(self.path).path
             if path == "/delete-plan":
                 body = (
-                    f'<div class="error">{html.escape(str(error))}</div>'
-                    f'{_saved_bundles_page()}'
+                    '<div class="error">'
+                    + html.escape(str(error))
+                    + "</div>"
+                    + _saved_timetable_plans_page()
                 )
-                self._send(_page("Saved plans and bundles", body), status=400)
+
+                self._send(
+                    _page("Saved timetable plans", body),
+                    status=400,
+                )
                 return
             form = (
                 _ge_search_form()
