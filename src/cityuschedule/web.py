@@ -996,21 +996,27 @@ def _format_plans_html(plans) -> str:
             number,
             steps=True,
         ).splitlines():
-            course_color = _course_color_for_line(
-                line,
-                colors,
-            )
             escaped_line = html.escape(line)
 
-            if course_color:
-                escaped_line = (
-                    '<span style="color: '
-                    f"{course_color}"
-                    f'">{escaped_line}</span>'
+            for code, course_color in colors.items():
+                pattern = (
+                    rf"(?<![A-Z0-9]){re.escape(code)}"
+                    rf"(?![A-Z0-9])"
+                )
+
+                escaped_line = re.sub(
+                    pattern,
+                    lambda match, color=course_color: (
+                        '<span style="color: '
+                        f"{color}"
+                        f'">{match.group(0)}</span>'
+                    ),
+                    escaped_line,
+                    flags=re.IGNORECASE,
                 )
 
             lines.append(escaped_line)
-
+            
         lines_text = "\n".join(lines)
         rendered.append(
             f'<pre class="course-plan">{lines_text}</pre>'
