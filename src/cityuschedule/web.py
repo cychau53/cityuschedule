@@ -759,8 +759,17 @@ def _generate(
                 encoding="utf-8"
             ).strip()
 
-            if saved_aims_path and Path(saved_aims_path).is_file():
-                fixed_sessions = load_aims_html(saved_aims_path)
+            aims_path = Path(saved_aims_path) if saved_aims_path else None
+
+            if aims_path and not aims_path.is_absolute():
+                project_root = Path(__file__).resolve().parents[2]
+                project_path = project_root / aims_path
+
+                if project_path.is_file():
+                    aims_path = project_path
+
+            if aims_path and aims_path.is_file():
+                fixed_sessions = load_aims_html(str(aims_path))
             
     from .cli import _load_basic_settings
 
@@ -781,9 +790,7 @@ def _generate(
         lunch_minutes=basic_settings.lunch_minutes,
         lunch_window=basic_settings.lunch_window,
     )
-    from .cli import _aims_path_config_file
 
-    config_file = _aims_path_config_file()
     saved_aims_path = (
         config_file.read_text(encoding="utf-8").strip()
         if config_file.is_file()
