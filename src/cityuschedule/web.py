@@ -400,15 +400,18 @@ def _format_saved_plan_html(plan: dict, number: int) -> str:
             )
 
             if (
-                web_course_code in added_course_codes
+                web_course_code in colors
                 and (web_course or is_registration_action)
             ):
+                course_color = colors[web_course_code]
+
                 rendered_lines.append(
-                    '<span class="added-course">'
-                    f"{escaped_line}</span>"
+                    '<span style="color: '
+                    f"{course_color}"
+                    f'">{escaped_line}</span>'
                 )
                 continue
-
+        
         prefix = "Course(s) added: "
 
         if (
