@@ -72,11 +72,79 @@ cityuschedule --web --host 127.0.0.1 --port 8080
 Keep the terminal open while using the webpage. Add `--no-browser` to
 print the link without opening a browser automatically.
 
-The webpage includes navigation for timetable planning, GE course search,
-GE course information, checking/clash-finding for a saved AIMS timetable,
-saving generated plans, viewing saved timetable plans and course bundles, and
-configuring shared basic timetable settings. The planner defaults to adding
-one GE course and requires at least one.
+## Web Interface
+
+The webpage provides the same core timetable-planning features as the
+command-line application:
+
+- Search Gateway Education (GE) courses
+- View GE course details
+- Check or change a saved AIMS timetable
+- Paste an AIMS course offering and check complete section bundles
+- Generate complete timetable plans
+- Save generated timetable plans
+- View and delete saved timetable plans
+- View saved course bundles
+
+Open the planner at:
+
+```text
+http://127.0.0.1:8000/planner
+```
+
+### Generate a timetable plan
+
+1. Choose the semester, such as `2627B`.
+2. Enter the course codes you want to add, such as `GE1352`.
+3. Upload an AIMS timetable HTML file, or leave it blank to reuse the
+   AIMS timetable saved through the command-line application.
+4. Choose how many GE courses the planner should add.
+5. Choose the maximum number of plans to display.
+6. Select a seat policy and choose whether to check walking time.
+7. Select **Generate timetable plans**.
+
+The planner displays complete, clash-free timetable plans. Each plan
+includes the newly added course, the pre-registered AIMS courses that
+remain in the timetable, the weekly timetable, total credits, and
+suggested registration steps.
+
+Pre-registered courses from the AIMS timetable are included in the
+total credit calculation. For example, if your AIMS timetable contains
+13 credits and you add a 3-credit GE course, the generated plan shows
+16 total credits.
+
+### Save a generated plan
+
+When one or more complete plans are generated, the page shows a
+**Save plans** section. Select one or more plans and choose
+**Save selected plans**.
+
+Saved plans are available at:
+
+```text
+http://127.0.0.1:8000/saved-plans
+```
+
+You can also open **Saved timetable plan** from the navigation menu.
+Each saved plan can be deleted from that page.
+
+The individual “timeslots that fit your timetable” results are
+alternatives for one course. They are not complete timetable plans and
+cannot be saved directly as timetable plans.
+
+### Shared settings
+
+Use **Basic settings** to configure preferences shared by the
+command-line and web interfaces:
+
+- Preferred and avoided days
+- Minimum and maximum credits
+- Earliest class start and latest class end
+- Minimum gap between classes
+- Lunch-break duration and window
+- Walking-time checks
+
+The web planner uses these settings when generating plans.
 
 ## Typical Workflow
 
@@ -84,8 +152,9 @@ one GE course and requires at least one.
 2. Import or load course and timetable information.
 3. Select CS courses and available sections.
 4. Generate possible course plans.
-5. Review clashes, gaps, and travel time.
-6. Choose a timetable plan that meets your study requirements.
+5. Review clashes, gaps, travel time, and total credits.
+6. Save one or more suitable complete timetable plans.
+7. Register the selected sections in AIMS during your time ticket.
 
 ## Course Data
 
