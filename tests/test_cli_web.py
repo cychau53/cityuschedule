@@ -612,8 +612,8 @@ def test_saved_bundles_page_lists_saved_plans_and_course_bundles(
             }
         ],
     )
-    with urllib.request.urlopen(web_url + "/saved-bundles", timeout=5) as response:
-        body = response.read().decode("utf-8")
+with urllib.request.urlopen(f"{web_url.rstrip('/')}/saved-plans",timeout=5,) as response:
+    body = response.read().decode("utf-8")
     assert response.status == 200
     assert "Saved timetable plans" in body
     assert "Plan 1" in body
@@ -680,20 +680,37 @@ def test_delete_saved_plan_rejects_out_of_range_number(web_url, monkeypatch):
     assert b"Plan number must be from 1 to 1" in body
 
 def test_saved_data_pages_are_separate(web_url):
-    with urllib.request.urlopen(
-        f"{web_url.rstrip('/')}/saved-course-bundles",
-        timeout=5,
-    ) as response:
-        bundles_body = response.read().decode("utf-8")
+    base_url = web_url.rstrip("/")
 
     with urllib.request.urlopen(
-        f"{web_url.rstrip('/')}/saved-plans",
+        f"{base_url}/saved-plans",
         timeout=5,
     ) as response:
+        assert response.status == 200
         plans_body = response.read().decode("utf-8")
+
+    assert "<h2>Saved timetable plans</h2>" in plans_body
+    assert "<h2>Saved course bundles</h2>" not in plans_body
+
+    with urllib.request.urlopen(
+        f"{base_url}/saved-course-bundles",
+        timeout=5,
+    ) as response:
+        assert response.status == 200
+        bundles_body = response.read().decode("utf-8")
 
     assert "<h2>Saved course bundles</h2>" in bundles_body
     assert "<h2>Saved timetable plans</h2>" not in bundles_body
 
-    assert "<h2>Saved timetable plans</h2>" in plans_body
-    assert "<h2>Saved course bundles</h2>" not in plans_body
+def test_saved_bundles_page_links_to_separate_pages(web_url):
+    with urllib.request.urlopen(
+        f"{web_url.rstrip('/')}/saved-bundles",
+        timeout=5,
+    ) as response:
+        assert response.status == 200
+        body = response.read().decode("utf-8")
+
+    assert 'href="/saved-plans"' in body
+    assert 'href="/saved-course-bundles"' in body
+    assert "<h2>Saved timetable plans</h2>" not in body
+    assert "<h2>Saved course bundles</h2>" not in body
