@@ -955,13 +955,16 @@ def _generate(
 
 def _format_plans_html(plans) -> str:
     rendered = []
+
     for number, plan in enumerate(plans, start=1):
         added_codes = list(dict.fromkeys(
             option.course_code
             for option in plan.chosen
             if not option.preregistered
         ))
+
         colors = {}
+
         if len(added_codes) == 1:
             colors[added_codes[0].upper()] = "#008000"
         elif len(added_codes) > 1:
@@ -969,32 +972,39 @@ def _format_plans_html(plans) -> str:
                 hue = 0.5 + 0.13 * index / (len(added_codes) - 1)
                 rgb = colorsys.hsv_to_rgb(hue, 0.88, 0.95)
                 colors[code.upper()] = "rgb(" + ", ".join(
-                    str(round(channel * 255)) for channel in rgb
+                    str(round(channel * 255))
+                    for channel in rgb
                 ) + ")"
 
         lines = []
-        for line in format_plan(plan, number, steps=True).splitlines():
-            course_color = next(
-                (
-                    color
-                    for code, color in colors.items()
-                    if re.search(
-                        rf"(?<![A-Z0-9]){re.escape(code)}(?![A-Z0-9])",
-                        line,
-                        re.IGNORECASE,
-                    )
-                ),
-                None,
+
+        for line in format_plan(
+            plan,
+            number,
+            steps=True,
+        ).splitlines():
+            course_color = _course_color_for_line(
+                line,
+                colors,
             )
             escaped_line = html.escape(line)
+
             if course_color:
                 escaped_line = (
-                    f'<span style="color: {course_color}">{escaped_line}</span>'
+                    '<span style="color: '
+                    f"{course_color}"
+                    f'">{escaped_line}</span>'
                 )
+
             lines.append(escaped_line)
+
         lines_text = "\n".join(lines)
-        rendered.append(f'<pre class="course-plan">{lines_text}</pre>')
+        rendered.append(
+            f'<pre class="course-plan">{lines_text}</pre>'
+        )
+
     return "\n".join(rendered)
+
 
 
 def _result_html(
