@@ -871,65 +871,53 @@ def _format_plans_html(plans) -> str:
     return "\n".join(rendered)
 
 
-def _result_html(result: str, added_codes=()) -> str:
+def _result_html(
+    result: str,
+    added_codes=(),
+) -> str:
     parts = []
     lines = []
+
+    def append_text_block():
+        if not lines:
+            return
+
+        text = "\n".join(lines)
+        rendered = []
+
+        for line in text.splitlines():
+            if any(
+                re.search(
+                    rf"(?<![A-Z0-9]){re.escape(code)}(?![A-Z0-9])",
+                    line,
+                    re.IGNORECASE,
+                )
+                for code in added_codes
+            ):
+                rendered.append(
+                    '<span class="added-course">'
+                    + html.escape(line)
+                    + "</span>"
+                )
+            else:
+                rendered.append(html.escape(line))
+
+        parts.append("<pre>" + "\n".join(rendered) + "</pre>")
+        lines.clear()
+
     for line in result.splitlines():
         if line.startswith("No course plans matched"):
-            if lines:
-                text = "\n".join(lines)
-                parts.append(
-                    "<pre>"
-                    + "\n".join(
-                        (
-                            '<span class="added-course">'
-                            + html.escape(line)
-                            + "</span>"
-                        )
-                        if any(
-                            re.search(
-                                rf"(?<![A-Z0-9]){re.escape(code)}(?![A-Z0-9])",
-                                line,
-                                re.IGNORECASE,
-                            )
-                            for code in added_codes
-                        )
-                        else html.escape(line)
-                        for line in text.splitlines()
-                    )
-                    + "</pre>"
-                )
-                lines = []
+            append_text_block()
             parts.append(
                 '<div class="error" role="alert">'
-                f"{html.escape(line)}"
-                "</div>"
+                + html.escape(line)
+                + "</div>"
             )
         else:
             lines.append(line)
-    if lines:
-        text = "\n".join(lines)
-                parts.append(
-                    "<pre>"
-                    + "\n".join(
-                        (
-                            '<span class="added-course">'
-                            + html.escape(line)
-                            + "</span>"
-                        )
-                        if any(
-                            re.search(
-                                rf"(?<![A-Z0-9]){re.escape(code)}(?![A-Z0-9])",
-                                line,
-                                re.IGNORECASE,
-                            )
-                            for code in added_codes
-                        )
-                        else html.escape(line)
-                        for line in text.splitlines()
-                    )
-                    + "</pre>"
-                )
+
+    append_text_block()
+
     return "\n".join(parts)
 
 
