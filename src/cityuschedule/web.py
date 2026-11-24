@@ -587,6 +587,8 @@ def _aims_offering_form(
 def _check_aims_offering(
     fields: dict[str, str],
     upload: bytes | None,
+    *,
+    bundles_out: list[dict] | None = None,
 ) -> str:
     from .aims_fit import (
         DAY_NAMES,
@@ -677,6 +679,24 @@ def _check_aims_offering(
         }
 
         for number, bundle in enumerate(fitting, start=1):
+            if bundles_out is not None:
+                bundles_out.append({
+                    "course_code": table.course_code,
+                    "sections": [
+                        {
+                            "section": sessions_by_section[name].section,
+                            "crn": sessions_by_section[name].crn,
+                            "day": sessions_by_section[name].day or "",
+                            "start_time": (
+                                sessions_by_section[name].start_time or ""
+                            ),
+                            "end_time": (
+                                sessions_by_section[name].end_time or ""
+                            ),
+                        }
+                        for name in bundle
+                    ],
+                })
             lines.append(
                 f"{number}. {table.course_code} {'+'.join(bundle)}"
             )
@@ -1336,21 +1356,137 @@ class CityUScheduleWebHandler(BaseHTTPRequestHandler):
             elif action == "aims-offering":
                 course_code = fields.get("course_code", "")
                 offering_text = fields.get("offering_text", "")
+                bundles = []
 
-                result = _check_aims_offering(fields, upload)
+                result = _check_aims_offering(
+                    fields,
+                    upload,
+                    bundles_out=bundles,
+                )
+
+                body = _aims_offering_form(
+                    course_code,
+                    offering_text,
+                )
+                body += (
+                    "<h2>Course offering results</h2>"
+                    f"<pre>{html.escape(result)}</pre>"
+                )
+
+                if bundles:
+                    token = secrets.token_urlsafe(24)
+
+                    with self.server.plan_results_lock:
+                        cache = self.server.course_bundle_results
+                        cache[token] = bundles
+
+                        while len(cache) > 64:
+                            del cache[next(iter(cache))]
+
+                    choices = []
+
+                    for number, bundle in enumerate(bundles, start=1):
+                        sections = "+".join(
+                            section["section"]
+                            for section in bundle["sections"]
+                        )
+                        label = (
+                            f'{bundle["course_code"]} {sections}'
+                        )
+
+                        choices.append(
+                            '<label><input type="checkbox" '
+                            f'name="bundle_{number}" value="1" '
+                            'style="width:auto"> '
+                            f"{html.escape(label)}</label>"
+                        )
+
+                    body += (
+                        '<form method="post" action="/aims-offering">'
+                        '<input type="hidden" name="action" '
+                        'value="save-course-bundles">'
+                        '<input type="hidden" name="bundle_token" '
+                        f'value="{html.escape(token)}">'
+                        "<h2>Save course bundles</h2>"
+                        + "\n".join(choices)
+                        + '<button type="submit">'
+                        "Save selected bundles</button></form>"
+                    )
+
+                self._send(_page("AIMS offering results", body))
+            elif action == "save-course-bundles":
+                from .cli import (
+                    _load_saved_course_bundles,
+                    _save_saved_course_bundles,
+                    _saved_course_bundle_signature,
+                )
+
+                token = fields.get("bundle_token", "")
+
+                with self.server.plan_results_lock:
+                    bundles = (
+                        self.server.course_bundle_results.get(token)
+                    )
+
+                    if bundles is None:
+                        raise ValueError(
+                            "These bundle results have expired. "
+                            "Check the offering again."
+                        )
+
+                    selected = [
+                        bundle
+                        for number, bundle in enumerate(
+                            bundles,
+                            start=1,
+                        )
+                        if fields.get(f"bundle_{number}") == "1"
+                    ]
+
+                    if not selected:
+                        raise ValueError(
+                            "Select at least one bundle to save."
+                        )
+
+                    saved = _load_saved_course_bundles()
+                    signatures = {
+                        _saved_course_bundle_signature(bundle)
+                        for bundle in saved
+                    }
+
+                    added = 0
+                    duplicates = 0
+
+                    for bundle in selected:
+                        signature = (
+                            _saved_course_bundle_signature(bundle)
+                        )
+
+                        if signature in signatures:
+                            duplicates += 1
+                            continue
+
+                        signatures.add(signature)
+                        saved.append(bundle)
+                        added += 1
+
+                    if added:
+                        _save_saved_course_bundles(saved)
+
+                message = (
+                    f"Saved {added} course bundle(s). "
+                    f"Skipped {duplicates} duplicate(s)."
+                )
 
                 body = (
-                    _aims_offering_form(
-                        course_code,
-                        offering_text,
-                    )
-                    + "\n<h2>Course offering results</h2>"
-                    + f"\n<pre>{html.escape(result)}</pre>"
+                    f'<p class="notice">{html.escape(message)}</p>'
+                    '<p><a href="/saved-course-bundles">'
+                    "View saved course bundles</a></p>"
+                    '<p><a href="/aims-offering">'
+                    "Check another offering</a></p>"
                 )
 
-                self._send(
-                    _page("AIMS course offering results", body)
-                )
+                self._send(_page("Course bundles saved", body))
             elif action == "save-plans":
                 result, already_saved = _save_selected_plans(
                     fields,
@@ -1449,8 +1585,12 @@ class CityUScheduleWebHandler(BaseHTTPRequestHandler):
 
 
 def create_web_server(host: str = "127.0.0.1", port: int = 8000):
-    return CityUScheduleHTTPServer((host, port), CityUScheduleWebHandler)
-
+    server = CityUScheduleHTTPServer(
+        (host, port),
+        CityUScheduleWebHandler,
+    )
+    server.course_bundle_results = {}
+    return server
 
 def run_web_server(
     host: str = "127.0.0.1",
