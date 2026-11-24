@@ -777,20 +777,53 @@ def _generate(
         )
     fit_lines = report.fit_summary()
     if fit_lines:
-        pieces.append("Timeslots that fit your timetable:\n" + "\n".join(fit_lines))
+        pieces.append(
+            "Timeslots that fit your timetable:\n"
+            + "\n".join(fit_lines)
+        )
+
+    rejection_lines = report.rejection_summary()
+    if rejection_lines:
+        pieces.append(
+            "Options rejected "
+            "(these describe rejected alternatives, "
+            "not necessarily every plan):\n"
+            + "\n".join(
+                line for _, line in rejection_lines
+            )
+        )
+
     token = None
     plans_html = ""
+
     if not report.plans:
-        pieces.append("No course plans matched the selected options.")
+        pieces.append(
+            "No course plans matched the selected options.\n"
+            + report.explain_no_plans()
+        )
     else:
-        pieces.append(f"Found {len(report.plans)} course plan(s):")
+        pieces.append(
+            f"Found {len(report.plans)} course plan(s) "
+            f"(checked {report.explored} combinations):"
+        )
+
         plans_html = _format_plans_html(report.plans)
+
+        saved_plan_data = [
+            plan.to_dict()
+            for plan in report.plans
+        ]
+
         token = secrets.token_urlsafe(24)
+
         with plan_cache_lock:
-            plan_cache[token] = [plan.to_dict() for plan in report.plans]
+            plan_cache[token] = saved_plan_data
+
             while len(plan_cache) > 64:
                 del plan_cache[next(iter(plan_cache))]
+
     pieces.append(PLANNING_ONLY_NOTICE)
+
     return "\n\n".join(pieces), token, plans_html
 
 
@@ -838,14 +871,34 @@ def _format_plans_html(plans) -> str:
     return "\n".join(rendered)
 
 
-def _result_html(result: str) -> str:
+def _result_html(result: str, added_codes=()) -> str:
     parts = []
     lines = []
     for line in result.splitlines():
         if line.startswith("No course plans matched"):
             if lines:
                 text = "\n".join(lines)
-                parts.append(f"<pre>{html.escape(text)}</pre>")
+                parts.append(
+                    "<pre>"
+                    + "\n".join(
+                        (
+                            '<span class="added-course">'
+                            + html.escape(line)
+                            + "</span>"
+                        )
+                        if any(
+                            re.search(
+                                rf"(?<![A-Z0-9]){re.escape(code)}(?![A-Z0-9])",
+                                line,
+                                re.IGNORECASE,
+                            )
+                            for code in added_codes
+                        )
+                        else html.escape(line)
+                        for line in text.splitlines()
+                    )
+                    + "</pre>"
+                )
                 lines = []
             parts.append(
                 '<div class="error" role="alert">'
@@ -856,7 +909,27 @@ def _result_html(result: str) -> str:
             lines.append(line)
     if lines:
         text = "\n".join(lines)
-        parts.append(f"<pre>{html.escape(text)}</pre>")
+                parts.append(
+                    "<pre>"
+                    + "\n".join(
+                        (
+                            '<span class="added-course">'
+                            + html.escape(line)
+                            + "</span>"
+                        )
+                        if any(
+                            re.search(
+                                rf"(?<![A-Z0-9]){re.escape(code)}(?![A-Z0-9])",
+                                line,
+                                re.IGNORECASE,
+                            )
+                            for code in added_codes
+                        )
+                        else html.escape(line)
+                        for line in text.splitlines()
+                    )
+                    + "</pre>"
+                )
     return "\n".join(parts)
 
 
@@ -1289,7 +1362,14 @@ class CityUScheduleWebHandler(BaseHTTPRequestHandler):
                     self.server.plan_results,
                     self.server.plan_results_lock,
                 )
-                body = _form() + _result_html(result)
+                body = _form() + _result_html(
+                    result,
+                    re.findall(
+                        r"^\s*([A-Z]{2,4}\d{4}[A-Z]?)\s+has\s+",
+                        result,
+                        re.MULTILINE | re.IGNORECASE,
+                    ),
+                )
                 body += plans_html
                 if token:
                     body += _save_plan_form(
