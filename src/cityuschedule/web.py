@@ -423,7 +423,7 @@ def _format_saved_plan_html(plan: dict, number: int) -> str:
             for code, course_color in colors.items():
                 pattern = (
                     rf"(?<![A-Z0-9]){re.escape(code)}"
-                    rf"(?![A-Z0-9])"
+                    rf"\s+\S+(?![A-Z0-9])"
                 )
 
                 summary = re.sub(
@@ -441,7 +441,6 @@ def _format_saved_plan_html(plan: dict, number: int) -> str:
                 html.escape(prefix) + summary
             )
             continue
-
         session = re.match(
             r"^\s+\d{2}:\d{2}-\d{2}:\d{2}\s+"
             r"([A-Z]{2,4}\s?\d{4}[A-Z]?)\s+(\S+)",
