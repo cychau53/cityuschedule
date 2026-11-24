@@ -734,16 +734,28 @@ def _generate(
         found = {course.code.upper() for course in courses}
         missing = sorted(keep - found)
 
+    from .cli import _aims_html_path
+
     fixed_sessions = []
+
     if upload:
-        with tempfile.NamedTemporaryFile(suffix=".html", delete=False) as temporary:
+        with tempfile.NamedTemporaryFile(
+            suffix=".html",
+            delete=False,
+        ) as temporary:
             temporary.write(upload)
             temporary_path = temporary.name
+
         try:
             fixed_sessions = load_aims_html(temporary_path)
         finally:
             Path(temporary_path).unlink(missing_ok=True)
+    else:
+        aims_path = _aims_html_path()
 
+        if aims_path and Path(aims_path).is_file():
+            fixed_sessions = load_aims_html(str(aims_path))
+            
     from .cli import _load_basic_settings
 
     basic_settings = _load_basic_settings()
