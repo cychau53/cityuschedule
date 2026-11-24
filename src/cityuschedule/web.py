@@ -29,42 +29,6 @@ from .plan_generator import (
 from .timetable import format_timetable
 
 
-COURSE_COLOR_CLASSES = [
-    "course-color-1",
-    "course-color-2",
-    "course-color-3",
-    "course-color-4",
-    "course-color-5",
-    "course-color-6",
-    "course-color-7",
-    "course-color-8",
-]
-
-
-def colorize_course_codes_in_html(text: str) -> str:
-    import re
-
-    def replace_course_code(match: re.Match[str]) -> str:
-        course_code = match.group(0)
-        course_class = course_color_class(course_code)
-        escaped_code = html.escape(course_code)
-        return (
-            f'<span class="{course_class}">'
-            f"{escaped_code}</span>"
-        )
-
-    return re.sub(
-        r"\b[A-Z]{2,4}\d{4}[A-Z]?\b",
-        replace_course_code,
-        html.escape(text),
-    )
-
-def course_color_class(course_code: str) -> str:
-    normalized = course_code.strip().upper()
-    index = sum(ord(character) for character in normalized) % len(
-        COURSE_COLOR_CLASSES
-    )
-    return COURSE_COLOR_CLASSES[index]
 
 
 def _term_label(term: str) -> str | None:
@@ -87,14 +51,6 @@ def _page(title: str, body: str) -> bytes:
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{html.escape(title)}</title>
   <style>
-    .course-color-1 {{ color: #008000; }}
-    .course-color-2 {{ color: #00008b; }}
-    .course-color-3 {{ color: #a020f0; }}
-    .course-color-4 {{ color: #b8860b; }}
-    .course-color-5 {{ color: #cc0000; }}
-    .course-color-6 {{ color: #00688b; }}
-    .course-color-7 {{ color: #8b008b; }}
-    .course-color-8 {{ color: #8b4513; }}
     :root {{ color-scheme: light; font-family: system-ui, -apple-system, sans-serif; }}
     body {{ max-width: 980px; margin: 0 auto; padding: 24px; background: #f6f8fb; color: #172033; }}
     h1 {{ margin-top: 0; }}
@@ -355,31 +311,71 @@ def _format_saved_plan_html(plan: dict, number: int) -> str:
     from .cli import (
         _format_saved_plan,
         _saved_plan_added_sections,
+        _saved_plan_course_codes,
     )
 
     added_sections = _saved_plan_added_sections(plan)
-    added_course_codes = {
-        code for code, _ in added_sections
-    }
+    added_course_codes = _saved_plan_course_codes(plan)
+
+    colors = {}
+
+    if len(added_course_codes) == 1:
+        colors[added_course_codes[0].upper()] = "#008000"
+    elif len(added_course_codes) > 1:
+        for index, code in enumerate(added_course_codes):
+            hue = 0.5 + 0.13 * index / (
+                len(added_course_codes) - 1
+            )
+            rgb = colorsys.hsv_to_rgb(hue, 0.88, 0.95)
+            colors[code.upper()] = "rgb(" + ", ".join(
+                str(round(channel * 255))
+                for channel in rgb
+            ) + ")"
 
     rendered_lines = []
     in_web_add_drop = False
     web_course_code = None
 
-    for line in _format_saved_plan(plan, number).splitlines():
+    for line in _format_saved_plan(
+        plan,
+        number,
+    ).splitlines():
+        course_color = None
+
+        for code, color in colors.items():
+            pattern = (
+                rf"(?<![A-Z0-9]){re.escape(code)}"
+                rf"(?![A-Z0-9])"
+            )
+
+            if re.search(
+                pattern,
+                line,
+                re.IGNORECASE,
+            ):
+                course_color = color
+                break
+
         escaped_line = html.escape(line)
-        colored_line = colorize_course_codes_in_html(escaped_line)
+
+        if course_color:
+            escaped_line = (
+                '<span style="color: '
+                f"{course_color}"
+                f'">{escaped_line}</span>'
+            )
 
         if line == f"Plan {number}":
             rendered_lines.append(
-                f'<span class="plan-heading">{colored_line}</span>'
+                f'<span class="plan-heading">'
+                f"{escaped_line}</span>"
             )
             continue
 
         if line == "Web Add/Drop:":
             in_web_add_drop = True
             web_course_code = None
-            rendered_lines.append(colored_line)
+            rendered_lines.append(escaped_line)
             continue
 
         if line == "Other registration steps:":
@@ -393,8 +389,8 @@ def _format_saved_plan_html(plan: dict, number: int) -> str:
             )
 
             if web_course:
-                web_course_code = web_course.group(1).replace(
-                    " ", ""
+                web_course_code = (
+                    web_course.group(1).replace(" ", "")
                 )
 
             is_registration_action = re.match(
@@ -409,7 +405,7 @@ def _format_saved_plan_html(plan: dict, number: int) -> str:
             ):
                 rendered_lines.append(
                     '<span class="added-course">'
-                    f"{colored_line}</span>"
+                    f"{escaped_line}</span>"
                 )
                 continue
 
@@ -439,10 +435,10 @@ def _format_saved_plan_html(plan: dict, number: int) -> str:
         ) in added_sections:
             rendered_lines.append(
                 '<span class="added-course">'
-                f"{colored_line}</span>"
+                f"{escaped_line}</span>"
             )
         else:
-            rendered_lines.append(colored_line)
+            rendered_lines.append(escaped_line)
 
     return (
         '<pre class="course-plan">'
