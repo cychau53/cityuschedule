@@ -733,7 +733,8 @@ def _generate(
         courses = [course for course in courses if course.code.upper() in keep]
         found = {course.code.upper() for course in courses}
         missing = sorted(keep - found)
-    from .cli import _aims_path_config_file
+        
+    from .cli import _load_saved_aims_path
 
     fixed_sessions = []
 
@@ -750,24 +751,10 @@ def _generate(
         finally:
             Path(temporary_path).unlink(missing_ok=True)
     else:
-        config_file = _aims_path_config_file()
+        saved_aims_path = _load_saved_aims_path()
 
-        if config_file.is_file():
-            saved_aims_path = config_file.read_text(
-                encoding="utf-8"
-            ).strip()
-
-            aims_path = Path(saved_aims_path) if saved_aims_path else None
-
-            if aims_path and not aims_path.is_absolute():
-                project_root = Path(__file__).resolve().parents[2]
-                project_path = project_root / aims_path
-
-                if project_path.is_file():
-                    aims_path = project_path
-
-            if aims_path and aims_path.is_file():
-                fixed_sessions = load_aims_html(str(aims_path))
+        if saved_aims_path and Path(saved_aims_path).is_file():
+            fixed_sessions = load_aims_html(saved_aims_path)
 
     from .cli import _load_basic_settings
 
@@ -789,21 +776,7 @@ def _generate(
         lunch_window=basic_settings.lunch_window,
     )
 
-    config_file = _aims_path_config_file()
-    saved_aims_path = (
-        config_file.read_text(encoding="utf-8").strip()
-        if config_file.is_file()
-        else ""
-    )
 
-    print("AIMS config file:", config_file)
-    print("AIMS config exists:", config_file.is_file())
-    print("Saved AIMS path:", saved_aims_path)
-    print(
-        "Saved AIMS file exists:",
-        bool(saved_aims_path) and Path(saved_aims_path).is_file(),
-    )
-    print("Loaded fixed sessions:", len(fixed_sessions))
     report = generate_course_plans(
         courses,
         options,
