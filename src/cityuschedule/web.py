@@ -15,7 +15,10 @@ from urllib.parse import parse_qs, urlparse
 
 from .aims import load_aims_html
 from .conflicts import find_conflicts
-from .course_catalog import load_ge_section_catalog
+from .course_catalog import (
+    load_credit_catalogs,
+    load_ge_section_catalog,
+)
 from .ge_courses import load_ge_courses, search_ge_courses
 from .plan_generator import (
     PLANNING_ONLY_NOTICE,
@@ -776,11 +779,11 @@ def _generate(
         lunch_window=basic_settings.lunch_window,
     )
 
-
     report = generate_course_plans(
         courses,
         options,
         fixed_sessions=fixed_sessions,
+        credit_courses=load_credit_catalogs(),
     )
 
     pieces = []
