@@ -594,6 +594,7 @@ def test_saved_bundles_page_lists_saved_plans_and_course_bundles(
             }
         ],
     )
+
     monkeypatch.setattr(
         cli,
         "_load_saved_course_bundles",
@@ -612,21 +613,45 @@ def test_saved_bundles_page_lists_saved_plans_and_course_bundles(
             }
         ],
     )
+
+    base_url = web_url.rstrip("/")
+
+    # Timetable plans are displayed on their own page.
     with urllib.request.urlopen(
-        f"{web_url.rstrip('/')}/saved-plans",
+        f"{base_url}/saved-plans",
         timeout=5,
     ) as response:
-        body = response.read().decode("utf-8")
-    assert response.status == 200
-    assert "Saved timetable plans" in body
-    assert "Plan 1" in body
-    assert 'action="/delete-plan"' in body
-    assert 'name="plan_number" value="1"' in body
-    assert "Delete Plan 1?" in body
-    assert "Saved course bundles" in body
-    assert "GE1202" in body
-    assert "C01" in body
-    assert "CRN 13397" in body
+        assert response.status == 200
+        plans_body = response.read().decode("utf-8")
+
+    assert "<h2>Saved timetable plans</h2>" in plans_body
+    assert "Plan 1" in plans_body
+    assert "GE1102 C01" in plans_body
+    assert 'action="/delete-plan"' in plans_body
+    assert 'name="plan_number" value="1"' in plans_body
+    assert "Delete Plan 1?" in plans_body
+
+    assert "<h2>Saved course bundles</h2>" not in plans_body
+    assert "GE1202" not in plans_body
+
+    # Course bundles are displayed on a separate page.
+    with urllib.request.urlopen(
+        f"{base_url}/saved-course-bundles",
+        timeout=5,
+    ) as response:
+        assert response.status == 200
+        bundles_body = response.read().decode("utf-8")
+
+    assert "<h2>Saved course bundles</h2>" in bundles_body
+    assert "GE1202" in bundles_body
+    assert "C01" in bundles_body
+    assert "13397" in bundles_body
+    assert "Wed" in bundles_body
+    assert "12:00-14:50" in bundles_body
+
+    assert "<h2>Saved timetable plans</h2>" not in bundles_body
+    assert "GE1102 C01" not in bundles_body
+    assert 'action="/delete-plan"' not in bundles_body
 
 
 def test_saved_plan_can_be_deleted_from_webpage(web_url, monkeypatch):
