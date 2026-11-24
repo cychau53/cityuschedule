@@ -49,9 +49,9 @@ def _page(title: str, body: str) -> bytes:
     :root {{ color-scheme: light; font-family: system-ui, -apple-system, sans-serif; }}
     body {{ max-width: 980px; margin: 0 auto; padding: 24px; background: #f6f8fb; color: #172033; }}
     h1 {{ margin-top: 0; }}
-    nav {{ display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }}
-    nav a {{ padding: 9px 12px; background: #e8eefb; border-radius: 7px; color: #172033; text-decoration: none; font-weight: 700; }}
-    nav a:hover {{ background: #d8e4ff; }}
+    nav {{display: grid;grid-template-columns: repeat(2, minmax(0, 1fr));gap: 10px;margin-bottom: 18px;}}
+    nav a {{display: block;padding: 12px;background: #e8eefb;border-radius: 7px;color: #172033;text-decoration: none;font-weight: 700;}}nav a:hover {{background: #d8e4ff;}}
+    @media (max-width: 700px) {{nav {{grid-template-columns: 1fr;}}}}
     form {{ display: grid; gap: 12px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 12px #0001; }}
     label {{ font-weight: 650; }}
     input, select, textarea {{ width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #bbc3d1; border-radius: 7px; }}
@@ -69,13 +69,14 @@ def _page(title: str, body: str) -> bytes:
 <body>
   <h1>CityUSchedule</h1>
   <nav>
-    <a href="/settings">Basic settings</a>
-    <a href="/planner">Plan timetable</a>
+    <a href="/settings">1. Basic settings</a>
+    <a href="/aims">2. Check or change saved AIMS timetable</a>
     <a href="/aims-offering">3. Paste and check an AIMS course offering</a>
-    <a href="/ge-search">Search GE courses</a>
-    <a href="/ge-info">GE course information</a>
-    <a href="/aims">Check AIMS timetable</a>
-    <a href="/saved-bundles">Saved plans &amp; bundles</a>
+    <a href="/saved-bundles#course-bundles">4. Saved course bundles</a>
+    <a href="/ge-search">5. Search GE courses</a>
+    <a href="/ge-info">6. Show GE course details</a>
+    <a href="/planner">7. Generate timetable plans</a>
+    <a href="/saved-bundles#timetable-plans">8. Saved timetable plan</a>
   </nav>
   {body}
 </body>
@@ -387,7 +388,9 @@ def _saved_bundles_page(notice: str | None = None) -> str:
     sections = []
     if notice:
         sections.append(f'<p class="notice">{html.escape(notice)}</p>')
-    sections.append("<h2>Saved timetable plans</h2>")
+    sections.append(
+        '<h2 id="timetable-plans">Saved timetable plans</h2>'
+    )
     if saved_plans:
         sections.append(f"<p>Found {len(saved_plans)} saved plan(s).</p>")
         for index, entry in enumerate(saved_plans, start=1):
@@ -406,7 +409,9 @@ def _saved_bundles_page(notice: str | None = None) -> str:
     else:
         sections.append("<p>No saved timetable plans.</p>")
 
-    sections.append("<h2>Saved course bundles</h2>")
+    sections.append(
+        '<h2 id="course-bundles">Saved course bundles</h2>'
+    )
     if saved_course_bundles:
         sections.append(f"<p>Found {len(saved_course_bundles)} saved course bundle(s).</p>")
         for bundle in saved_course_bundles:
