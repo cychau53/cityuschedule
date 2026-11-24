@@ -1784,7 +1784,7 @@ class CityUScheduleWebHandler(BaseHTTPRequestHandler):
                 status=500,
             )
 
-    def _send(self, body: bytes, status: int = 200):
+    def _send(
         self,
         body: bytes,
         status: int = 200,
