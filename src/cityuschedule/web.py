@@ -98,9 +98,7 @@ def _form() -> str:
   <input id="courses" name="courses" placeholder="GE1102 GE1401">
 
   <label for="aims">Replacement AIMS timetable HTML (optional)</label>
-  <input id="aims" name="aims" type="file"
-         accept=".html,.htm,text/html"
-         aria-describedby="aims-help">
+  <input id="aims" name="aims" type="file" accept=".html,.htm,text/html" aria-describedby="aims-help">
   <p id="aims-help" class="notice">
     Leave this blank to reuse the timetable saved under
     <a href="/aims">Check or change saved AIMS timetable</a>.
@@ -109,12 +107,10 @@ def _form() -> str:
   </p>
 
   <label for="add_ge">Number of GE courses to add</label>
-  <input id="add_ge" name="add_ge" type="number"
-         min="1" value="1" required>
+  <input id="add_ge" name="add_ge" type="number" min="1" value="1" required>
 
   <label for="max_results">Maximum plans</label>
-  <input id="max_results" name="max_results" type="number"
-         min="1" value="5">
+  <input id="max_results" name="max_results" type="number" min="1" value="5">
 
   <label for="seats">Seat policy</label>
   <select id="seats" name="seats">
