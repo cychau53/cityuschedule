@@ -418,11 +418,27 @@ def _format_saved_plan_html(plan: dict, number: int) -> str:
             line.startswith(prefix)
             and line[len(prefix):] != "None"
         ):
+            summary = html.escape(line[len(prefix):])
+
+            for code, course_color in colors.items():
+                pattern = (
+                    rf"(?<![A-Z0-9]){re.escape(code)}"
+                    rf"(?![A-Z0-9])"
+                )
+
+                summary = re.sub(
+                    pattern,
+                    lambda match, color=course_color: (
+                        '<span style="color: '
+                        f"{color}"
+                        f'">{match.group(0)}</span>'
+                    ),
+                    summary,
+                    flags=re.IGNORECASE,
+                )
+
             rendered_lines.append(
-                html.escape(prefix)
-                + '<span class="added-course">'
-                + html.escape(line[len(prefix):])
-                + "</span>"
+                html.escape(prefix) + summary
             )
             continue
 
