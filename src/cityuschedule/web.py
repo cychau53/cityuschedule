@@ -87,14 +87,14 @@ def _page(title: str, body: str) -> bytes:
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{html.escape(title)}</title>
   <style>
-    .course-color-1 { color: #008000; }
-    .course-color-2 { color: #00008b; }
-    .course-color-3 { color: #a020f0; }
-    .course-color-4 { color: #b8860b; }
-    .course-color-5 { color: #cc0000; }
-    .course-color-6 { color: #00688b; }
-    .course-color-7 { color: #8b008b; }
-    .course-color-8 { color: #8b4513; }
+    .course-color-1 {{ color: #008000; }}
+    .course-color-2 {{ color: #00008b; }}
+    .course-color-3 {{ color: #a020f0; }}
+    .course-color-4 {{ color: #b8860b; }}
+    .course-color-5 {{ color: #cc0000; }}
+    .course-color-6 {{ color: #00688b; }}
+    .course-color-7 {{ color: #8b008b; }}
+    .course-color-8 {{ color: #8b4513; }}
     :root {{ color-scheme: light; font-family: system-ui, -apple-system, sans-serif; }}
     body {{ max-width: 980px; margin: 0 auto; padding: 24px; background: #f6f8fb; color: #172033; }}
     h1 {{ margin-top: 0; }}
