@@ -782,31 +782,52 @@ def _generate(
             + "\n".join(fit_lines)
         )
 
-    rejection_lines = report.rejection_summary()
-    if rejection_lines:
-        pieces.append(
-            "Options rejected "
-            "(these describe rejected alternatives, "
-            "not necessarily every plan):\n"
-            + "\n".join(
-                line for _, line in rejection_lines
-            )
-        )
+    rejection_summary = getattr(
+        report,
+        "rejection_summary",
+        None,
+    )
 
+    if callable(rejection_summary):
+        rejection_lines = rejection_summary()
+
+        if rejection_lines:
+            pieces.append(
+                "Options rejected "
+                "(these describe rejected alternatives, "
+                "not necessarily every plan):\n"
+                + "\n".join(
+                    line for _, line in rejection_lines
+                )
+            )
+        
     token = None
     plans_html = ""
 
     if not report.plans:
+        explanation = getattr(
+            report,
+            "explain_no_plans",
+            None,
+        )
+
+        no_plan_message = (
+            explanation()
+            if callable(explanation)
+            else ""
+        )
+
         pieces.append(
-            "No course plans matched the selected options.\n"
-            + report.explain_no_plans()
+            "No course plans matched the selected options."
+            + (f"\n{no_plan_message}" if no_plan_message else "")
         )
     else:
         pieces.append(
             f"Found {len(report.plans)} course plan(s) "
-            f"(checked {report.explored} combinations):"
+            f"(checked "
+            f"{getattr(report, 'explored', len(report.plans))} "
+            f"combinations):"
         )
-
         plans_html = _format_plans_html(report.plans)
 
         saved_plan_data = [
