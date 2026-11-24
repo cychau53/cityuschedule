@@ -76,7 +76,7 @@ def _page(title: str, body: str) -> bytes:
     <a href="/ge-search">Search GE courses</a>
     <a href="/ge-info">Show GE course details</a>
     <a href="/planner">Generate timetable plans</a>
-    <a href="/saved-plans">8. Saved timetable plan</a>
+    <a href="/saved-plans">Saved timetable plan</a>
   </nav>
   {body}
 </body>
