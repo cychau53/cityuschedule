@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cityuschedule"
-version = "0.3.0"
+version = "0.3.1"
 description = "Check CityU course timetables for clashes and generate course plans."
 readme = "README.md"
 requires-python = ">=3.10"
