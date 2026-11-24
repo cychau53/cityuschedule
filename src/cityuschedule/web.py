@@ -1751,7 +1751,7 @@ class CityUScheduleWebHandler(BaseHTTPRequestHandler):
             )
             body = f'<div class="error">{html.escape(str(error))}</div>\n{form}'
             self._send(_page("CityUSchedule", body), status=400)
-            except Exception as error:
+        except Exception as error:
             path = urlparse(self.path).path
 
             form = (
