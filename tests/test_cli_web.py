@@ -85,18 +85,29 @@ def _aims_html():
 def test_web_page_is_served_with_navigation(web_url):
     with urllib.request.urlopen(web_url, timeout=5) as response:
         body = response.read().decode("utf-8")
+
     assert response.status == 200
     assert "CityUSchedule" in body
-    assert body.index('href="/settings"') < body.index('href="/planner"')
-    for path in (
-        "/planner",
+
+    navigation_paths = (
         "/settings",
+        "/aims",
+        "/aims-offering",
+        "/saved-bundles#course-bundles",
         "/ge-search",
         "/ge-info",
-        "/aims",
-        "/saved-bundles",
-    ):
-        assert f'href="{path}"' in body
+        "/planner",
+        "/saved-bundles#timetable-plans",
+    )
+
+    positions = []
+
+    for path in navigation_paths:
+        link = f'href="{path}"'
+        assert link in body
+        positions.append(body.index(link))
+
+    assert positions == sorted(positions)
 
 
 def test_web_form_rejects_invalid_term(web_url):
