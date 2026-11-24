@@ -93,11 +93,11 @@ def test_web_page_is_served_with_navigation(web_url):
         "/settings",
         "/aims",
         "/aims-offering",
-        "/saved-bundles#course-bundles",
+        "/saved-course-bundles",
         "/ge-search",
         "/ge-info",
         "/planner",
-        "/saved-bundles#timetable-plans",
+        "/saved-plans",
     )
 
     positions = []
@@ -678,3 +678,22 @@ def test_delete_saved_plan_rejects_out_of_range_number(web_url, monkeypatch):
     assert error.value.code == 400
     body = error.value.read()
     assert b"Plan number must be from 1 to 1" in body
+
+def test_saved_data_pages_are_separate(web_url):
+    with urllib.request.urlopen(
+        f"{web_url.rstrip('/')}/saved-course-bundles",
+        timeout=5,
+    ) as response:
+        bundles_body = response.read().decode("utf-8")
+
+    with urllib.request.urlopen(
+        f"{web_url.rstrip('/')}/saved-plans",
+        timeout=5,
+    ) as response:
+        plans_body = response.read().decode("utf-8")
+
+    assert "<h2>Saved course bundles</h2>" in bundles_body
+    assert "<h2>Saved timetable plans</h2>" not in bundles_body
+
+    assert "<h2>Saved timetable plans</h2>" in plans_body
+    assert "<h2>Saved course bundles</h2>" not in plans_body
