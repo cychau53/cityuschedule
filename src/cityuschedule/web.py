@@ -733,8 +733,6 @@ def _generate(
         courses = [course for course in courses if course.code.upper() in keep]
         found = {course.code.upper() for course in courses}
         missing = sorted(keep - found)
-
-
     from .cli import _aims_path_config_file
 
     fixed_sessions = []
@@ -770,7 +768,7 @@ def _generate(
 
             if aims_path and aims_path.is_file():
                 fixed_sessions = load_aims_html(str(aims_path))
-            
+
     from .cli import _load_basic_settings
 
     basic_settings = _load_basic_settings()
@@ -791,6 +789,7 @@ def _generate(
         lunch_window=basic_settings.lunch_window,
     )
 
+    config_file = _aims_path_config_file()
     saved_aims_path = (
         config_file.read_text(encoding="utf-8").strip()
         if config_file.is_file()
