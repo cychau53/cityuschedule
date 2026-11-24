@@ -952,6 +952,19 @@ def _generate(
 
     return "\n\n".join(pieces), token, plans_html
 
+def _course_color_for_line(
+    line: str,
+    colors: dict[str, str],
+) -> str | None:
+    for code, course_color in colors.items():
+        pattern = (
+            rf"(?<![A-Z0-9]){re.escape(code)}(?![A-Z0-9])"
+        )
+
+        if re.search(pattern, line, re.IGNORECASE):
+            return course_color
+
+    return None
 
 def _format_plans_html(plans) -> str:
     rendered = []
@@ -1280,119 +1293,170 @@ class CityUScheduleWebHandler(BaseHTTPRequestHandler):
     server_version = "CityUSchedule/0.3"
     server: CityUScheduleHTTPServer
 
+    def _handle_request_error(
+        self,
+        error: Exception,
+    ) -> None:
+        if isinstance(error, ValueError):
+            status = 400
+            title = "Invalid request"
+        else:
+            status = 500
+            title = "Server error"
+
+        message = str(error) or title
+
+        body = (
+            f'<h2>{html.escape(title)}</h2>'
+            f'<p class="error">{html.escape(message)}</p>'
+            '<p><a href="/">Return to home</a></p>'
+        )
+
+        self._send(
+            _page(title, body),
+            status=status,
+        )
+    
     def do_GET(self):
-        path = urlparse(self.path).path
-
-        if path == "/saved-course-bundles":
-            try:
-                body = _saved_course_bundles_page()
-                status = 200
-            except (ValueError, OSError) as error:
-                body = (
-                    "<h2>Saved course bundles</h2>"
-                    '<div class="error">'
-                    + html.escape(str(error))
-                    + "</div>"
-                )
-                status = 400
-
-            self._send(
-                _page("Saved course bundles", body),
-                status=status,
-            )
-            return
-
-        if path == "/saved-plans":
-            try:
-                body = _saved_timetable_plans_page()
-                status = 200
-            except (ValueError, OSError) as error:
-                body = (
-                    "<h2>Saved timetable plans</h2>"
-                    '<div class="error">'
-                    + html.escape(str(error))
-                    + "</div>"
-                )
-                status = 400
-
-            self._send(
-                _page("Saved timetable plans", body),
-                status=status,
-            )
-            return
-
-        if path == "/aims-offering":
-            self._send(
-                _page(
-                    "Check AIMS course offering",
-                    _aims_offering_form(),
-                )
-            )
-            return
-
-        if path in {"", "/", "/planner"}:
-            self._send(
-                _page("CityUSchedule", _form())
-            )
-            return
-
-        if path == "/settings":
-            self._send(
-                _page(
-                    "Basic settings",
-                    _basic_settings_form(),
-                )
-            )
-            return
-
-        if path == "/ge-search":
-            self._send(
-                _page(
-                    "Search GE courses",
-                    _ge_search_form(),
-                )
-            )
-            return
-
-        if path == "/ge-info":
-            self._send(
-                _page(
-                    "GE course information",
-                    _ge_info_form(),
-                )
-            )
-            return
-
-        if path == "/aims":
-            self._send(
-                _page(
-                    "Check AIMS timetable",
-                    _aims_form(),
-                )
-            )
-            return
-
-        if path == "/saved-bundles":
-            try:
-                body = _saved_bundles_page()
-            except (OSError, ValueError) as error:
-                self._send(
-                    _page(
-                        "Saved data",
+        try:
+            path = urlparse(self.path).path
+    
+            if path == "/saved-course-bundles":
+                try:
+                    body = _saved_course_bundles_page()
+                    status = 200
+                except (ValueError, OSError) as error:
+                    body = (
+                        "<h2>Saved course bundles</h2>"
                         '<div class="error">'
                         + html.escape(str(error))
-                        + "</div>",
-                    ),
-                    status=500,
+                        + "</div>"
+                    )
+                    status = 400
+    
+                self._send(
+                    _page("Saved course bundles", body),
+                    status=status,
                 )
                 return
-
+    
+            if path == "/saved-plans":
+                try:
+                    body = _saved_timetable_plans_page()
+                    status = 200
+                except (ValueError, OSError) as error:
+                    body = (
+                        "<h2>Saved timetable plans</h2>"
+                        '<div class="error">'
+                        + html.escape(str(error))
+                        + "</div>"
+                    )
+                    status = 400
+    
+                self._send(
+                    _page("Saved timetable plans", body),
+                    status=status,
+                )
+                return
+    
+            if path == "/aims-offering":
+                self._send(
+                    _page(
+                        "Check AIMS course offering",
+                        _aims_offering_form(),
+                    )
+                )
+                return
+    
+            if path in {"", "/", "/planner"}:
+                self._send(
+                    _page("CityUSchedule", _form())
+                )
+                return
+    
+            if path == "/settings":
+                self._send(
+                    _page(
+                        "Basic settings",
+                        _basic_settings_form(),
+                    )
+                )
+                return
+    
+            if path == "/ge-search":
+                self._send(
+                    _page(
+                        "Search GE courses",
+                        _ge_search_form(),
+                    )
+                )
+                return
+    
+            if path == "/ge-info":
+                self._send(
+                    _page(
+                        "GE course information",
+                        _ge_info_form(),
+                    )
+                )
+                return
+    
+            if path == "/aims":
+                self._send(
+                    _page(
+                        "Check AIMS timetable",
+                        _aims_form(),
+                    )
+                )
+                return
+    
+            if path == "/saved-bundles":
+                try:
+                    body = _saved_bundles_page()
+                except (OSError, ValueError) as error:
+                    self._send(
+                        _page(
+                            "Saved data",
+                            '<div class="error">'
+                            + html.escape(str(error))
+                            + "</div>",
+                        ),
+                        status=500,
+                    )
+                    return
+    
+                self._send(
+                    _page("Saved data", body)
+                )
+                return
+    
+            self.send_error(404)
+    
+        except ValueError as error:
             self._send(
-                _page("Saved data", body)
+                _page(
+                    "Invalid request",
+                    "<h2>Invalid request</h2>"
+                    '<div class="error">'
+                    + html.escape(str(error))
+                    + "</div>"
+                    + '<p><a href="/">Return to home</a></p>',
+                ),
+                status=400,
             )
-            return
-
-        self.send_error(404)
+    
+        except Exception as error:
+            self._send(
+                _page(
+                    "Server error",
+                    "<h2>Server error</h2>"
+                    '<div class="error">'
+                    + html.escape(str(error))
+                    + "</div>"
+                    + '<p><a href="/">Return to home</a></p>',
+                ),
+                status=500,
+            )
 
     def do_POST(self):
         if urlparse(self.path).path not in {
@@ -1430,13 +1494,12 @@ class CityUScheduleWebHandler(BaseHTTPRequestHandler):
             elif action == "aims-check":
                 from .cli import _aims_path_config_file
 
-                result = _check_aims(upload)
-
                 if not upload:
                     raise ValueError(
                         "Upload an AIMS weekly timetable HTML file."
                     )
-
+                
+                result = _check_aims(upload)
                 config_file = _aims_path_config_file()
                 config_file.parent.mkdir(
                     parents=True,
@@ -1688,10 +1751,47 @@ class CityUScheduleWebHandler(BaseHTTPRequestHandler):
             )
             body = f'<div class="error">{html.escape(str(error))}</div>\n{form}'
             self._send(_page("CityUSchedule", body), status=400)
+            except Exception as error:
+            path = urlparse(self.path).path
+
+            form = (
+                _ge_search_form()
+                if path == "/ge-search"
+                else _ge_info_form()
+                if path == "/ge-info"
+                else _basic_settings_form()
+                if path == "/settings"
+                else _aims_form()
+                if path == "/aims"
+                else _aims_offering_form(
+                    fields.get("course_code", ""),
+                    fields.get("offering_text", ""),
+                )
+                if path == "/aims-offering"
+                else _form()
+            )
+
+            body = (
+                '<div class="error">'
+                "An unexpected server error occurred: "
+                + html.escape(str(error))
+                + "</div>\n"
+                + form
+            )
+
+            self._send(
+                _page("Server error", body),
+                status=500,
+            )
 
     def _send(self, body: bytes, status: int = 200):
+        self,
+        body: bytes,
+        status: int = 200,
+        content_type: str = "text/html; charset=utf-8",
+    ) -> None:
         self.send_response(status)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
