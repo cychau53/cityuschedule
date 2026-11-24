@@ -781,6 +781,23 @@ def _generate(
         lunch_minutes=basic_settings.lunch_minutes,
         lunch_window=basic_settings.lunch_window,
     )
+    from .cli import _aims_path_config_file
+
+    config_file = _aims_path_config_file()
+    saved_aims_path = (
+        config_file.read_text(encoding="utf-8").strip()
+        if config_file.is_file()
+        else ""
+    )
+
+    print("AIMS config file:", config_file)
+    print("AIMS config exists:", config_file.is_file())
+    print("Saved AIMS path:", saved_aims_path)
+    print(
+        "Saved AIMS file exists:",
+        bool(saved_aims_path) and Path(saved_aims_path).is_file(),
+    )
+    print("Loaded fixed sessions:", len(fixed_sessions))
     report = generate_course_plans(
         courses,
         options,
